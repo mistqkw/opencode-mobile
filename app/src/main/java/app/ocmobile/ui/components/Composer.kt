@@ -269,12 +269,12 @@ private fun AddSheet(
     val agents by Graph.catalog.agents.collectAsState()
     val permLabel = mapOf("ask" to "Ask", "edits" to "Auto-edit", "auto" to "Auto")
 
-    OcSheet(
+    PickerFrame(
         onDismiss = onDismiss,
-        title = when (page) { "perm" -> "Permission"; "agent" -> "Agent"; else -> "Add to session" },
+        title = when (page) { "perm" -> "Permission"; "agent" -> "Agent"; else -> if (Oc.terminal) "Commands" else "Add to session" },
         onBack = if (page != "main") ({ page = "main" }) else null,
     ) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = if (Oc.edition == "claude") 24.dp else 10.dp)) {
             when (page) {
                 "perm" -> {
                     listOf(
@@ -282,7 +282,7 @@ private fun AddSheet(
                         Triple("edits", "Auto-edit", "Edit files freely, ask before commands and web"),
                         Triple("auto", "Auto", "Run everything without asking"),
                     ).forEach { (k, l, d) ->
-                        ChoiceRow(l, prefs.permissionMode == k, {
+                        PickRow(l, {
                             prefs.permissionMode = k
                             if (sessionId != null) scope.launch {
                                 runCatching {
@@ -291,13 +291,13 @@ private fun AddSheet(
                                 }
                             }
                             page = "main"
-                        }, subtitle = d)
+                        }, selected = prefs.permissionMode == k, subtitle = d)
                     }
                 }
                 "agent" -> agents.forEach { a ->
-                    ChoiceRow(a.name.replaceFirstChar { it.uppercase() }, prefs.agent == a.name, { prefs.agent = a.name; page = "main" }, subtitle = a.description)
+                    PickRow(a.name.replaceFirstChar { it.uppercase() }, { prefs.agent = a.name; page = "main" }, selected = prefs.agent == a.name, subtitle = a.description)
                 }
-                else -> {
+                else -> if (Oc.edition == "claude") {
                     Row(Modifier.padding(horizontal = 16.dp).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Tile("Camera", Ic.Camera, Modifier.weight(1f), onCamera)
                         Tile("Photos", Ic.Image, Modifier.weight(1f), onPhotos)
@@ -316,6 +316,19 @@ private fun AddSheet(
                         SettingsRow("Connectors", icon = Ic.Puzzle, chevron = true, onClick = { onDismiss(); nav.push(Route.Connectors) })
                         SettingsRow("Skills", icon = Ic.Scroll, chevron = true, onClick = { onDismiss(); nav.push(Route.Skills) })
                     }
+                } else {
+                    // Terminal — список команд с подсказками справа; Desktop — компактное меню со значками
+                    val t = Oc.terminal
+                    PickRow(if (t) "Attach photo" else "Camera", onCamera, icon = Ic.Camera, trailing = if (t) "camera" else null)
+                    PickRow(if (t) "Attach image" else "Photos", onPhotos, icon = Ic.Image, trailing = if (t) "photos" else null)
+                    PickRow(if (t) "Attach file" else "Files", onFiles, icon = Ic.FileUp, trailing = if (t) "@" else null)
+                    if (!t) Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().height(1.dp).background(c.border))
+                    PickRow(if (t) "Switch permission" else "Permission", { page = "perm" }, icon = Ic.Shield, trailing = permLabel[prefs.permissionMode], chevron = !t)
+                    PickRow(if (t) "Switch agent" else "Agent", { page = "agent" }, icon = Ic.Bot, trailing = if (t) "tab · " + prefs.agent else prefs.agent.replaceFirstChar { it.uppercase() }, chevron = !t)
+                    PickRow(if (t) "Toggle plan mode" else "Plan mode", { prefs.agent = if (prefs.agent == "plan") "build" else "plan" }, icon = Ic.ListCheck, selected = !t && prefs.agent == "plan", trailing = if (t) (if (prefs.agent == "plan") "on" else "off") else null)
+                    if (!t) Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().height(1.dp).background(c.border))
+                    PickRow(if (t) "Connectors (MCP)" else "Connectors", { onDismiss(); nav.push(Route.Connectors) }, icon = Ic.Puzzle, chevron = !t)
+                    PickRow("Skills", { onDismiss(); nav.push(Route.Skills) }, icon = Ic.Scroll, chevron = !t)
                 }
             }
         }
@@ -344,7 +357,7 @@ fun ModelSheet(onDismiss: () -> Unit) {
     var query by remember { mutableStateOf("") }
     val current = Graph.catalog.model(prefs.providerId, prefs.modelId)
 
-    OcSheet(
+    PickerFrame(
         onDismiss = onDismiss,
         title = if (page == "effort") "Effort" else "Select model",
         onBack = if (page == "effort") ({ page = "main" }) else null,
@@ -353,21 +366,25 @@ fun ModelSheet(onDismiss: () -> Unit) {
         if (page == "effort") {
             val names = current?.variantNames.orEmpty()
             Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-                ChoiceRow("Default", prefs.variant.isBlank(), { prefs.variant = ""; page = "main" })
+                PickRow("Default", { prefs.variant = ""; page = "main" }, selected = prefs.variant.isBlank())
                 names.forEach { n ->
-                    ChoiceRow(n.replaceFirstChar { it.uppercase() }, prefs.variant == n, { prefs.variant = n; page = "main" }, badge = if (n == "medium") "Recommended" else null)
+                    PickRow(n.replaceFirstChar { it.uppercase() }, { prefs.variant = n; page = "main" }, selected = prefs.variant == n, badge = if (n == "medium") "Recommended" else null)
                 }
                 Txt("Higher effort means more thorough responses, but takes longer and uses your limits faster.", size = 15.sp, color = c.textDim, modifier = Modifier.padding(24.dp))
             }
-            return@OcSheet
+            return@PickerFrame
         }
-        Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { OcTextField(query, { query = it }, placeholder = "Search models") }
-        LazyColumn(Modifier.heightIn(max = 520.dp).padding(bottom = 24.dp)) {
+        PickSearch(query, { query = it }, "Search models")
+        val claudeEd = Oc.edition == "claude"
+        LazyColumn(Modifier.heightIn(max = 520.dp).padding(bottom = if (claudeEd) 24.dp else 8.dp)) {
+            if (!claudeEd && current != null && current.variantNames.isNotEmpty()) item {
+                PickRow("Effort", { page = "effort" }, trailing = prefs.variant.ifBlank { "Default" }.replaceFirstChar { it.uppercase() }, chevron = true)
+            }
             providers.forEach { p ->
                 val ms = p.models.values.filter { query.isBlank() || it.name.contains(query, true) || it.id.contains(query, true) }
                     .sortedWith(compareByDescending<app.ocmobile.api.ModelInfo> { it.release_date ?: "" }.thenBy { it.name })
                 if (ms.isNotEmpty()) {
-                    item(key = "h-${p.id}") { SectionLabel(p.name.ifBlank { p.id }) }
+                    item(key = "h-${p.id}") { PickHeader(p.name.ifBlank { p.id }) }
                     items(ms, key = { p.id + "/" + it.id }) { m ->
                         val sel = prefs.providerId == p.id && prefs.modelId == m.id
                         val meta = buildList {
@@ -375,16 +392,16 @@ fun ModelSheet(onDismiss: () -> Unit) {
                             if (m.supportsImages) add("images")
                             if (m.reasoning) add("reasoning")
                         }.joinToString(" · ")
-                        ChoiceRow(m.name.ifBlank { m.id }, sel, {
+                        PickRow(m.name.ifBlank { m.id }, {
                             prefs.providerId = p.id; prefs.modelId = m.id
                             if (prefs.variant !in m.variantNames) prefs.variant = ""
                             if (m.variantNames.isEmpty()) onDismiss()
-                        }, subtitle = meta.ifBlank { null })
+                        }, selected = sel, subtitle = meta.ifBlank { null })
                     }
                 }
             }
             if (providers.isEmpty()) item { Txt("No connected providers yet. Connect one in Settings → Providers.", color = c.textDim, modifier = Modifier.padding(24.dp)) }
-            if (current != null && current.variantNames.isNotEmpty()) item {
+            if (claudeEd && current != null && current.variantNames.isNotEmpty()) item {
                 Box(Modifier.padding(16.dp)) {
                     SettingsGroup {
                         SettingsRow("Effort", subtitle = prefs.variant.ifBlank { "Default" }.replaceFirstChar { it.uppercase() }, chevron = true, onClick = { page = "effort" })
