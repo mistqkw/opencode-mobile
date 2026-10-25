@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- В облачную копию идёт только хранилище аккаунта и настройки: вход, память, правила. Среда Ubuntu и чаты — нет. -->
+<full-backup-content>
+    <include domain="file" path="vault" />
+    <include domain="sharedpref" path="oc.xml" />
+</full-backup-content>

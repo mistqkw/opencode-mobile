@@ -55,7 +55,7 @@ fun MessageActionsSheet(
     OcSheet(onDismiss) {
         Column(Modifier.padding(bottom = 20.dp)) {
             if (text.isNotBlank()) {
-                Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(c.surface).padding(16.dp)) {
+                Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(Oc.round(20.dp)).background(c.surface).padding(16.dp)) {
                     Txt(text, size = 15.sp, color = c.textDim, maxLines = 3)
                 }
                 Spacer(Modifier.height(8.dp))

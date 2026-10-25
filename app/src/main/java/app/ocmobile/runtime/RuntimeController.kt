@@ -1,5 +1,6 @@
 package app.ocmobile.runtime
 
+import app.ocmobile.data.Vault
 import android.app.Application
 import android.content.Intent
 import androidx.core.content.ContextCompat
@@ -70,6 +71,7 @@ class RuntimeController(
                 tgz.delete()
             }
 
+            Vault.restore()
             installOpencode(OC_VERSION, OC_URL_OR(OC_VERSION), if (OC_VERSION == "1.19.4") OC_SHA else null)
             smokeTest()
 
@@ -266,6 +268,7 @@ class RuntimeController(
     }
 
     fun resetRuntime() {
+        Vault.save()
         stopServer()
         paths.rootfs.deleteRecursively()
         paths.downloads.deleteRecursively()

@@ -7,6 +7,7 @@ sealed interface Route {
     data class Chat(val id: String) : Route
     data object NewCode : Route
     data object Memory : Route
+    data object Edition : Route
     data object Login : Route
     data class ConsoleLogin(val method: String) : Route
     data class Connect(val providerId: String) : Route

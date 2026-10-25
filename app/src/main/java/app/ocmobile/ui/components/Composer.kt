@@ -124,8 +124,15 @@ fun ComposerHost(
     Column(
         modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
             .animateContentSize()
-            .clip(RoundedCornerShape(30.dp)).background(c.surface)
-            .then(if (dashed) Modifier.dashedBorder(c.textDim, 30.dp) else Modifier.border(1.5.dp, c.border, RoundedCornerShape(30.dp))),
+            .clip(Oc.round(30.dp)).background(c.surface)
+            .then(
+                when {
+                    dashed -> Modifier.dashedBorder(c.textDim, 30.dp)
+                    Oc.terminal -> Modifier.drawBehind { drawRect(c.link, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
+                    Oc.desktop -> Modifier.border(1.dp, c.border, Oc.round(30.dp))
+                    else -> Modifier.border(1.5.dp, c.border, Oc.round(30.dp))
+                },
+            ),
     ) {
         if (state.attachments.isNotEmpty()) {
             Row(
@@ -145,17 +152,49 @@ fun ComposerHost(
             )
         }
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconBtn(Ic.Plus, { haptic(); state.showAdd = true }, size = 40.dp, bg = c.surfaceHigh)
-            Spacer(Modifier.width(8.dp))
-            Row(
-                Modifier.widthIn(max = 230.dp).height(40.dp).clip(CircleShape).background(c.surfaceHigh)
-                    .tap(scale = 0.97f) { haptic(); state.showModel = true }.padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Txt(modelName, size = 15.sp, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
-                if (prefs.variant.isNotBlank()) { Spacer(Modifier.width(6.dp)); Txt(prefs.variant.replaceFirstChar { it.uppercase() }, size = 15.sp, color = c.textDim, maxLines = 1) }
+            if (Oc.edition == "claude") {
+                IconBtn(Ic.Plus, { haptic(); state.showAdd = true }, size = 40.dp, bg = c.surfaceHigh)
+                Spacer(Modifier.width(8.dp))
+                Row(
+                    Modifier.widthIn(max = 230.dp).height(40.dp).clip(Oc.pill).background(c.surfaceHigh)
+                        .tap(scale = 0.97f) { haptic(); state.showModel = true }.padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Txt(modelName, size = 15.sp, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                    if (prefs.variant.isNotBlank()) { Spacer(Modifier.width(6.dp)); Txt(prefs.variant.replaceFirstChar { it.uppercase() }, size = 15.sp, color = c.textDim, maxLines = 1) }
+                }
+            } else {
+                val providerName = providers.firstOrNull { it.id == prefs.providerId }?.name.orEmpty()
+                IconBtn(Ic.Plus, { haptic(); state.showAdd = true }, size = 36.dp)
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    // агент: переключается нажатием, как Tab в терминале
+                    Row(
+                        Modifier.clip(Oc.round(10.dp)).tap(scale = 0.96f) { haptic(); prefs.agent = if (prefs.agent == "plan") "build" else "plan" }.padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Txt(prefs.agent.replaceFirstChar { it.uppercase() }, size = 14.sp, color = if (Oc.terminal) c.link else c.text, maxLines = 1)
+                        if (Oc.desktop) { Spacer(Modifier.width(2.dp)); Ico(Ic.ChevronDown, tint = c.textDim, size = 14.dp) }
+                    }
+                    Row(
+                        Modifier.weight(1f, fill = false).clip(Oc.round(10.dp)).tap(scale = 0.96f) { haptic(); state.showModel = true }.padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Txt(modelName, size = 14.sp, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                        if (Oc.terminal && providerName.isNotBlank()) { Spacer(Modifier.width(8.dp)); Txt(providerName, size = 13.sp, color = c.textDim, maxLines = 1, modifier = Modifier.widthIn(max = 90.dp)) }
+                        if (Oc.desktop) { Spacer(Modifier.width(2.dp)); Ico(Ic.ChevronDown, tint = c.textDim, size = 14.dp) }
+                    }
+                    if (Oc.desktop && prefs.variant.isNotBlank()) {
+                        Row(
+                            Modifier.clip(Oc.round(10.dp)).tap(scale = 0.96f) { haptic(); state.showModel = true }.padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Txt(prefs.variant.replaceFirstChar { it.uppercase() }, size = 14.sp, maxLines = 1)
+                            Spacer(Modifier.width(2.dp)); Ico(Ic.ChevronDown, tint = c.textDim, size = 14.dp)
+                        }
+                    }
+                }
             }
-            Spacer(Modifier.weight(1f))
+            if (Oc.edition == "claude") Spacer(Modifier.weight(1f))
             if (!state.canSend && !busy) {
                 IconBtn(Ic.Mic, {
                     haptic()
@@ -167,7 +206,7 @@ fun ComposerHost(
             val ready = busy || state.canSend
             val sendBg by animateColorAsState(if (ready) c.text else c.surfaceHigh, label = "sendBg")
             Box(
-                Modifier.size(40.dp).clip(CircleShape).background(sendBg)
+                Modifier.size(40.dp).clip(Oc.pill).background(sendBg)
                     .tap(enabled = ready) { haptic(); if (busy && !state.canSend) onStop() else onSend() },
                 contentAlignment = Alignment.Center,
             ) {
@@ -200,9 +239,9 @@ private fun AttachmentChip(a: Attachment, onRemove: () -> Unit) {
     val c = Oc.c
     Box {
         if (a.isImage) {
-            AsyncImage(a.uri, null, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)).background(c.surfaceHigh))
+            AsyncImage(a.uri, null, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp).clip(Oc.round(16.dp)).background(c.surfaceHigh))
         } else {
-            Row(Modifier.height(72.dp).clip(RoundedCornerShape(16.dp)).background(c.surfaceHigh).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.height(72.dp).clip(Oc.round(16.dp)).background(c.surfaceHigh).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Ico(Ic.File, tint = c.textDim, size = 24.dp); Spacer(Modifier.width(8.dp))
                 Txt(a.name, size = 14.sp, maxLines = 2, modifier = Modifier.width(96.dp))
             }
@@ -287,7 +326,7 @@ private fun AddSheet(
 private fun Tile(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, onClick: () -> Unit) {
     val c = Oc.c
     Column(
-        modifier.clip(RoundedCornerShape(24.dp)).background(c.surface).clickable(onClick = onClick).padding(vertical = 22.dp),
+        modifier.clip(Oc.round(24.dp)).background(c.surface).clickable(onClick = onClick).padding(vertical = 22.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.size(64.dp).clip(CircleShape).background(c.surfaceHigh), contentAlignment = Alignment.Center) { Ico(icon, size = 28.dp) }

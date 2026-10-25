@@ -114,7 +114,7 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
                 },
             )
             Row(
-                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).border(1.5.dp, c.border, RoundedCornerShape(22.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
+                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(22.dp)).border(1.5.dp, c.border, Oc.round(22.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Ico(Ic.Search, tint = c.textDim, size = 24.dp); Spacer(Modifier.width(12.dp))
@@ -135,7 +135,7 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
                     ) {
                         if (selecting) {
                             val on = s.id in selected
-                            Box(Modifier.size(26.dp).clip(RoundedCornerShape(8.dp)).border(1.5.dp, if (on) c.link else c.border, RoundedCornerShape(8.dp)).background(if (on) c.link else androidx.compose.ui.graphics.Color.Transparent), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(26.dp).clip(Oc.round(8.dp)).border(1.5.dp, if (on) c.link else c.border, Oc.round(8.dp)).background(if (on) c.link else androidx.compose.ui.graphics.Color.Transparent), contentAlignment = Alignment.Center) {
                                 if (on) Ico(Ic.Check, tint = c.bg, size = 18.dp)
                             }
                             Spacer(Modifier.width(16.dp))

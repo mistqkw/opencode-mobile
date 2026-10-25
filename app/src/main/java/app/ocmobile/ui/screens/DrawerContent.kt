@@ -118,7 +118,7 @@ private fun SessionRow(s: Session, status: String?, nav: Nav, close: () -> Unit)
     val current = (nav.current as? Route.Chat)?.id == s.id
     val needs = Graph.chats.questions.collectAsState().value.any { it.sessionID == s.id } || Graph.chats.permissions.collectAsState().value.any { it.sessionID == s.id }
     Row(
-        Modifier.padding(horizontal = 10.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(if (current) c.surfaceHigh else androidx.compose.ui.graphics.Color.Transparent)
+        Modifier.padding(horizontal = 10.dp).fillMaxWidth().clip(Oc.round(18.dp)).background(if (current) c.surfaceHigh else androidx.compose.ui.graphics.Color.Transparent)
             .tap(scale = 1f, onLongClick = { actions = true }) { close(); nav.openChat(s.id) }.padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

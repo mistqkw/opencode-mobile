@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -78,12 +79,18 @@ fun UserBubble(m: ChatMessage, onImage: (String) -> Unit, onLong: () -> Unit) {
             }
         }
         files.forEach { f ->
-            Row(Modifier.padding(bottom = 8.dp).clip(RoundedCornerShape(14.dp)).background(c.userBubble).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(bottom = 8.dp).clip(Oc.round(14.dp)).background(c.userBubble).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Ico(Ic.File, tint = c.textDim, size = 20.dp); Spacer(Modifier.width(8.dp)); Txt(f.raw.str("filename") ?: "file", size = 15.sp)
             }
         }
         if (text.isNotBlank()) {
-            Box(Modifier.widthIn85().clip(RoundedCornerShape(22.dp)).background(c.userBubble).longPress(onLong).padding(horizontal = 18.dp, vertical = 12.dp)) {
+            if (Oc.terminal) {
+                // как в TUI: тёмный блок на всю ширину с синей полосой слева
+                Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min).background(c.userBubble).longPress(onLong)) {
+                    Box(Modifier.width(3.dp).fillMaxHeight().background(c.link))
+                    Text(text, color = c.text, fontSize = 15.sp, lineHeight = 22.sp, fontFamily = Oc.body, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
+                }
+            } else Box(Modifier.widthIn85().clip(Oc.round(22.dp)).background(c.userBubble).longPress(onLong).padding(horizontal = 18.dp, vertical = 12.dp)) {
                 Text(text, color = c.text, fontSize = 16.sp, lineHeight = 23.sp, fontFamily = Oc.body)
             }
         }
@@ -176,7 +183,7 @@ private fun InfoLine(icon: ImageVector, text: String) {
 @Composable
 private fun ErrorCard(name: String?, message: String) {
     val c = Oc.c
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.danger.copy(alpha = .12f)).border(1.dp, c.danger.copy(alpha = .35f), RoundedCornerShape(18.dp)).padding(14.dp)) {
+    Row(Modifier.fillMaxWidth().clip(Oc.round(18.dp)).background(c.danger.copy(alpha = .12f)).border(1.dp, c.danger.copy(alpha = .35f), Oc.round(18.dp)).padding(14.dp)) {
         Ico(Ic.Warning, tint = c.danger, size = 22.dp); Spacer(Modifier.width(12.dp))
         Column {
             if (name == "ProviderAuthError") Txt("Provider not connected", size = 15.sp, color = c.danger, weight = FontWeight.Medium)
@@ -190,7 +197,7 @@ private fun ReasoningBlock(p: Part) {
     val c = Oc.c
     var open by remember { mutableStateOf(false) }
     Column {
-        Row(Modifier.clip(RoundedCornerShape(10.dp)).clickable { open = !open }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.clip(Oc.round(10.dp)).clickable { open = !open }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Ico(Ic.Sparkle, tint = c.textDim, size = 16.dp); Spacer(Modifier.width(8.dp))
             Txt("Thinking", size = 14.sp, color = c.textDim)
             Spacer(Modifier.width(4.dp))
@@ -239,7 +246,7 @@ fun ToolCard(p: Part, onImage: (String) -> Unit) {
     var open by remember { mutableStateOf(name.startsWith("todo")) }
     val head = title ?: (name + toolSummary(input).let { if (it.isBlank()) "" else ": $it" })
 
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.surface)) {
+    Column(Modifier.fillMaxWidth().clip(Oc.round(18.dp)).background(c.surface)) {
         Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Ico(toolIcon(name), tint = c.textDim, size = 20.dp); Spacer(Modifier.width(12.dp))
             Txt(head, size = 15.sp, maxLines = 1, modifier = Modifier.weight(1f)); Spacer(Modifier.width(10.dp))
@@ -279,7 +286,7 @@ fun ToolCard(p: Part, onImage: (String) -> Unit) {
 @Composable
 fun DiffView(diff: String) {
     val c = Oc.c
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.codeBg).horizontalScroll(rememberScrollState())) {
+    Box(Modifier.fillMaxWidth().clip(Oc.round(14.dp)).background(c.codeBg).horizontalScroll(rememberScrollState())) {
         Column(Modifier.padding(vertical = 10.dp)) {
             diff.lineSequence().take(400).forEach { l ->
                 val bg = when { l.startsWith("+") && !l.startsWith("+++") -> c.ok.copy(alpha = .16f); l.startsWith("-") && !l.startsWith("---") -> c.danger.copy(alpha = .16f); else -> androidx.compose.ui.graphics.Color.Transparent }
@@ -300,7 +307,7 @@ fun PermissionCard(r: PermissionReq, directory: String?) {
         Graph.chats.permissions.value = Graph.chats.permissions.value.filterNot { it.id == r.id }
         scope.launch { runCatching { Graph.api.replyPermission(r.id, directory, kind) } }
     }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(RoundedCornerShape(24.dp)).background(c.surface).border(1.dp, c.border, RoundedCornerShape(24.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(Oc.round(24.dp)).background(c.surface).border(1.dp, c.border, Oc.round(24.dp)).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Ico(Ic.Shield, tint = c.warn, size = 22.dp); Spacer(Modifier.width(10.dp))
             Txt("Permission needed", size = 17.sp, weight = FontWeight.Medium)
@@ -321,13 +328,13 @@ fun QuestionCard(q: QuestionReq, directory: String?) {
     val scope = rememberCoroutineScope()
     val picked = remember(q.id) { q.questions.map { mutableStateListOf<String>() } }
     val custom = remember(q.id) { q.questions.map { mutableStateOf("") } }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(RoundedCornerShape(24.dp)).background(c.surface).border(1.dp, c.border, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(Oc.round(24.dp)).background(c.surface).border(1.dp, c.border, Oc.round(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         q.questions.forEachIndexed { qi, item ->
             Txt(item.question, size = 17.sp, weight = FontWeight.Medium)
             item.options.forEach { o ->
                 val sel = o.label in picked[qi]
                 Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if (sel) c.progressTrack else c.surfaceHigh)
+                    Modifier.fillMaxWidth().clip(Oc.round(16.dp)).background(if (sel) c.progressTrack else c.surfaceHigh)
                         .clickable {
                             if (item.multiple) { if (sel) picked[qi].remove(o.label) else picked[qi].add(o.label) }
                             else { picked[qi].clear(); picked[qi].add(o.label) }

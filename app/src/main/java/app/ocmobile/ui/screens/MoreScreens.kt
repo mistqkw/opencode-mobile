@@ -153,7 +153,7 @@ fun ServerScreen(nav: Nav) {
     Column(Modifier.fillMaxSize().background(c.bg)) {
         TopBar("Local server", left = { IconBtn(Ic.Back, { nav.pop() }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
-            Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(c.surface).padding(20.dp)) {
+            Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)).background(c.surface).padding(20.dp)) {
                 val (label, color) = when (val s = rt) {
                     is RuntimeState.Running -> "Running · OpenCode ${s.version}" to c.ok
                     is RuntimeState.Starting -> "Starting…" to c.warn

@@ -123,7 +123,7 @@ fun IconBtn(
     bg: Color? = null,
 ) {
     Box(
-        modifier.size(size).clip(CircleShape).then(if (bg != null) Modifier.background(bg) else Modifier).tap(onClick = onClick),
+        modifier.size(size).clip(Oc.pill).then(if (bg != null) Modifier.background(bg) else Modifier).tap(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Ico(icon, tint = tint, size = iconSize) }
 }
@@ -151,8 +151,8 @@ fun Pill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, fille
     val bg = if (filled) c.text else Color.Transparent
     val fg = if (filled) c.bg else c.text
     Row(
-        modifier.clip(CircleShape)
-            .then(if (filled) Modifier.background(bg) else Modifier.border(1.dp, c.border, CircleShape))
+        modifier.clip(Oc.pill)
+            .then(if (filled) Modifier.background(bg) else Modifier.border(1.dp, c.border, Oc.pill))
             .tap(enabled = enabled, onClick = onClick)
             .height(48.dp).padding(horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -166,7 +166,7 @@ fun Pill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, fille
 @Composable
 fun SmallButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, filled: Boolean = false, danger: Boolean = false) {
     val c = Oc.c
-    val shape = RoundedCornerShape(50)
+    val shape = Oc.pill
     val fg = if (filled) c.bg else if (danger) c.danger else c.text
     Box(
         modifier.clip(shape)
@@ -197,7 +197,7 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun SettingsGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)),
+        modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)),
         verticalArrangement = Arrangement.spacedBy(2.dp),
         content = content,
     )
@@ -232,7 +232,7 @@ fun SettingsRow(
 }
 
 @Composable
-fun Card(modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(24.dp), content: @Composable ColumnScope.() -> Unit) {
+fun Card(modifier: Modifier = Modifier, shape: Shape = Oc.round(24.dp), content: @Composable ColumnScope.() -> Unit) {
     Column(modifier.clip(shape).background(Oc.c.surface), content = content)
 }
 
@@ -286,7 +286,7 @@ fun UsageBar(fraction: Float, modifier: Modifier = Modifier, warn: Boolean = fal
 
 @Composable
 fun Chip(text: String, modifier: Modifier = Modifier, color: Color = Oc.c.textDim, bg: Color = Oc.c.surfaceHigh) {
-    Box(modifier.clip(RoundedCornerShape(50)).background(bg).padding(horizontal = 12.dp, vertical = 5.dp)) {
+    Box(modifier.clip(Oc.pill).background(bg).padding(horizontal = 12.dp, vertical = 5.dp)) {
         Txt(text, size = 13.sp, color = color, weight = FontWeight.Medium)
     }
 }
@@ -304,7 +304,7 @@ fun OcTextField(
     keyboardType: KeyboardType = KeyboardType.Text,
 ) {
     val c = Oc.c
-    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(c.surface).border(1.dp, c.border, RoundedCornerShape(20.dp)).padding(horizontal = 20.dp, vertical = 16.dp)) {
+    Box(modifier.fillMaxWidth().clip(Oc.round(20.dp)).background(c.surface).border(1.dp, c.border, Oc.round(20.dp)).padding(horizontal = 20.dp, vertical = 16.dp)) {
         if (value.isEmpty()) Txt(placeholder, size = 17.sp, color = c.textDim)
         BasicTextField(
             value = value, onValueChange = onChange, singleLine = singleLine, minLines = minLines,
@@ -332,7 +332,7 @@ fun OcSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = skipHalf),
         containerColor = c.bg,
         scrimColor = c.scrim,
-        shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+        shape = if (Oc.terminal) androidx.compose.ui.graphics.RectangleShape else RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
         dragHandle = {
             Box(Modifier.padding(top = 12.dp, bottom = 4.dp).width(40.dp).height(5.dp).clip(CircleShape).background(c.border))
         },
@@ -363,16 +363,16 @@ fun OcDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = c.surface,
-        shape = RoundedCornerShape(28.dp),
+        shape = Oc.round(28.dp),
         title = { Txt(title, size = 20.sp, weight = FontWeight.Medium) },
         text = content,
         confirmButton = {
-            if (onConfirm != null) Box(Modifier.clip(CircleShape).clickable(onClick = onConfirm).padding(horizontal = 14.dp, vertical = 10.dp)) {
+            if (onConfirm != null) Box(Modifier.clip(Oc.pill).clickable(onClick = onConfirm).padding(horizontal = 14.dp, vertical = 10.dp)) {
                 Txt(confirmText, size = 16.sp, color = if (danger) c.danger else c.link, weight = FontWeight.Medium)
             }
         },
         dismissButton = {
-            Box(Modifier.clip(CircleShape).clickable(onClick = onDismiss).padding(horizontal = 14.dp, vertical = 10.dp)) {
+            Box(Modifier.clip(Oc.pill).clickable(onClick = onDismiss).padding(horizontal = 14.dp, vertical = 10.dp)) {
                 Txt(if (onConfirm == null) "OK" else dismissText, size = 16.sp, color = c.textDim)
             }
         },
@@ -403,11 +403,11 @@ fun ChoiceRow(label: String, selected: Boolean, onClick: () -> Unit, icon: Image
 @Composable
 fun Segmented(options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     val c = Oc.c
-    Row(modifier.clip(RoundedCornerShape(50)).background(c.surfaceHigh).padding(3.dp)) {
+    Row(modifier.clip(Oc.pill).background(c.surfaceHigh).padding(3.dp)) {
         options.forEach { (key, label) ->
             val sel = key == selected
             Box(
-                Modifier.weight(1f).clip(RoundedCornerShape(50)).then(if (sel) Modifier.background(c.bg) else Modifier)
+                Modifier.weight(1f).clip(Oc.pill).then(if (sel) Modifier.background(c.bg) else Modifier)
                     .clickable { onSelect(key) }.padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center,
             ) { Txt(label, size = 14.sp, color = if (sel) c.text else c.textDim, weight = if (sel) FontWeight.Medium else null) }

@@ -167,11 +167,11 @@ private fun SessionCard(s: Session, status: String?, needInput: Set<String>, que
     if (actions) SessionActionsSheet(s) { actions = false }
     val dir = s.directory.trimEnd('/').substringAfterLast('/').ifBlank { "/" }
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = .22f)).border(1.dp, c.border.copy(alpha = .6f), RoundedCornerShape(30.dp))
+        Modifier.fillMaxWidth().clip(Oc.round(30.dp)).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = .22f)).border(1.dp, c.border.copy(alpha = .6f), Oc.round(30.dp))
             .tap(scale = 0.985f, onLongClick = { actions = true }) { nav.openChat(s.id) }.padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(c.surface), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(52.dp).clip(Oc.round(16.dp)).background(c.surface), contentAlignment = Alignment.Center) {
                 if (status != null) Spinner(22.dp) else Ico(Ic.Code, tint = c.textDim, size = 24.dp)
             }
             Spacer(Modifier.width(16.dp))
@@ -195,7 +195,7 @@ private fun SessionCard(s: Session, status: String?, needInput: Set<String>, que
             }
         }
         if (s.id in needInput) {
-            Box(Modifier.padding(top = 14.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.surface).padding(16.dp)) {
+            Box(Modifier.padding(top = 14.dp).fillMaxWidth().clip(Oc.round(16.dp)).background(c.surface).padding(16.dp)) {
                 Txt(question ?: "Waiting for your permission", size = 16.sp, maxLines = 3, lineHeight = 22.sp)
             }
         }
@@ -226,7 +226,7 @@ private fun AddDeviceSheet(onDismiss: () -> Unit) {
     OcSheet(onDismiss, "Add device", skipHalf = false) {
         Column(Modifier.imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Txt("Control OpenCode that runs on your computer. On it, start the server:", size = 16.sp, color = c.textDim, lineHeight = 22.sp)
-            Txt("OPENCODE_SERVER_PASSWORD=secret opencode serve --hostname 0.0.0.0", Modifier.clip(RoundedCornerShape(14.dp)).background(c.codeBg).padding(12.dp), size = 13.sp, family = Oc.mono)
+            Txt("OPENCODE_SERVER_PASSWORD=secret opencode serve --hostname 0.0.0.0", Modifier.clip(Oc.round(14.dp)).background(c.codeBg).padding(12.dp), size = 13.sp, family = Oc.mono)
             OcTextField(name, { name = it }, placeholder = "Name (e.g. Laptop)")
             OcTextField(url, { url = it }, placeholder = "Address, e.g. 192.168.0.5:4096")
             OcTextField(pass, { pass = it }, placeholder = "Server password", password = true)

@@ -65,7 +65,7 @@ fun ScheduledScreen(nav: Nav, onMenu: () -> Unit) {
             } else LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 120.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(tasks, key = { it.id }) { t ->
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = .22f)).border(1.dp, c.border.copy(alpha = .6f), RoundedCornerShape(30.dp))
+                        Modifier.fillMaxWidth().clip(Oc.round(30.dp)).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = .22f)).border(1.dp, c.border.copy(alpha = .6f), Oc.round(30.dp))
                             .tap(scale = 0.985f) { edit = t }.padding(20.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

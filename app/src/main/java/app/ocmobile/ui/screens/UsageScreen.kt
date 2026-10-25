@@ -63,7 +63,7 @@ private fun money(x: Double) = if (x >= 100) "$%.0f".format(x) else "$%.2f".form
 private fun UsageCard(title: String, w: UsageWindow) {
     val c = Oc.c
     val pct = w.percent
-    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(c.surface).padding(horizontal = 20.dp, vertical = 18.dp)) {
+    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)).background(c.surface).padding(horizontal = 20.dp, vertical = 18.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Txt(title, size = 21.sp, modifier = Modifier.weight(1f))
             Txt(if (pct > 0 && pct < 1) "<1% used" else "%.0f%% used".format(pct), size = 17.sp, color = c.textDim)
@@ -100,7 +100,7 @@ fun UsageScreen(nav: Nav) {
 
             SectionLabel("Models · last 30 days", Modifier.padding(bottom = 0.dp))
             if (snap.byModel.isEmpty()) {
-                Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(c.surface).padding(20.dp)) {
+                Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)).background(c.surface).padding(20.dp)) {
                     Txt("No paid usage yet", size = 20.sp)
                     Txt("Once the agent answers, each model's cost shows up here.", size = 16.sp, color = c.textDim, modifier = Modifier.padding(top = 4.dp))
                 }

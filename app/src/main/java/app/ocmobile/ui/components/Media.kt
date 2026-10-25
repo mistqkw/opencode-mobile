@@ -1,5 +1,6 @@
 package app.ocmobile.ui.components
 
+import app.ocmobile.ui.theme.Oc
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -64,7 +65,7 @@ fun imageBytes(url: String): ByteArray? = runCatching {
 fun ImageThumb(url: String, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit, modifier: Modifier = Modifier) {
     AsyncImage(
         model = imageModel(url), contentDescription = null, contentScale = ContentScale.Crop,
-        modifier = modifier.size(size).clip(RoundedCornerShape(14.dp)).background(Color(0x22888888)).clickable(onClick = onClick),
+        modifier = modifier.size(size).clip(Oc.round(14.dp)).background(Color(0x22888888)).clickable(onClick = onClick),
     )
 }
 

@@ -15,6 +15,9 @@ import app.ocmobile.runtime.RuntimePaths
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import app.ocmobile.data.Vault
 
 class OcApp : Application() {
     override fun onCreate() {
@@ -54,5 +57,8 @@ object Graph {
         usage.start()
         Scheduler.load(a)
         Memory.sync()
+        Vault.restore()
+        Vault.reconcileAccount()
+        scope.launch(Dispatchers.IO) { while (true) { Vault.save(); Vault.reconcileAccount(); delay(30_000) } }
     }
 }

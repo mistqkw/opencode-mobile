@@ -69,7 +69,7 @@ fun SetupScreen(rt: RuntimeState) {
             Spacer(Modifier.height(24.dp))
             Txt(
                 log.takeLast(6).joinToString("\n"), size = 11.sp, color = c.textDim, family = Oc.mono, maxLines = 8,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.codeBg).padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clip(Oc.round(14.dp)).background(c.codeBg).padding(12.dp),
             )
         }
     }

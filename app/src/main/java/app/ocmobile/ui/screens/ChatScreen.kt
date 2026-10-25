@@ -67,7 +67,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
 @Composable
-fun ChatScreen(id: String, nav: Nav) {
+fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
     val c = Oc.c
     val ctx = LocalContext.current
     val hub = Graph.chats
@@ -137,7 +137,7 @@ fun ChatScreen(id: String, nav: Nav) {
     Column(Modifier.fillMaxSize().background(c.bg).imePadding()) {
         TopBar(
             title = null,
-            left = { IconBtn(if (incognito) Ic.Close else Ic.Back, { nav.pop() }) },
+            left = { if (incognito) IconBtn(Ic.Close, { nav.pop() }) else IconBtn(Ic.Menu, onMenu) },
             right = { if (!incognito) IconBtn(Ic.Plus, { nav.root(app.ocmobile.ui.Route.Home) }) },
         )
         Box(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentAlignment = Alignment.Center) {
@@ -203,7 +203,7 @@ fun ChatScreen(id: String, nav: Nav) {
         questions.filter { it.sessionID == id }.forEach { QuestionCard(it, chat.directory) }
         editing?.let {
             Row(
-                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.surface).padding(start = 16.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(18.dp)).background(c.surface).padding(start = 16.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Ico(Ic.Edit, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(10.dp))
@@ -282,7 +282,7 @@ private fun DiffSheet(id: String, directory: String?, onDismiss: () -> Unit) {
             items(list) { f ->
                 var open by remember { mutableStateOf(false) }
                 Column(Modifier.padding(horizontal = 16.dp)) {
-                    Row(Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).background(c.surface).clickable { open = !open }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().clip(Oc.round(16.dp)).background(c.surface).clickable { open = !open }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Ico(Ic.File, tint = c.textDim, size = 20.dp); Spacer(Modifier.width(10.dp))
                         Txt(f.str("file") ?: "", size = 15.sp, maxLines = 1, modifier = Modifier.weight(1f))
                         Txt("+${f.long("additions") ?: 0}", size = 14.sp, color = c.ok); Spacer(Modifier.width(8.dp))
@@ -299,7 +299,7 @@ private fun DiffSheet(id: String, directory: String?, onDismiss: () -> Unit) {
 private fun RetryCard(r: app.ocmobile.data.RetryInfo, nav: Nav, onStop: () -> Unit) {
     val c = Oc.c
     val ctx = LocalContext.current
-    Column(Modifier.fillMaxWidth().padding(top = 12.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(22.dp)).background(c.surface).border(1.dp, c.border, androidx.compose.foundation.shape.RoundedCornerShape(22.dp)).padding(18.dp)) {
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp).clip(Oc.round(22.dp)).background(c.surface).border(1.dp, c.border, Oc.round(22.dp)).padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Ico(Ic.Warning, tint = c.warn, size = 22.dp); Spacer(Modifier.width(10.dp))
             Txt(r.title ?: "The provider is not answering", size = 16.sp, weight = androidx.compose.ui.text.font.FontWeight.Medium)

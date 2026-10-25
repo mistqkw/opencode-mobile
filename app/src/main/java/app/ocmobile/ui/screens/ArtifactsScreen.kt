@@ -86,7 +86,7 @@ fun ArtifactsScreen(nav: Nav, onMenu: () -> Unit) {
     Column(Modifier.fillMaxSize().background(c.bg)) {
         TopBar("Artifacts", left = { IconBtn(Ic.Menu, onMenu) })
         Row(
-            Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(30.dp)).border(1.5.dp, c.border, RoundedCornerShape(30.dp)).padding(horizontal = 20.dp, vertical = 18.dp),
+            Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(30.dp)).border(1.5.dp, c.border, Oc.round(30.dp)).padding(horizontal = 20.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Ico(Ic.Search, tint = c.textDim, size = 26.dp); Spacer(Modifier.width(16.dp))
@@ -101,11 +101,11 @@ fun ArtifactsScreen(nav: Nav, onMenu: () -> Unit) {
             else -> LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(list, key = { it.file + it.sessionTitle }) { a ->
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = .22f)).border(1.dp, c.border.copy(alpha = .6f), RoundedCornerShape(30.dp))
+                        Modifier.fillMaxWidth().clip(Oc.round(30.dp)).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = .22f)).border(1.dp, c.border.copy(alpha = .6f), Oc.round(30.dp))
                             .tap(scale = 0.985f) { open = a }.padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(Modifier.size(width = 126.dp, height = 84.dp).clip(RoundedCornerShape(18.dp)).background(c.surface), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(width = 126.dp, height = 84.dp).clip(Oc.round(18.dp)).background(c.surface), contentAlignment = Alignment.Center) {
                             Txt(a.file.substringAfterLast('.', "").uppercase().take(5).ifBlank { "FILE" }, size = 20.sp, color = c.textDim)
                         }
                         Spacer(Modifier.width(18.dp))

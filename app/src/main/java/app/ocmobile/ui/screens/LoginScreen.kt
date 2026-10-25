@@ -132,7 +132,7 @@ private enum class Brand { GitHub, Google, Email, Key }
 private fun ProviderButton(text: String, note: String, brand: Brand, onClick: () -> Unit) {
     val c = Oc.c
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(50)).border(1.dp, c.border, RoundedCornerShape(50)).background(c.surface)
+        Modifier.fillMaxWidth().clip(Oc.pill).border(1.dp, c.border, Oc.pill).background(c.surface)
             .tap(onClick = onClick).height(64.dp).padding(horizontal = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -273,7 +273,7 @@ fun ConsoleLoginScreen(method: String, nav: Nav) {
                     )
                     // подсказка, когда вход уже выполнен, а ключа ещё нет
                     if (url.contains("/console/") && !url.contains("/login") && state == "login") {
-                        Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp).clip(RoundedCornerShape(22.dp)).background(c.surfaceHigh).padding(16.dp)) {
+                        Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp).clip(Oc.round(22.dp)).background(c.surfaceHigh).padding(16.dp)) {
                             Txt("Signed in. Open API Keys and create a key — the app saves it automatically.", size = 15.sp, lineHeight = 21.sp)
                         }
                     }

@@ -55,7 +55,7 @@ import app.ocmobile.ui.theme.Oc
 fun ChoiceDialog(title: String, options: List<Triple<String, String, ImageVector?>>, selected: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
     val c = Oc.c
     Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.clip(RoundedCornerShape(32.dp)).background(c.bg).border(1.dp, c.border, RoundedCornerShape(32.dp)).padding(vertical = 12.dp)) {
+        Column(Modifier.clip(Oc.round(32.dp)).background(c.bg).border(1.dp, c.border, Oc.round(32.dp)).padding(vertical = 12.dp)) {
             Txt(title, Modifier.padding(start = 24.dp, top = 16.dp, bottom = 10.dp), size = 22.sp)
             options.forEach { (k, l, ic) -> ChoiceRow(l, k == selected, { onSelect(k); onDismiss() }, icon = ic) }
         }
@@ -87,7 +87,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             // Карточка аккаунта
             Row(
-                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).border(1.dp, c.border, RoundedCornerShape(22.dp))
+                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(22.dp)).border(1.dp, c.border, Oc.round(22.dp))
                     .clickable { nav.push(if (prefs.signedIn.isBlank()) Route.Login else Route.Providers) }.padding(horizontal = 20.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -98,19 +98,19 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
                         size = 14.sp, color = c.textDim, modifier = Modifier.padding(top = 2.dp),
                     )
                 }
-                Box(Modifier.clip(RoundedCornerShape(50)).background(c.text).padding(horizontal = 14.dp, vertical = 6.dp)) {
+                Box(Modifier.clip(Oc.pill).background(c.text).padding(horizontal = 14.dp, vertical = 6.dp)) {
                     Txt(if (hasGo) "Go" else "Free", size = 14.sp, color = c.bg)
                 }
                 Spacer(Modifier.width(10.dp)); Ico(Ic.ChevronRight, tint = c.textDim, size = 22.dp)
             }
             if (prefs.signedIn.isBlank()) {
-                Column(Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).border(1.dp, c.border, RoundedCornerShape(22.dp)).padding(24.dp)) {
+                Column(Modifier.padding(16.dp).fillMaxWidth().clip(Oc.round(22.dp)).border(1.dp, c.border, Oc.round(22.dp)).padding(24.dp)) {
                     Txt("Sign in for more", size = 21.sp)
                     Txt("Free models share a limit per internet connection. Sign in with GitHub or Google for a free allowance of your own.", size = 17.sp, color = c.textDim, modifier = Modifier.padding(top = 8.dp, bottom = 16.dp))
                     Pill("Sign in", { nav.push(Route.Login) })
                 }
             } else if (!hasGo) {
-                Column(Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).border(1.dp, c.border, RoundedCornerShape(22.dp)).padding(24.dp)) {
+                Column(Modifier.padding(16.dp).fillMaxWidth().clip(Oc.round(22.dp)).border(1.dp, c.border, Oc.round(22.dp)).padding(24.dp)) {
                     Txt("Want more models?", size = 21.sp)
                     Txt("Connect OpenCode Go, Zen or any other provider to unlock stronger models.", size = 17.sp, color = c.textDim, modifier = Modifier.padding(top = 8.dp, bottom = 16.dp))
                     Pill("Connect", { nav.push(Route.Providers) })
@@ -140,6 +140,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
             }
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
+                SettingsRow("Interface", subtitle = when (prefs.edition) { "terminal" -> "OpenCode · Terminal"; "desktop" -> "OpenCode · Desktop"; else -> "Claude" }, icon = Ic.Laptop, onClick = { nav.push(Route.Edition) })
                 SettingsRow("Color mode", subtitle = prefs.colorMode.replaceFirstChar { it.uppercase() }, icon = Ic.Moon, onClick = { dialog = "color" })
                 SettingsRow("Font style", subtitle = if (prefs.fontStyle == "default") "Default" else "System", icon = Ic.Edit, onClick = { dialog = "font" })
                 SettingsRow("Text size", subtitle = prefs.textSize.replaceFirstChar { it.uppercase() }, icon = Ic.File, onClick = { dialog = "size" })
@@ -154,7 +155,9 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
                 SettingsGroup {
                     SettingsRow("Log out", icon = Ic.External, titleColor = c.danger, onClick = {
                         scope.launch {
-                            runCatching { Graph.api.removeAuth("opencode") }; runCatching { Graph.api.removeAuth("opencode-go") }; runCatching { Graph.api.disposeAll() }
+                            for (pid in listOf("opencode", "opencode-go", "github-copilot", "google", "groq", "openrouter")) runCatching { Graph.api.removeAuth(pid) }
+                            runCatching { Graph.api.disposeAll() }
+                            app.ocmobile.data.Vault.forgetAccount()
                             prefs.signedIn = ""; runCatching { Graph.catalog.refresh() }
                         }
                     })

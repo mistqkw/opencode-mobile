@@ -155,7 +155,7 @@ fun ConnectScreen(providerId: String, nav: Nav) {
                     Spacer(Modifier.height(24.dp))
                     if (code == null) Spinner(34.dp) else {
                         val clip = LocalClipboardManager.current
-                        Box(Modifier.clip(RoundedCornerShape(24.dp)).background(c.surface).border(1.dp, c.border, RoundedCornerShape(24.dp)).tap { clip.setText(AnnotatedString(code!!)); Graph.chats.toasts.tryEmit("Code copied") }.padding(horizontal = 32.dp, vertical = 22.dp)) {
+                        Box(Modifier.clip(Oc.round(24.dp)).background(c.surface).border(1.dp, c.border, Oc.round(24.dp)).tap { clip.setText(AnnotatedString(code!!)); Graph.chats.toasts.tryEmit("Code copied") }.padding(horizontal = 32.dp, vertical = 22.dp)) {
                             Txt(code!!, size = 36.sp, family = Oc.mono, weight = FontWeight.Medium)
                         }
                         Spacer(Modifier.height(18.dp))

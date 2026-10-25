@@ -52,6 +52,7 @@ import app.ocmobile.ui.components.Spinner
 import app.ocmobile.ui.components.Txt
 import app.ocmobile.ui.screens.AboutScreen
 import app.ocmobile.ui.screens.AgentsScreen
+import app.ocmobile.ui.screens.EditionScreen
 import app.ocmobile.ui.screens.ChatScreen
 import app.ocmobile.ui.screens.ConfigEditorScreen
 import app.ocmobile.ui.screens.ArtifactsScreen
@@ -151,7 +152,8 @@ private fun Shell(rt: RuntimeState) {
                         Route.Home -> HomeScreen(nav, open)
                         Route.NewCode -> HomeScreen(nav, open, code = true)
                         Route.Memory -> MemoryScreen(nav)
-                        is Route.Chat -> ChatScreen(r.id, nav)
+                        Route.Edition -> EditionScreen(nav)
+                        is Route.Chat -> ChatScreen(r.id, nav, open)
                         Route.Login -> LoginScreen(nav)
                         is Route.ConsoleLogin -> ConsoleLoginScreen(r.method, nav)
                         is Route.Connect -> ConnectScreen(r.providerId, nav)
@@ -191,7 +193,7 @@ private fun ServerBanner(rt: RuntimeState) {
     Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = 60.dp), contentAlignment = Alignment.TopCenter) {
         AnimatedVisibility(show) {
             Row(
-                Modifier.padding(horizontal = 16.dp).clip(RoundedCornerShape(50)).background(c.surfaceHigh).border(1.dp, c.border, RoundedCornerShape(50))
+                Modifier.padding(horizontal = 16.dp).clip(Oc.pill).background(c.surfaceHigh).border(1.dp, c.border, Oc.pill)
                     .clickable(enabled = remoteId.isEmpty() && rt !is RuntimeState.Starting) { Graph.runtime.startServer() }.padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -214,7 +216,7 @@ private fun ToastHost() {
     }
     Box(Modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 120.dp), contentAlignment = Alignment.BottomCenter) {
         AnimatedVisibility(msg != null) {
-            Box(Modifier.padding(horizontal = 24.dp).clip(RoundedCornerShape(20.dp)).background(c.text).padding(horizontal = 18.dp, vertical = 12.dp)) {
+            Box(Modifier.padding(horizontal = 24.dp).clip(Oc.round(20.dp)).background(c.text).padding(horizontal = 18.dp, vertical = 12.dp)) {
                 Txt(msg.orEmpty(), size = 15.sp, color = c.bg, maxLines = 4)
             }
         }

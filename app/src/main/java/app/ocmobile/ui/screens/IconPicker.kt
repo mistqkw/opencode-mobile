@@ -44,7 +44,7 @@ fun IconPickerSheet(onDismiss: () -> Unit) {
             items(AppIcons.all, key = { it.id }) { icon ->
                 val sel = Graph.prefs.appIcon == icon.id
                 Column(
-                    Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+                    Modifier.fillMaxWidth().clip(Oc.round(20.dp))
                         .clickable { Graph.prefs.appIcon = icon.id; AppIcons.apply(ctx, icon.id) }.padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {

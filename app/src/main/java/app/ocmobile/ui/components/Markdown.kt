@@ -205,7 +205,7 @@ fun CodeBlock(code: String, lang: String = "", modifier: Modifier = Modifier) {
     val c = Oc.c
     val clip = LocalClipboardManager.current
     val wrap = Graph.prefs.wrapLines
-    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.codeBg)) {
+    Column(modifier.fillMaxWidth().clip(Oc.round(16.dp)).background(c.codeBg)) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Txt(lang.ifBlank { "code" }, size = 13.sp, color = c.textDim, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
             IconBtn(Ic.Copy, { clip.setText(AnnotatedString(code)) }, size = 40.dp, iconSize = 18.dp, tint = c.textDim)
@@ -220,7 +220,7 @@ fun CodeBlock(code: String, lang: String = "", modifier: Modifier = Modifier) {
 @Composable
 private fun TableBlock(rows: List<List<String>>) {
     val c = Oc.c
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.surface).horizontalScroll(rememberScrollState())) {
+    Box(Modifier.fillMaxWidth().clip(Oc.round(14.dp)).background(c.surface).horizontalScroll(rememberScrollState())) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             rows.forEachIndexed { r, cells ->
                 Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {

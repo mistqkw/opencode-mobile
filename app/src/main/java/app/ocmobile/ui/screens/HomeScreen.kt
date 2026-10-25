@@ -113,18 +113,23 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
                             Spacer(Modifier.height(22.dp))
                             Txt("Incognito chats stay out of your recents and are deleted when you leave them.", Modifier.padding(horizontal = 40.dp), size = 18.sp, color = c.textDim, align = TextAlign.Center)
                         } else {
-                            app.ocmobile.ui.components.PixelWordmark(Modifier.padding(horizontal = 20.dp))
-                            Spacer(Modifier.height(28.dp))
-                            ModeLine(code)
-                            Spacer(Modifier.height(20.dp))
-                            TipLine(code)
+                            if (Oc.desktop) {
+                                // desktop: тусклая надпись без подписей, под полем — чипы проекта
+                                app.ocmobile.ui.components.PixelWordmark(Modifier.padding(horizontal = 20.dp).graphicsLayer { alpha = 0.32f })
+                            } else {
+                                app.ocmobile.ui.components.PixelWordmark(Modifier.padding(horizontal = 20.dp))
+                                Spacer(Modifier.height(28.dp))
+                                ModeLine(code)
+                                Spacer(Modifier.height(20.dp))
+                                TipLine(code)
+                            }
                         }
                     }
                 }
             }
             Spacer(Modifier.height(80.dp))
         }
-        Box(
+        Column(
             Modifier.navigationBarsPadding().onGloballyPositioned { composerRect = it.boundsInRoot() }
                 .graphicsLayer { alpha = 1f - prog.value * 1.4f; translationY = prog.value * 90f },
         ) {
@@ -154,6 +159,7 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
                     }
                 },
             )
+            if (Oc.desktop) DesktopChips(code, dirName, onProject = { picker = true }, onMemory = { nav.push(Route.Memory) })
         }
     }
     flightText?.let { text ->
@@ -164,19 +170,19 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
         val layout = remember(text, maxTextPx) {
             measurer.measure(text, androidx.compose.ui.text.TextStyle(fontSize = 16.sp, lineHeight = 23.sp, fontFamily = bodyFont), constraints = androidx.compose.ui.unit.Constraints(maxWidth = maxTextPx))
         }
-        val toW = with(density) { layout.size.width.toDp() } + 36.dp
+        val toW = if (Oc.terminal) screenW - 32.dp else with(density) { layout.size.width.toDp() } + 36.dp
         val toH = with(density) { layout.size.height.toDp() } + 24.dp
         val e = prog.value
         val fromW = with(density) { composerRect.width.toDp() }
         val fromH = 64.dp
         val fromX = with(density) { composerRect.left.toDp() }
         val fromY = with(density) { composerRect.top.toDp() }
-        val toX = screenW - 16.dp - toW
+        val toX = if (Oc.terminal) 16.dp else screenW - 16.dp - toW
         val toY = 168.dp
         fun lerpDp(a: androidx.compose.ui.unit.Dp, b: androidx.compose.ui.unit.Dp) = a + (b - a) * e
         Box(
             Modifier.offset(lerpDp(fromX, toX), lerpDp(fromY, toY)).size(lerpDp(fromW, toW), lerpDp(fromH, toH))
-                .clip(RoundedCornerShape(lerpDp(32.dp, 22.dp)))
+                .clip(Oc.round(lerpDp(32.dp, 22.dp)))
                 .background(androidx.compose.ui.graphics.lerp(c.surface, c.userBubble, e)),
         ) {
             Text(
@@ -238,5 +244,35 @@ private fun TipLine(code: Boolean) {
             i, label = "tip",
             transitionSpec = { (fadeIn(androidx.compose.animation.core.tween(350)) + androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(350)) { it / 3 }) togetherWith fadeOut(androidx.compose.animation.core.tween(200)) },
         ) { k -> Txt(tips[k], size = 15.sp, color = c.textDim, family = Oc.mono, maxLines = 2, lineHeight = 21.sp) }
+    }
+}
+
+
+/** Строка под полем в desktop-версии: проект и Git (или память для обычного чата). */
+@Composable
+private fun DesktopChips(code: Boolean, dirName: String, onProject: () -> Unit, onMemory: () -> Unit) {
+    val c = Oc.c
+    val git = remember(dirName) {
+        !Graph.devices.isRemote && runCatching { java.io.File(Graph.paths.host(Graph.prefs.currentDir), ".git").exists() }.getOrDefault(false)
+    }
+    @Composable fun chip(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, filled: Boolean, onClick: (() -> Unit)?) {
+        Row(
+            Modifier.clip(Oc.pill).then(if (filled) Modifier.background(c.surfaceHigh) else Modifier)
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Ico(icon, tint = c.textDim, size = 15.dp); Spacer(Modifier.width(6.dp)); Txt(text, size = 13.sp, color = c.textDim, maxLines = 1)
+        }
+    }
+    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        if (code) {
+            chip(dirName, Ic.Folder, false, onProject)
+            Spacer(Modifier.width(8.dp))
+            chip(if (git) "Git" else "No Git", Ic.Code, true, null)
+        } else {
+            chip("Chat", Ic.Chat, false, null)
+            Spacer(Modifier.width(8.dp))
+            chip(if (Graph.prefs.memoryEnabled) "Memory on" else "Memory off", Ic.Server, true, onMemory)
+        }
     }
 }

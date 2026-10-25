@@ -9,7 +9,9 @@
 
     <application
         android:name=".OcApp"
-        android:allowBackup="false"
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:extractNativeLibs="true"
         android:icon="@mipmap/ic_terracotta"
         android:roundIcon="@mipmap/ic_terracotta"
