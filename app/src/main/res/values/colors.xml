@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#FF141414</color>
+    <color name="ic_bg_terracotta">#de7356</color>
+    <color name="ic_bg_classic">#0e0f13</color>
+    <color name="ic_bg_blue">#4a7dfb</color>
+    <color name="ic_bg_cream">#f3ece0</color>
+    <color name="ic_bg_cream_blue">#f3ece0</color>
+    <color name="ic_bg_graphite">#1c1d22</color>
+    <color name="ic_bg_green">#3f8f6b</color>
+    <color name="ic_bg_mustard">#e5a93d</color>
+    <color name="ic_bg_pink">#e46a8f</color>
+    <color name="ic_bg_teal">#2b8a96</color>
+    <color name="ic_bg_violet">#7b61d9</color>
+</resources>
