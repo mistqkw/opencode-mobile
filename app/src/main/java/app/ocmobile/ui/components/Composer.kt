@@ -273,6 +273,7 @@ private fun AddSheet(
         onDismiss = onDismiss,
         title = when (page) { "perm" -> "Permission"; "agent" -> "Agent"; else -> if (Oc.terminal) "Commands" else "Add to session" },
         onBack = if (page != "main") ({ page = "main" }) else null,
+        skipHalf = Oc.edition != "claude",
     ) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = if (Oc.edition == "claude") 24.dp else 10.dp)) {
             when (page) {
@@ -305,16 +306,20 @@ private fun AddSheet(
                     }
                     Spacer(Modifier.height(14.dp))
                     SettingsGroup {
-                        SettingsRow("Permission", subtitle = permLabel[prefs.permissionMode], icon = Ic.Shield, chevron = true, onClick = { page = "perm" })
-                        SettingsRow("Agent", subtitle = prefs.agent.replaceFirstChar { it.uppercase() }, icon = Ic.Bot, chevron = true, onClick = { page = "agent" })
+                        SettingsRow("Permission", subtitle = permLabel[prefs.permissionMode], icon = Ic.FastForward, circleIcon = true, chevron = true, onClick = { page = "perm" })
+                        SettingsRow("Agent", subtitle = prefs.agent.replaceFirstChar { it.uppercase() }, icon = Ic.Bot, circleIcon = true, chevron = true, onClick = { page = "agent" })
+                        SettingsRow("Devices", icon = Ic.Laptop, circleIcon = true, chevron = true, onClick = { onDismiss(); nav.push(Route.Code) })
                     }
                     Spacer(Modifier.height(14.dp))
                     SettingsGroup {
-                        SettingsRow("Plan mode", icon = Ic.ListCheck, trailing = {
+                        SettingsRow("Plan mode", icon = Ic.ListCheck, circleIcon = true, trailing = {
                             OcSwitch(prefs.agent == "plan") { prefs.agent = if (it) "plan" else "build" }
                         })
-                        SettingsRow("Connectors", icon = Ic.Puzzle, chevron = true, onClick = { onDismiss(); nav.push(Route.Connectors) })
-                        SettingsRow("Skills", icon = Ic.Scroll, chevron = true, onClick = { onDismiss(); nav.push(Route.Skills) })
+                        SettingsRow("Connectors", icon = Ic.Puzzle, circleIcon = true, chevron = true, onClick = { onDismiss(); nav.push(Route.Connectors) })
+                        SettingsRow("Skills", icon = Ic.Scroll, circleIcon = true, chevron = true, onClick = { onDismiss(); nav.push(Route.Skills) })
+                        SettingsRow("Memory", icon = Ic.Scroll, circleIcon = true, trailing = {
+                            OcSwitch(prefs.memoryEnabled) { prefs.memoryEnabled = it; app.ocmobile.data.Memory.sync() }
+                        })
                     }
                 } else {
                     // Terminal — список команд с подсказками справа; Desktop — компактное меню со значками
@@ -339,10 +344,10 @@ private fun AddSheet(
 private fun Tile(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, onClick: () -> Unit) {
     val c = Oc.c
     Column(
-        modifier.clip(Oc.round(24.dp)).background(c.surface).clickable(onClick = onClick).padding(vertical = 22.dp),
+        modifier.clip(Oc.round(24.dp)).background(c.surface).clickable(onClick = onClick).padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(Modifier.size(64.dp).clip(CircleShape).background(c.surfaceHigh), contentAlignment = Alignment.Center) { Ico(icon, size = 28.dp) }
+        Box(Modifier.size(52.dp).clip(CircleShape).background(c.surfaceHigh), contentAlignment = Alignment.Center) { Ico(icon, size = 26.dp) }
         Spacer(Modifier.height(10.dp))
         Txt(label, size = 17.sp)
     }
@@ -359,8 +364,8 @@ fun ModelSheet(onDismiss: () -> Unit) {
 
     PickerFrame(
         onDismiss = onDismiss,
-        title = if (page == "effort") "Effort" else "Select model",
-        onBack = if (page == "effort") ({ page = "main" }) else null,
+        title = when (page) { "effort" -> "Effort"; "all" -> "More models"; else -> "Select model" },
+        onBack = if (page != "main") ({ page = "main" }) else null,
         skipHalf = false,
     ) {
         if (page == "effort") {
@@ -374,8 +379,12 @@ fun ModelSheet(onDismiss: () -> Unit) {
             }
             return@PickerFrame
         }
-        PickSearch(query, { query = it }, "Search models")
         val claudeEd = Oc.edition == "claude"
+        if (claudeEd && page == "main") {
+            ClaudeModelMain(current, onDismiss = onDismiss, onEffort = { page = "effort" }, onMore = { page = "all" })
+            return@PickerFrame
+        }
+        PickSearch(query, { query = it }, "Search models")
         LazyColumn(Modifier.heightIn(max = 520.dp).padding(bottom = if (claudeEd) 24.dp else 8.dp)) {
             if (!claudeEd && current != null && current.variantNames.isNotEmpty()) item {
                 PickRow("Effort", { page = "effort" }, trailing = prefs.variant.ifBlank { "Default" }.replaceFirstChar { it.uppercase() }, chevron = true)
@@ -393,8 +402,7 @@ fun ModelSheet(onDismiss: () -> Unit) {
                             if (m.reasoning) add("reasoning")
                         }.joinToString(" · ")
                         PickRow(m.name.ifBlank { m.id }, {
-                            prefs.providerId = p.id; prefs.modelId = m.id
-                            if (prefs.variant !in m.variantNames) prefs.variant = ""
+                            pickModel(p.id, m)
                             if (m.variantNames.isEmpty()) onDismiss()
                         }, selected = sel, subtitle = meta.ifBlank { null })
                     }
@@ -414,4 +422,77 @@ fun ModelSheet(onDismiss: () -> Unit) {
 
 private fun Modifier.dashedBorder(color: androidx.compose.ui.graphics.Color, radius: Dp, width: Dp = 1.5.dp): Modifier = drawBehind {
     drawRoundRect(color, cornerRadius = CornerRadius(radius.toPx()), style = Stroke(width.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(18f, 14f))))
+}
+
+
+private fun pickModel(providerId: String, m: app.ocmobile.api.ModelInfo) {
+    val prefs = Graph.prefs
+    prefs.providerId = providerId; prefs.modelId = m.id
+    if (prefs.variant !in m.variantNames) prefs.variant = ""
+    val key = "$providerId/${m.id}"
+    prefs.recentModels = (listOf(key) + prefs.recentModels.split(',').filter { it.isNotBlank() && it != key }).take(6).joinToString(",")
+}
+
+/** Главная страница выбора модели, как в Claude mobile: короткий список карточкой, подсказка, Effort и «More models». */
+@Composable
+private fun ClaudeModelMain(current: app.ocmobile.api.ModelInfo?, onDismiss: () -> Unit, onEffort: () -> Unit, onMore: () -> Unit) {
+    val c = Oc.c
+    val prefs = Graph.prefs
+    val providers by Graph.catalog.providers.collectAsState()
+    // сначала недавние и выбранная, потом самые свежие модели того же провайдера — всего четыре
+    val featured = remember(providers, prefs.recentModels, prefs.providerId, prefs.modelId) {
+        val out = LinkedHashMap<String, Pair<String, app.ocmobile.api.ModelInfo>>()
+        fun add(pid: String, m: app.ocmobile.api.ModelInfo?) { if (m != null) out.putIfAbsent("$pid/${m.id}", pid to m) }
+        add(prefs.providerId, Graph.catalog.model(prefs.providerId, prefs.modelId))
+        prefs.recentModels.split(',').filter { it.contains('/') }.forEach { k -> add(k.substringBefore('/'), Graph.catalog.model(k.substringBefore('/'), k.substringAfter('/'))) }
+        providers.firstOrNull { it.id == prefs.providerId }?.models?.values
+            ?.sortedByDescending { it.release_date ?: "" }?.forEach { add(prefs.providerId, it) }
+        out.values.take(4).toList()
+    }
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+        if (featured.isEmpty()) {
+            Txt("No connected providers yet. Connect one in Settings → Providers.", color = c.textDim, modifier = Modifier.padding(24.dp))
+        } else SettingsGroup {
+            featured.forEach { (pid, m) ->
+                val sel = prefs.providerId == pid && prefs.modelId == m.id
+                val meta = buildList {
+                    m.limit?.context?.takeIf { it > 0 }?.let { add("${it / 1000}k context") }
+                    if (m.supportsImages) add("images")
+                    if (m.reasoning) add("reasoning")
+                }.joinToString(" · ")
+                Row(
+                    Modifier.fillMaxWidth().background(c.surface).tap(scale = 1f) {
+                        pickModel(pid, m)
+                        if (m.variantNames.isEmpty()) onDismiss()
+                    }.padding(horizontal = 18.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Txt(m.name.ifBlank { m.id }, Modifier.weight(1f, fill = false), size = 19.sp, maxLines = 1)
+                        }
+                        if (meta.isNotBlank()) Txt(meta, size = 14.sp, color = c.textDim, modifier = Modifier.padding(top = 2.dp))
+                    }
+                    if (sel) Ico(Ic.Check, tint = c.link, size = 24.dp)
+                }
+            }
+        }
+        Txt("Free models share one daily limit per network. Connect more providers in Settings → Providers.", size = 15.sp, color = c.textDim, lineHeight = 21.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
+        if (current != null && current.variantNames.isNotEmpty()) {
+            Box(Modifier.padding(bottom = 14.dp)) {
+                SettingsGroup {
+                    Row(Modifier.fillMaxWidth().background(c.surface).tap(scale = 1f, onClick = onEffort).padding(horizontal = 18.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Txt("Effort", size = 19.sp)
+                        if (prefs.variant == "medium" || prefs.variant.isBlank()) { Spacer(Modifier.width(10.dp)); Chip("Recommended") }
+                        Spacer(Modifier.weight(1f))
+                        Txt(prefs.variant.ifBlank { "Default" }.replaceFirstChar { it.uppercase() }, size = 18.sp, color = c.textDim)
+                        Spacer(Modifier.width(6.dp)); Ico(Ic.ChevronRight, tint = c.textDim, size = 22.dp)
+                    }
+                }
+            }
+        }
+        SettingsGroup {
+            SettingsRow("More models", chevron = true, onClick = onMore)
+        }
+    }
 }

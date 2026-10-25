@@ -212,6 +212,7 @@ fun SettingsRow(
     onClick: (() -> Unit)? = null,
     chevron: Boolean = false,
     titleColor: Color = Oc.c.text,
+    circleIcon: Boolean = false,
     trailing: @Composable (() -> Unit)? = null,
 ) {
     val c = Oc.c
@@ -221,7 +222,10 @@ fun SettingsRow(
             .padding(horizontal = 20.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) { Ico(icon, tint = titleColor, size = 26.dp); Spacer(Modifier.width(18.dp)) }
+        if (icon != null && circleIcon) {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(c.surfaceHigh), contentAlignment = Alignment.Center) { Ico(icon, tint = titleColor, size = 22.dp) }
+            Spacer(Modifier.width(16.dp))
+        } else if (icon != null) { Ico(icon, tint = titleColor, size = 26.dp); Spacer(Modifier.width(18.dp)) }
         Column(Modifier.weight(1f)) {
             Txt(title, size = 17.sp, color = titleColor)
             if (subtitle != null) Txt(subtitle, size = 14.sp, color = c.textDim, modifier = Modifier.padding(top = 2.dp))

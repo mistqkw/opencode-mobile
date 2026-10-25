@@ -38,6 +38,7 @@ class Prefs(ctx: Context) {
     }
 
     // Внешний вид
+    var recentModels by str("recent_models", "")      // provider/model через запятую, свежие первыми
     var edition by str("edition", "claude")           // claude | terminal | desktop
     var colorMode by str("color_mode", "system")      // system | light | dark
     var fontStyle by str("font_style", "default")     // default | system
