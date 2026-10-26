@@ -123,6 +123,7 @@ fun ConnectScreen(providerId: String, nav: Nav) {
                 val url = r.str("url") ?: "https://github.com/login/device"
                 open(url)
                 Graph.api.oauthCallback(providerId, 0, null)           // ждёт подтверждения в браузере
+                runCatching { app.ocmobile.data.FreeModels.enableCopilot() }
                 done("github")
             } catch (e: Exception) { error = e.message ?: "GitHub did not confirm the sign-in"; state = "error" }
         }

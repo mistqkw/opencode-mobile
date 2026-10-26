@@ -267,6 +267,9 @@ class OpenCodeApi(private val prefs: Prefs) {
 
     suspend fun config(): JsonObject = call("GET", "/config") as? JsonObject ?: JsonObject(emptyMap())
 
+    /** Глобальный конфиг (~/.config/opencode): сервер сам пишет файл и применяет изменения без перезапуска. */
+    suspend fun patchGlobalConfig(patch: JsonObject): JsonObject = call("PATCH", "/global/config", body = patch) as? JsonObject ?: JsonObject(emptyMap())
+
     suspend fun patchConfig(patch: JsonObject): JsonObject = call("PATCH", "/config", body = patch) as? JsonObject ?: JsonObject(emptyMap())
 
     suspend fun agents(): List<AgentInfo> =

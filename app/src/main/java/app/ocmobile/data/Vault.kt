@@ -13,6 +13,7 @@ object Vault {
     private val root get() = File(Graph.paths.rootfs.parentFile, "vault")
     private const val AUTH = "root/.local/share/opencode/auth.json"
     private const val RULES = "root/.config/opencode/AGENTS.md"
+    private const val CONFIG = "root/.config/opencode/opencode.jsonc"
     private const val MEMORY = "root/memory"
 
     private fun copyIfNewer(from: File, to: File) {
@@ -30,6 +31,7 @@ object Vault {
             val auth = File(rf, AUTH)
             if (auth.isFile && auth.length() > 2 && runCatching { JSONObject(auth.readText()).length() > 0 }.getOrDefault(false)) copyIfNewer(auth, File(root, AUTH))
             copyIfNewer(File(rf, RULES), File(root, RULES))
+            copyIfNewer(File(rf, CONFIG), File(root, CONFIG))
             File(rf, MEMORY).listFiles()?.forEach { copyIfNewer(it, File(root, "$MEMORY/${it.name}")) }
         }
     }
@@ -39,7 +41,7 @@ object Vault {
         runCatching {
             val rf = Graph.paths.rootfs
             fun back(rel: String) { val v = File(root, rel); val t = File(rf, rel); if (v.isFile && !t.isFile) { t.parentFile?.mkdirs(); v.copyTo(t) } }
-            back(AUTH); back(RULES)
+            back(AUTH); back(RULES); back(CONFIG)
             File(root, MEMORY).listFiles()?.forEach { back("$MEMORY/${it.name}") }
         }
     }

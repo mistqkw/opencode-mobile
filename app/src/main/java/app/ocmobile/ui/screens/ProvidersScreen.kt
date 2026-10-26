@@ -72,6 +72,13 @@ fun ProvidersScreen(nav: Nav) {
     Column(Modifier.fillMaxSize().background(c.bg)) {
         TopBar("Providers", left = { IconBtn(Ic.Back, { nav.pop() }) })
         LazyColumn(Modifier.weight(1f).navigationBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp)) {
+            item {
+                Box(Modifier.padding(top = 4.dp)) {
+                    SettingsGroup {
+                        SettingsRow("Free models", subtitle = "Copilot, or no account at all", icon = Ic.Sparkle, chevron = true, onClick = { nav.push(app.ocmobile.ui.Route.Login) })
+                    }
+                }
+            }
             item { SectionLabel("Connected") }
             item {
                 if (connected.isEmpty()) Txt("Nothing connected yet", Modifier.padding(horizontal = 20.dp), size = 16.sp, color = c.textDim)
@@ -107,7 +114,8 @@ fun ProvidersScreen(nav: Nav) {
         OcDialog("Disconnect $id?", { disconnect = null }, "Disconnect", {
             disconnect = null
             scope.launch {
-                runCatching { Graph.api.removeAuth(id); Graph.api.disposeAll() }
+                if (id == app.ocmobile.data.FreeModels.COPILOT_ID || id == app.ocmobile.data.FreeModels.POLLINATIONS_ID) app.ocmobile.data.FreeModels.disable(id)
+                else runCatching { Graph.api.removeAuth(id); Graph.api.disposeAll() }
                 Graph.catalog.refresh(); load()
             }
         }, danger = true) { Txt("Stored credentials for this provider are removed from the phone.", size = 16.sp, color = Oc.c.textDim) }

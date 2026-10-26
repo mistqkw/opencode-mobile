@@ -171,7 +171,7 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
                 LazyColumn(Modifier.fillMaxSize(), state = listState, verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)) {
                     items(chat.messages, key = { it.id }) { m ->
                         val open = { u: String -> val l = imageList(); viewer = l to l.indexOf(u).coerceAtLeast(0) }
-                        Appear(animate = chat.live && m.id !in chat.initialIds, modifier = Modifier.animateItem()) {
+                        Appear(animate = chat.live && m.id !in chat.initialIds, modifier = Modifier.animateItem(fadeOutSpec = null)) {
                             if (m.info.isUser) UserBubble(m, open, onLong = { actionsFor = m })
                             else AssistantBlock(
                                 m, m === chat.messages.lastOrNull(), open, onLong = { actionsFor = m },
@@ -307,7 +307,7 @@ private fun RetryCard(r: app.ocmobile.data.RetryInfo, nav: Nav, onStop: () -> Un
         Txt(r.message, size = 15.sp, color = c.textDim, modifier = Modifier.padding(top = 8.dp), lineHeight = 21.sp)
         if (r.message.contains("Free usage", ignoreCase = true)) {
             Txt(
-                "The built-in free tier is limited per internet connection, not per app. It resets on its own. Signing in with GitHub or Google gives you a separate free allowance now.",
+                "The built-in free models are capped by OpenCode's server. The reset is not always applied, so waiting may not help. Switch to another free model below.",
                 size = 14.sp, color = c.textDim, modifier = Modifier.padding(top = 8.dp), lineHeight = 20.sp,
             )
         }
@@ -320,9 +320,13 @@ private fun RetryCard(r: app.ocmobile.data.RetryInfo, nav: Nav, onStop: () -> Un
             }
         }
         Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (r.message.contains("Free usage", ignoreCase = true) && Graph.prefs.signedIn.isBlank())
-                app.ocmobile.ui.components.SmallButton("Sign in", { nav.push(app.ocmobile.ui.Route.Login) }, filled = true)
-            else app.ocmobile.ui.components.SmallButton("Connect provider", { nav.push(app.ocmobile.ui.Route.Providers) }, filled = true)
+            if (r.message.contains("Free usage", ignoreCase = true)) {
+                val scope = androidx.compose.runtime.rememberCoroutineScope()
+                if (app.ocmobile.data.FreeModels.copilotAvailable())
+                    app.ocmobile.ui.components.SmallButton("Use Copilot", { scope.launch { runCatching { app.ocmobile.data.FreeModels.enableCopilot() }; Graph.chats.toasts.tryEmit("Switched to GPT-4.1 (Copilot). Send again.") } }, filled = true)
+                else app.ocmobile.ui.components.SmallButton("Free options", { nav.push(app.ocmobile.ui.Route.Login) }, filled = true)
+                app.ocmobile.ui.components.SmallButton("No account", { scope.launch { runCatching { app.ocmobile.data.FreeModels.enablePollinations() }; Graph.chats.toasts.tryEmit("Switched to GPT-OSS 20B (Pollinations). Send again.") } })
+            } else app.ocmobile.ui.components.SmallButton("Connect provider", { nav.push(app.ocmobile.ui.Route.Providers) }, filled = true)
             r.link?.let { l -> app.ocmobile.ui.components.SmallButton(r.label?.replaceFirstChar { it.uppercase() } ?: "Open", { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(l)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }) }
             app.ocmobile.ui.components.SmallButton("Stop", onStop, danger = true)
         }

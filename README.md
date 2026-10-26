@@ -26,6 +26,12 @@ Android-приложение, внутри которого живёт **сво�
 - Пасхалки: нажмите на надпись «opencode» на новом чате.
 
 <p align="center">
+  <img src="docs/screenshots/claude-chat.png" width="22%" alt="Chat (Claude)">
+  <img src="docs/screenshots/terminal-chat.png" width="22%" alt="Chat (Terminal)">
+  <img src="docs/screenshots/desktop-chat.png" width="22%" alt="Chat (Desktop)">
+</p>
+
+<p align="center">
   <img src="docs/screenshots/claude-models.png" width="22%" alt="Select model">
   <img src="docs/screenshots/claude-add.png" width="22%" alt="Add to session">
   <img src="docs/screenshots/desktop-models.png" width="22%" alt="Desktop picker">
@@ -35,8 +41,14 @@ Android-приложение, внутри которого живёт **сво�
 ## Установка
 1. Скачайте APK из [Releases](../../releases) и установите (разрешите установку из неизвестных источников).
 2. При первом запуске приложение скачает и распакует окружение (Ubuntu Base + OpenCode) — нужен интернет и место.
-3. Выберите модель. Бесплатные модели Zen работают без подписки, но у них общий дневной лимит на сеть (IP);
-   в Settings → Providers можно подключить GitHub Copilot, Google Gemini, Groq, OpenRouter или свой ключ.
+3. Выберите модель. Встроенные бесплатные модели Zen (OpenCode) ограничены на стороне сервера: лимит считает сам
+   сервис, сброс срабатывает не всегда, и этим страдают не только мобильные клиенты (см. issues OpenCode
+   [#58830](https://github.com/anomalyco/opencode/issues/58830), [#58814](https://github.com/anomalyco/opencode/issues/58814)).
+   Поэтому в приложении есть запасные бесплатные пути (Providers → Free models, а при ошибке лимита — кнопки в чате):
+   - **GitHub Copilot** — войти аккаунтом GitHub; доступны GPT-4.1, GPT-4o и GPT-4o mini (то, что реально отвечает на
+     бесплатном тарифе Copilot; сервер OpenCode 1.19.4 сам скрывает эти модели, поэтому приложение подключает их как отдельного провайдера);
+   - **Pollinations** — вообще без аккаунта, модель GPT-OSS 20B; сообщения уходят на pollinations.ai;
+   - свой ключ: Google Gemini, Groq, OpenRouter и другие (Settings → Providers).
 
 Бета: возможны ошибки. Сообщения об ошибках — в [Issues](../../issues).
 
@@ -60,7 +72,7 @@ export JAVA_HOME=~/toolchain/jdk
 Перед сборкой проверьте свободную память (`free -m`). APK: `app/build/outputs/apk/debug/`.
 
 ## Что не проверено
-Вход через GitHub Copilot после ввода кода и ключи Google/Groq/OpenRouter на разных аккаунтах,
+Ключи Google/Groq/OpenRouter на разных аккаунтах, Copilot на платных тарифах (набор моделей зашит из трёх проверенных),
 Auto Backup (восстановление после переустановки), светлые темы редакций, Android 14–16 в разных прошивках.
 
 ## Лицензии и оговорка

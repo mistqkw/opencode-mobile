@@ -87,6 +87,8 @@ fun LoginScreen(nav: Nav) {
     val c = Oc.c
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val copilotReady = remember { app.ocmobile.data.FreeModels.copilotAvailable() }
     fun leave() { Graph.prefs.loginSeen = true; if (!nav.pop()) nav.root(Route.Home) }
 
     Column(Modifier.fillMaxSize().background(c.bg).statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp)) {
@@ -98,12 +100,22 @@ fun LoginScreen(nav: Nav) {
             Spacer(Modifier.height(12.dp))
             Rise(shown, 2) {
                 Txt(
-                    "OpenCode's built-in free models share one limit per internet connection and can run out. Sign in below to get a free allowance of your own — no subscription.",
+                    "OpenCode's built-in free models are capped by the server and often stay blocked past the shown reset. Pick another free way below — no subscription.",
                     size = 16.sp, color = c.textDim, align = TextAlign.Center, lineHeight = 23.sp,
                 )
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (copilotReady) Rise(shown, 3) {
+                ProviderButton("Use GitHub Copilot", "Signed in · GPT-4.1, GPT-4o", Brand.GitHub) {
+                    scope.launch { runCatching { app.ocmobile.data.FreeModels.enableCopilot() }; leave() }
+                }
+            }
+            Rise(shown, 3) {
+                ProviderButton("No account needed", "Pollinations · GPT-OSS 20B · text goes to pollinations.ai", Brand.Key) {
+                    scope.launch { runCatching { app.ocmobile.data.FreeModels.enablePollinations() }; leave() }
+                }
+            }
             freeProviders.forEachIndexed { i, p ->
                 Rise(shown, 3 + i) {
                     ProviderButton("Continue with ${p.title}", p.note, when (p.id) { "github-copilot" -> Brand.GitHub; "google" -> Brand.Google; else -> Brand.Key }) { nav.push(Route.Connect(p.id)) }
