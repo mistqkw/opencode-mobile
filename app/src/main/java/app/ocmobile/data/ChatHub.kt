@@ -135,6 +135,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
                 if (t == "retry" && st != null) {
                     val a = st.obj("action")
                     retries.update { it + (id to RetryInfo(st.str("message") ?: "Retrying…", a?.str("label"), a?.str("link"), a?.str("title"), st.str("next")?.toLongOrNull())) }
+                    if (st.str("message")?.contains("Free usage", ignoreCase = true) == true && prefs.providerId != FreeModels.POLLINATIONS_ID) fallToPollinations(id)
                 } else retries.update { it - id }
             }
             "session.idle" -> p.str("sessionID")?.let { id -> statuses.update { it - id } }
@@ -219,6 +220,26 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             }
         }
         send(ctx, sessionId, text, atts, keep)
+    }
+
+    private var switching = false
+
+    /** Zen ответил лимитом: переключаемся на Pollinations (без аккаунта) и заново отправляем последнее сообщение. */
+    private fun fallToPollinations(id: String) {
+        if (switching) return
+        switching = true
+        Graph.scope.launch {
+            try {
+                val last = chats[id]?.messages?.lastOrNull { it.info.isUser } ?: return@launch
+                val text = last.parts.filter { it.type == "text" && it.raw.str("synthetic") != "true" }.joinToString("\n") { it.text }
+                if (text.isBlank()) return@launch
+                FreeModels.enablePollinations()
+                toasts.tryEmit("Zen is capped — switched to GPT-OSS 20B (Pollinations)")
+                edit(Graph.app, id, last, text, emptyList())
+            } catch (e: Exception) {
+                toasts.tryEmit(e.message ?: "Could not switch the model")
+            } finally { switching = false }
+        }
     }
 
     suspend fun createSession(directory: String): Session {

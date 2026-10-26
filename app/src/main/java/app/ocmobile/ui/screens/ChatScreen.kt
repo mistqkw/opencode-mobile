@@ -319,17 +319,18 @@ private fun RetryCard(r: app.ocmobile.data.RetryInfo, nav: Nav, onStop: () -> Un
                 Txt("Next attempt in " + (if (m >= 60) "${m / 60} h ${m % 60} min" else if (m >= 1) "$m min" else "${left / 1000} s"), size = 14.sp, color = c.text, modifier = Modifier.padding(top = 8.dp))
             }
         }
-        Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+        androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (r.message.contains("Free usage", ignoreCase = true)) {
                 val scope = androidx.compose.runtime.rememberCoroutineScope()
+                app.ocmobile.ui.components.SmallButton("Free options", { nav.push(app.ocmobile.ui.Route.Login) }, filled = true)
                 if (app.ocmobile.data.FreeModels.copilotAvailable())
-                    app.ocmobile.ui.components.SmallButton("Use Copilot", { scope.launch { runCatching { app.ocmobile.data.FreeModels.enableCopilot() }; Graph.chats.toasts.tryEmit("Switched to GPT-4.1 (Copilot). Send again.") } }, filled = true)
-                else app.ocmobile.ui.components.SmallButton("Free options", { nav.push(app.ocmobile.ui.Route.Login) }, filled = true)
+                    app.ocmobile.ui.components.SmallButton("Copilot", { scope.launch { runCatching { app.ocmobile.data.FreeModels.enableCopilot() }; Graph.chats.toasts.tryEmit("Switched to GPT-4.1 (Copilot). Send again.") } })
                 app.ocmobile.ui.components.SmallButton("No account", { scope.launch { runCatching { app.ocmobile.data.FreeModels.enablePollinations() }; Graph.chats.toasts.tryEmit("Switched to GPT-OSS 20B (Pollinations). Send again.") } })
             } else app.ocmobile.ui.components.SmallButton("Connect provider", { nav.push(app.ocmobile.ui.Route.Providers) }, filled = true)
             r.link?.let { l -> app.ocmobile.ui.components.SmallButton(r.label?.replaceFirstChar { it.uppercase() } ?: "Open", { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(l)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }) }
-            app.ocmobile.ui.components.SmallButton("Stop", onStop, danger = true)
         }
+        app.ocmobile.ui.components.SmallButton("Stop", onStop, Modifier.padding(top = 10.dp).fillMaxWidth(), filled = true, danger = true)
     }
 }
 

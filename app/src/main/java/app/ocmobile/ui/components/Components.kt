@@ -167,10 +167,10 @@ fun Pill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, fille
 fun SmallButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, filled: Boolean = false, danger: Boolean = false) {
     val c = Oc.c
     val shape = Oc.pill
-    val fg = if (filled) c.bg else if (danger) c.danger else c.text
+    val fg = if (filled && danger) androidx.compose.ui.graphics.Color.White else if (filled) c.bg else if (danger) c.danger else c.text
     Box(
         modifier.clip(shape)
-            .then(if (filled) Modifier.background(c.text) else Modifier.border(1.dp, if (danger) c.danger.copy(alpha = .5f) else c.border, shape))
+            .then(if (filled) Modifier.background(if (danger) c.danger else c.text) else Modifier.border(1.dp, if (danger) c.danger.copy(alpha = .5f) else c.border, shape))
             .tap(onClick = onClick).padding(horizontal = 16.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center,
     ) { Txt(text, size = 14.sp, color = fg, weight = FontWeight.Medium) }
