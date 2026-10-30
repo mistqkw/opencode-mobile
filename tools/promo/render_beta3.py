@@ -1,10 +1,13 @@
-"""Ролик к v0.0.1 beta-3, 1080x1920, 30 fps, ~25 с: надпись, телефон с новыми экранами, титры, финал.
+"""Ролик к v0.0.1 beta-3, 1080x1920, 30 fps, 15 тактов при 140 BPM (~25.7 с), под audio_b3.py.
+
+Подача: по одному экрану на два такта. Телефон влетает с наклоном попеременно слева и справа,
+рядом номер сцены и заголовок, тонкая выноска указывает на нужное место экрана. Между сценами —
+плоская синяя шторка ровно на долю.
 
     python3 render_beta3.py <папка с чистыми скриншотами> <выход.mp4> [аудио.wav]
 
 Нужны скриншоты: home, slash, skills, usage, phone, github-code (.png, после clean.py).
 """
-import math
 import os
 import subprocess
 import sys
@@ -12,69 +15,153 @@ import sys
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(__file__))
-from common import (BG, BLUE, DIM, GREEN, LINE, PANEL, PEACH, TEXT, clamp, font, in_out_cubic, lerp, mix,  # noqa: E402
-                    out_back, out_cubic, paste_alpha, phone_image, text, wordmark, wordmark_height)
+from common import (BG, BLUE, DIM, LINE, PANEL, PEACH, TEXT, clamp, font, in_out_cubic, lerp,  # noqa: E402
+                    out_back, out_cubic, phone_image, text, wordmark, wordmark_height)
 
 W, H, FPS = 1080, 1920, 30
-DUR = 25.0
-PW = 600
-GAP = 280
-SHOTS = ["home", "slash", "skills", "usage", "phone", "github-code"]
-# начало каждой сцены; телефон переезжает к следующему кадру за 0.5 с
-SCENES = [3.4, 6.8, 10.2, 13.4, 16.4, 19.4]
-TITLES = [
-    ("Meet the ball", "tap it, poke it, let it nap"),
-    ("Skills", "type / and pick one"),
-    ("Bring your skills", "import from Claude or ChatGPT,\nor make one right in the chat"),
-    ("Usage at a glance", "5-hour, weekly and monthly limits"),
-    ("It acts on your phone", "alarms, clipboard, photos, location"),
-    ("GitHub, as you", "commits and PRs with no co-authors"),
+BEAT = 60 / 140
+BAR = BEAT * 4
+BARS = 15
+DUR = BARS * BAR
+PW = 560
+PY = 520
+
+# снимок, заголовок в две строки, точка выноски (доли экрана), подпись выноски
+SCENES = [
+    ("home", ("A ball", "that reacts"), (0.5, 0.36), "tap it, poke it,\nlet it nap"),
+    ("slash", ("Skills", "behind a slash"), (0.5, 0.60), "/name loads\nthe skill"),
+    ("skills", ("Your skills", "come along"), (0.27, 0.43), "from Claude or\nChatGPT, or make\none in the chat"),
+    ("usage", ("Limits", "at a glance"), (0.5, 0.29), "5 hours, week\nand month"),
+    ("phone", ("Hands on", "your phone"), (0.88, 0.265), "alarms, clipboard,\nphotos, location"),
+    ("github-code", ("GitHub,", "signed as you"), (0.5, 0.27), "one code, then\ngit push with no\nco-authors"),
 ]
-END = 22.4
+S0 = 2 * BAR            # начало первой сцены
+SL = 2 * BAR            # длина сцены
+END = S0 + len(SCENES) * SL
 
 
-def idx_at(t):
-    v = 0.0
-    for k, t0 in enumerate(SCENES[1:], start=1):
-        t0 -= 0.25
-        if t >= t0 + 0.5:
-            v = float(k)
-        elif t >= t0:
-            v = lerp(k - 1, k, in_out_cubic((t - t0) / 0.5))
-            break
-        else:
-            break
-    return v
+def dots(c):
+    d = ImageDraw.Draw(c)
+    for x in range(30, W, 60):
+        for y in range(30, H, 60):
+            d.rectangle([x, y, x + 1, y + 1], fill=(30, 30, 30))
 
 
-def caption(c, t, k):
-    t_in, t_out = SCENES[k], (SCENES[k + 1] if k + 1 < len(SCENES) else END) - 0.3
-    title, sub = TITLES[k]
-    for j, (s, kind, size, color, y) in enumerate([(title, "sans", 96, TEXT, 130), (sub, "mono", 36, DIM, 262)]):
-        p = out_cubic((t - t_in - j * 0.15) / 0.5)
-        q = clamp((t - t_out) / 0.25)
-        a = p * (1 - q)
-        if a <= 0:
-            continue
-        yy = y + (1 - p) * 60 - q * 30
-        for n, part in enumerate(s.split("\n")):
-            text(c, (W // 2, yy + n * 50), part, kind, size, color, "ma", a)
-
-
-def chip(c, x, y, label, a, dot=BLUE, w=None):
-    f = font("mono", 36)
-    wd = w or ImageDraw.Draw(c).textlength(label, font=f) + 96
+def overlay(c, draw_fn):
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ld = ImageDraw.Draw(layer)
-    al = int(255 * a)
-    ld.rounded_rectangle([x, y, x + wd, y + 84], radius=42, fill=(24, 24, 24, al), outline=LINE + (al,), width=2)
-    ld.ellipse([x + 26, y + 33, x + 44, y + 51], fill=dot + (al,))
+    draw_fn(ImageDraw.Draw(layer))
     c.paste(layer, (0, 0), layer)
-    text(c, (x + 62, y + 42), label, "mono", 36, TEXT, "lm", a)
+
+
+def intro(c, t):
+    s = "opencode mobile"
+    shown = s[: max(0, int(t * 15))]
+    up = in_out_cubic((t - 3.0) / 0.4) * 160
+    y = 1180 - up
+    f = font("mono", 54)
+    text(c, (120, y), "›", "monob", 54, BLUE)
+    text(c, (170, y), shown, "mono", 54, TEXT)
+    if len(shown) < len(s) or int(t / BEAT * 2) % 2 == 0:
+        x = 170 + ImageDraw.Draw(c).textlength(shown, font=f) + 6
+        ImageDraw.Draw(c).rectangle([x, y + 4, x + 26, y + 62], fill=BLUE)
+    if t >= BAR:
+        wm_w = 880
+        wordmark(c, 100, 700 - up, wm_w, enter=clamp((t - BAR) / (BEAT * 2)))
+        p = out_back((t - BAR - BEAT * 2) / 0.35, 1.6)
+        if p > 0:
+            lbl = "beta-3"
+            wd = ImageDraw.Draw(c).textlength(lbl, font=font("monob", 40)) + 56
+            x0, y0 = 100, 700 - up + wordmark_height(wm_w) + 50
+            sc = p
+            overlay(c, lambda d: d.rounded_rectangle([x0, y0, x0 + wd * sc, y0 + 70], radius=35, fill=PEACH + (255,)))
+            if p > 0.9:
+                text(c, (x0 + 28, y0 + 35), lbl, "monob", 40, BG, "lm")
+
+
+def scene(c, t, k, phones):
+    name, (l1, l2), (fx, fy), label = SCENES[k]
+    t0 = S0 + k * SL
+    lt = t - t0
+    right = k % 2 == 0
+    ph = phones[k]
+    px_rest = W - PW - 60 if right else 60
+    # вход: из-за края с наклоном, пружиной
+    p = out_back(lt / 0.5, 1.15)
+    px = lerp(W + 40 if right else -PW - 40, px_rest, p)
+    ang = (1 - clamp(lt / 0.5)) * (-9 if right else 9)
+    if abs(ang) > 0.05:
+        r = ph.rotate(ang, resample=Image.BICUBIC, expand=True)
+        c.paste(r, (int(px - (r.width - ph.width) / 2), int(PY - (r.height - ph.height) / 2)), r)
+    else:
+        c.paste(ph, (int(px), PY), ph)
+
+    # номер и заголовок: строки на долях
+    tx = 70 if right else W - 70
+    anc = "la" if right else "ra"
+    text(c, (tx, 120), f"0{k + 1} / 06", "mono", 30, DIM, anc, clamp(lt / 0.2))
+    for j, (s, col) in enumerate(((l1, TEXT), (l2, BLUE))):
+        a = out_cubic((lt - j * BEAT) / 0.3)
+        if a > 0:
+            text(c, (tx + (1 - a) * (-50 if right else 50), 170 + j * 100), s, "sans", 88, col, anc, a)
+
+    # выноска: точка на экране, линия к подписи на свободной стороне
+    rim = max(6, PW // 60)
+    sw = PW - 2 * rim
+    sh = ph.height - 2 * rim
+    tx_, ty_ = px_rest + rim + fx * sw, PY + rim + fy * sh
+    lp = in_out_cubic((lt - BEAT * 2) / 0.35)
+    if lp > 0 and p > 0.99:
+        lx_end = (px_rest - 40) if right else (px_rest + PW + 40)
+        x2 = lerp(tx_, lx_end, lp)
+
+        def draw(d):
+            d.line([tx_, ty_, x2, ty_], fill=TEXT + (255,), width=2)
+            d.ellipse([tx_ - 9, ty_ - 9, tx_ + 9, ty_ + 9], fill=BLUE + (255,), outline=TEXT + (255,), width=2)
+        overlay(c, draw)
+        if lp >= 1:
+            lines = label.split("\n")
+            total = sum(len(s) for s in lines)
+            n = int((lt - BEAT * 2 - 0.35) * 70)
+            for i, s in enumerate(lines):
+                before = sum(len(x) for x in lines[:i])
+                part = s[: max(0, min(len(s), n - before))]
+                if part:
+                    if right:
+                        text(c, (lx_end - 10, ty_ - 16 + i * 46), part, "mono", 36, TEXT, "ra")
+                    else:
+                        text(c, (lx_end + 10, ty_ - 16 + i * 46), part, "mono", 36, TEXT, "la")
+            _ = total
+
+
+def outro(c, t):
+    lt = t - END
+    wm_w = 900
+    y0 = 700
+    wordmark(c, 90, y0, wm_w, enter=clamp(lt / (BEAT * 1.5)))
+    hh = wordmark_height(wm_w)
+    text(c, (W // 2, y0 + hh + 70), "mobile · v0.0.1 beta-3", "monob", 50, PEACH, "ma", out_cubic((lt - BEAT * 2) / 0.3))
+    a = out_cubic((lt - BEAT * 3) / 0.3)
+    if a > 0:
+        s = "github.com/mistqkw/opencode-mobile"
+        f = font("mono", 36)
+        wd = ImageDraw.Draw(c).textlength(s, font=f)
+        x0, yy = W / 2 - wd / 2 - 36, y0 + hh + 200 + (1 - a) * 30
+        overlay(c, lambda d: d.rounded_rectangle([x0, yy, x0 + wd + 72, yy + 92], radius=46, fill=PANEL + (int(255 * a),), outline=LINE + (int(255 * a),), width=2))
+        text(c, (W / 2, yy + 46), s, "mono", 36, TEXT, "mm", a)
+    text(c, (W // 2, y0 + hh + 350), "Android · unofficial OpenCode client", "mono", 28, DIM, "ma", out_cubic((lt - BEAT * 4) / 0.3))
+
+
+def wipe(c, t):
+    """Синяя шторка через кадр на каждой смене сцены."""
+    for tc in [S0 + i * SL for i in range(len(SCENES) + 1)]:
+        p = (t - (tc - 0.16)) / 0.32
+        if 0 <= p <= 1:
+            x0 = lerp(-W, W, in_out_cubic(p))
+            ImageDraw.Draw(c).rectangle([x0, 0, x0 + W, H], fill=BLUE)
 
 
 def render(shots_dir, out, audio=None):
-    phones = [phone_image(Image.open(os.path.join(shots_dir, n + ".png")), PW) for n in SHOTS]
+    phones = [phone_image(Image.open(os.path.join(shots_dir, s[0] + ".png")), PW) for s in SCENES]
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-"]
     if audio:
         cmd += ["-i", audio, "-c:a", "aac", "-b:a", "160k", "-shortest"]
@@ -83,81 +170,14 @@ def render(shots_dir, out, audio=None):
     for fi in range(int(DUR * FPS)):
         t = fi / FPS
         c = Image.new("RGB", (W, H), BG)
-
-        # ---------- 0–3.6: надпись и печатная строка ----------
-        if t < 3.6:
-            wm_w, y0 = 940, 760
-            fade = clamp((t - 3.0) / 0.4)
-            eff, p = (("glitch", (t - 2.0) / 0.9) if 2.0 <= t < 2.9 else (None, 1.0))
-            wc = Image.new("RGB", (W, H), BG)
-            wordmark(wc, 70, y0 - fade * 60, wm_w, enter=clamp(t / 1.3), effect=eff, p=p, sweep=((t - 1.3) / 1.2 if 1.3 < t < 2.5 else None))
-            c = Image.blend(wc, c, fade) if fade > 0 else wc
-            s = "beta-3: skills, GitHub, your phone."
-            shown = s[: max(0, int((t - 1.4) * 22))]
-            ty = y0 + wordmark_height(wm_w) + 90 - fade * 60
-            f = font("mono", 38)
-            fullw = ImageDraw.Draw(c).textlength(s, font=f)
-            xs = W / 2 - fullw / 2
-            if shown:
-                text(c, (xs, ty), shown, "mono", 38, DIM, "la", 1 - fade)
-            if t > 1.4 and (len(shown) < len(s) or int(t * 2.4) % 2 == 0) and fade < 1:
-                cx0 = xs + ImageDraw.Draw(c).textlength(shown, font=f) + 4
-                ImageDraw.Draw(c).rectangle([cx0, ty + 2, cx0 + 19, ty + 44], fill=mix(BLUE, BG, fade))
-
-        # ---------- телефон 3.2–22.6 ----------
-        if 3.2 <= t < END + 0.4:
-            phone_in = out_back((t - 3.2) / 0.75, 1.3)
-            phone_out = in_out_cubic((t - END) / 0.6)
-            py_rest = 400
-            py = lerp(H + 40, py_rest, phone_in) + phone_out * (H - py_rest)
-            idx = idx_at(t)
-            cx = (W - PW) / 2
-            for i, ph in enumerate(phones):
-                off = (i - idx) * (PW + GAP)
-                if abs(off) < W:
-                    paste_alpha(c, ph, cx + off, py, 1.0)
-
-            # навыки вылетают по бокам телефона
-            k = int(round(idx))
-            if k in (1, 2):
-                base = SCENES[1]
-                outq = clamp((t - (SCENES[3] - 0.5)) / 0.35)
-                for j, (label, y, side) in enumerate([("/madkid", 760, -1), ("/texfi", 980, 1), ("/flstudio", 1200, -1), ("/review", 1420, 1)]):
-                    p = out_back((t - base - 0.5 - j * 0.25) / 0.6, 1.2)
-                    if p <= 0:
-                        continue
-                    wd = 330
-                    xt = 24 if side < 0 else W - 24 - wd
-                    xs = -wd - 20 if side < 0 else W + 20
-                    chip(c, lerp(xs, xt, p), y + math.sin(t * 2.0 + j) * 8, label, 1 - outq, w=wd)
-            if k == 5:
-                p = out_back((t - SCENES[5] - 0.6) / 0.6, 1.2)
-                if p > 0:
-                    wd = 520
-                    chip(c, lerp(W + 20, (W - wd) / 2, p), 1520, "git push · as you", 1 - clamp((t - END + 0.4) / 0.3), dot=GREEN, w=wd)
-
-            for k2 in range(len(SCENES)):
-                caption(c, t, k2)
-
-        # ---------- финал ----------
-        if t >= END - 0.1:
-            wm_w, y0 = 900, 640
-            eff, p = (("wave", clamp((t - (END + 2.4)) / 0.9)) if t >= END + 2.4 else (None, 1.0))
-            wordmark(c, 90, y0, wm_w, enter=clamp((t - END + 0.1) / 1.2), effect=eff, p=p)
-            hh = wordmark_height(wm_w)
-            text(c, (W // 2, y0 + hh + 70), "mobile · v0.0.1 beta-3", "monob", 52, PEACH, "ma", out_cubic((t - END - 0.9) / 0.5))
-            a2 = out_cubic((t - END - 1.3) / 0.5)
-            if a2 > 0:
-                f = font("mono", 38)
-                s = "github.com/mistqkw/opencode-mobile"
-                wd = ImageDraw.Draw(c).textlength(s, font=f)
-                x0, yy = W / 2 - wd / 2 - 40, y0 + hh + 210 + (1 - a2) * 40
-                layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-                ImageDraw.Draw(layer).rounded_rectangle([x0, yy, x0 + wd + 80, yy + 100], radius=16, fill=BLUE + (int(255 * a2),))
-                c.paste(layer, (0, 0), layer)
-                text(c, (W / 2, yy + 50), s, "mono", 38, (10, 10, 10), "mm", a2)
-            text(c, (W // 2, y0 + hh + 360), "Android · unofficial OpenCode client", "mono", 30, DIM, "ma", out_cubic((t - END - 1.8) / 0.5))
-
+        dots(c)
+        if t < S0:
+            intro(c, t)
+        elif t < END:
+            scene(c, t, int((t - S0) // SL), phones)
+        else:
+            outro(c, t)
+        wipe(c, t)
         ff.stdin.write(c.tobytes())
     ff.stdin.close()
     ff.wait()
