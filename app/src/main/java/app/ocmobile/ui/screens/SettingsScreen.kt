@@ -1,6 +1,7 @@
 package app.ocmobile.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +56,7 @@ import app.ocmobile.ui.theme.Oc
 fun ChoiceDialog(title: String, options: List<Triple<String, String, ImageVector?>>, selected: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
     val c = Oc.c
     Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.clip(Oc.round(32.dp)).background(c.bg).border(1.dp, c.border, Oc.round(32.dp)).padding(vertical = 12.dp)) {
+        Column(Modifier.clip(Oc.round(32.dp)).background(c.bg).border(1.dp, c.border, Oc.round(32.dp)).heightIn(max = 600.dp).verticalScroll(rememberScrollState()).padding(vertical = 12.dp)) {
             Txt(title, Modifier.padding(start = 24.dp, top = 16.dp, bottom = 10.dp), size = 22.sp)
             options.forEach { (k, l, ic) -> ChoiceRow(l, k == selected, { onSelect(k); onDismiss() }, icon = ic) }
         }
@@ -85,8 +86,13 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
     Column(Modifier.fillMaxSize().background(c.bg)) {
         TopBar("Settings", left = { IconBtn(Ic.Menu, onMenu) }, right = { IconBtn(Ic.Info, { nav.push(Route.About) }) }, serif = true)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
-            // Карточка аккаунта
-            Row(
+            // Карточка аккаунта (в Messenger — профиль, как в Telegram)
+            if (Oc.look.id == "messenger") Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Avatar(96.dp) { nav.push(Route.Profile) }
+                Spacer(Modifier.height(12.dp))
+                Txt(prefs.userName.ifBlank { "OpenCode" }, size = 22.sp, weight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                Txt(if (hasGo) "OpenCode Go" else "free models", size = 14.sp, color = c.link, modifier = Modifier.padding(top = 2.dp))
+            } else Row(
                 Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(22.dp)).border(1.dp, c.border, Oc.round(22.dp))
                     .clickable { nav.push(if (prefs.signedIn.isBlank()) Route.Login else Route.Providers) }.padding(horizontal = 20.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -117,38 +123,37 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
                 }
             } else Spacer(Modifier.height(16.dp))
 
+            // Как в Claude: четыре коротких группы, остальное — на вложенных экранах.
             SettingsGroup {
                 SettingsRow("Profile", icon = Ic.User, onClick = { nav.push(Route.Profile) })
                 SettingsRow("Billing", icon = Ic.Dollar, onClick = { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://opencode.ai/console")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) })
-                SettingsRow("Providers", icon = Ic.Key, onClick = { nav.push(Route.Providers) })
                 SettingsRow("Usage", icon = Ic.Drop, onClick = { nav.push(Route.Usage) })
             }
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
-                SettingsRow("Model", subtitle = modelLabel, icon = Ic.Cpu, onClick = { modelSheet = true })
-                SettingsRow("Models & small model", icon = Ic.Sparkle, onClick = { nav.push(Route.Models) })
-                SettingsRow("Memory", subtitle = if (prefs.memoryEnabled) "${app.ocmobile.data.Memory.shelves().size} shelves" else "Off", icon = Ic.Scroll, onClick = { nav.push(Route.Memory) })
-                SettingsRow("Agents", subtitle = prefs.agent.replaceFirstChar { it.uppercase() }, icon = Ic.Bot, onClick = { nav.push(Route.Agents) })
-                SettingsRow("Permissions", subtitle = mapOf("ask" to "Ask", "edits" to "Auto-edit", "auto" to "Auto")[prefs.permissionMode], icon = Ic.Shield, onClick = { nav.push(Route.PermissionsCfg) })
+                SettingsRow("Capabilities", subtitle = listOfNotNull("Memory".takeIf { prefs.memoryEnabled }, modelLabel.takeIf { it.isNotBlank() }).joinToString(" · "), icon = Ic.Sliders, onClick = { nav.push(Route.Capabilities) })
+                SettingsRow("OpenCode", subtitle = serverText, icon = Ic.Terminal, onClick = { nav.push(Route.OcSettings) })
                 SettingsRow("Connectors", subtitle = "MCP servers", icon = Ic.Puzzle, onClick = { nav.push(Route.Connectors) })
-                SettingsRow("Skills & commands", icon = Ic.Scroll, onClick = { nav.push(Route.Skills) })
+                SettingsRow("GitHub", subtitle = if (app.ocmobile.data.GitHub.signedIn) "@" + prefs.githubLogin else "Let OpenCode work with your repos", icon = Ic.GitHub, onClick = { nav.push(Route.GitHub) })
+                SettingsRow("Phone tools", subtitle = if (prefs.phoneTools) "OpenCode can act on this phone" else "Off", icon = Ic.Phone, onClick = { nav.push(Route.PhoneTools) })
+                SettingsRow("Permissions", subtitle = mapOf("ask" to "Ask", "edits" to "Auto-edit", "auto" to "Auto")[prefs.permissionMode], icon = Ic.Shield, onClick = { nav.push(Route.PermissionsCfg) })
             }
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
-                SettingsRow("Local server", subtitle = serverText, icon = Ic.Server, onClick = { nav.push(Route.Server) })
-                SettingsRow("Config (opencode.json)", icon = Ic.Code, onClick = { nav.push(Route.ConfigEditor) })
-            }
-            Spacer(Modifier.height(16.dp))
-            SettingsGroup {
-                SettingsRow("Interface", subtitle = when (prefs.edition) { "terminal" -> "OpenCode · Terminal"; "desktop" -> "OpenCode · Desktop"; else -> "Claude" }, icon = Ic.Laptop, onClick = { nav.push(Route.Edition) })
+                SettingsRow("Interface", subtitle = app.ocmobile.ui.theme.Looks.of(prefs.edition).title, icon = Ic.Laptop, onClick = { nav.push(Route.Edition) })
                 SettingsRow("Color mode", subtitle = prefs.colorMode.replaceFirstChar { it.uppercase() }, icon = Ic.Moon, onClick = { dialog = "color" })
-                SettingsRow("Font style", subtitle = if (prefs.fontStyle == "default") "Default" else "System", icon = Ic.Edit, onClick = { dialog = "font" })
-                SettingsRow("Text size", subtitle = prefs.textSize.replaceFirstChar { it.uppercase() }, icon = Ic.File, onClick = { dialog = "size" })
-                SettingsRow("Display size", subtitle = when (prefs.uiScale) { "90" -> "Compact"; "110" -> "Large"; "120" -> "Extra large"; else -> "Default" }, icon = Ic.Expand, onClick = { dialog = "scale" })
-                SettingsRow("Code font", subtitle = if (prefs.codeFont == "mono") "Monospace" else "System", icon = Ic.Terminal, onClick = { dialog = "code" })
-                SettingsRow("Wrap long lines", icon = Ic.Diff, trailing = { OcSwitch(prefs.wrapLines) { prefs.wrapLines = it } })
-                SettingsRow("App icon", subtitle = AppIcons.all.firstOrNull { it.id == prefs.appIcon }?.label, icon = Ic.Image, onClick = { iconSheet = true })
+                SettingsRow("Font style", subtitle = if (prefs.fontStyle == "default") "Default" else "System", icon = Ic.FontSize, onClick = { nav.push(Route.Appearance) })
+                SettingsRow("Voice", subtitle = app.ocmobile.data.Speech.label(), icon = Ic.Waveform, onClick = { dialog = "voice" })
+            }
+            Spacer(Modifier.height(16.dp))
+            SettingsGroup {
                 SettingsRow("Haptic feedback", icon = Ic.Vibrate, trailing = { OcSwitch(prefs.haptics) { prefs.haptics = it } })
+                SettingsRow("Progress on lock screen", subtitle = "What the agent is doing, with Allow / Deny buttons", icon = Ic.ListCheck, trailing = { OcSwitch(prefs.liveNotify) { prefs.liveNotify = it } })
+                SettingsRow("Cost before sending", subtitle = "A hint under the message field", icon = Ic.Dollar, trailing = { OcSwitch(prefs.costHint) { prefs.costHint = it } })
+                SettingsRow("Notifications", icon = Ic.Bell, onClick = {
+                    ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                })
+                SettingsRow("App icon", subtitle = AppIcons.all.firstOrNull { it.id == prefs.appIcon }?.label, icon = Ic.Image, onClick = { iconSheet = true })
             }
             if (prefs.signedIn.isNotBlank()) {
                 Spacer(Modifier.height(16.dp))
@@ -167,6 +172,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
     }
 
     when (dialog) {
+        "voice" -> ChoiceDialog("Speech language", app.ocmobile.data.Speech.languages.map { Triple(it.first, it.second, null) }, prefs.speechLang, { prefs.speechLang = it }) { dialog = null }
         "color" -> ChoiceDialog("Color mode", listOf(Triple("system", "System", Ic.Phone), Triple("light", "Light", Ic.Sun), Triple("dark", "Dark", Ic.Moon)), prefs.colorMode, { prefs.colorMode = it }) { dialog = null }
         "font" -> ChoiceDialog("Font style", listOf(Triple("default", "Default (serif headings)", null), Triple("system", "System", Ic.Phone)), prefs.fontStyle, { prefs.fontStyle = it }) { dialog = null }
         "size" -> ChoiceDialog("Text size", listOf(Triple("small", "Small", null), Triple("medium", "Medium", null), Triple("large", "Large", null)), prefs.textSize, { prefs.textSize = it }) { dialog = null }
@@ -175,4 +181,78 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
     }
     if (modelSheet) ModelSheet { modelSheet = false }
     if (iconSheet) IconPickerSheet { iconSheet = false }
+}
+
+/** «Capabilities»: модель, память, агенты, навыки — то, что в Claude лежит в одноимённом разделе. */
+@Composable
+fun CapabilitiesScreen(nav: Nav) {
+    val c = Oc.c
+    val prefs = Graph.prefs
+    var modelSheet by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().background(c.bg)) {
+        TopBar("Capabilities", left = { IconBtn(Ic.Back, { nav.pop() }) }, serif = true)
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
+            SettingsGroup {
+                SettingsRow("Model", subtitle = Graph.catalog.selectedLabel(), icon = Ic.Cpu, onClick = { modelSheet = true })
+                SettingsRow("Models & small model", icon = Ic.Sparkle, onClick = { nav.push(Route.Models) })
+            }
+            Spacer(Modifier.height(16.dp))
+            SettingsGroup {
+                SettingsRow("Memory", subtitle = if (prefs.memoryEnabled) "${app.ocmobile.data.Memory.shelves().size} shelves" else "Off", icon = Ic.Scroll, onClick = { nav.push(Route.Memory) })
+                SettingsRow("Agents", subtitle = prefs.agent.replaceFirstChar { it.uppercase() }, icon = Ic.Bot, onClick = { nav.push(Route.Agents) })
+                SettingsRow("Skills", subtitle = "${app.ocmobile.data.Skills.local().size} skills · type / in a chat", icon = Ic.Scroll, onClick = { nav.push(Route.Skills) })
+            }
+        }
+    }
+    if (modelSheet) ModelSheet { modelSheet = false }
+}
+
+/** «OpenCode»: сервер на телефоне, провайдеры, конфиг — как раздел Claude Code в Claude. */
+@Composable
+fun OcSettingsScreen(nav: Nav) {
+    val c = Oc.c
+    val rt by Graph.runtime.state.collectAsState()
+    Column(Modifier.fillMaxSize().background(c.bg)) {
+        TopBar("OpenCode", left = { IconBtn(Ic.Back, { nav.pop() }) }, serif = true)
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
+            SettingsGroup {
+                SettingsRow("Providers", subtitle = "Sign-ins and API keys", icon = Ic.Key, onClick = { nav.push(Route.Providers) })
+                SettingsRow("Local server", subtitle = when (rt) {
+                    is RuntimeState.Running -> "Running · OpenCode ${(rt as RuntimeState.Running).version}"
+                    is RuntimeState.Starting -> "Starting…"; is RuntimeState.Crashed -> "Restarting…"; else -> "Stopped"
+                }, icon = Ic.Server, onClick = { nav.push(Route.Server) })
+                SettingsRow("Config (opencode.json)", icon = Ic.Code, onClick = { nav.push(Route.ConfigEditor) })
+                SettingsRow("Backup & move", subtitle = "Everything in one file", icon = Ic.Archive, onClick = { nav.push(Route.Backup) })
+            }
+        }
+    }
+}
+
+/** «Font style»: шрифт, размер текста и интерфейса, код — одним экраном вместо пяти строк. */
+@Composable
+fun AppearanceScreen(nav: Nav) {
+    val c = Oc.c
+    val prefs = Graph.prefs
+    var dialog by remember { mutableStateOf<String?>(null) }
+    Column(Modifier.fillMaxSize().background(c.bg)) {
+        TopBar("Font style", left = { IconBtn(Ic.Back, { nav.pop() }) }, serif = true)
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
+            SettingsGroup {
+                SettingsRow("Font", subtitle = if (prefs.fontStyle == "default") "Default (serif replies)" else "System", icon = Ic.FontSize, onClick = { dialog = "font" })
+                SettingsRow("Text size", subtitle = prefs.textSize.replaceFirstChar { it.uppercase() }, icon = Ic.File, onClick = { dialog = "size" })
+                SettingsRow("Display size", subtitle = when (prefs.uiScale) { "90" -> "Compact"; "110" -> "Large"; "120" -> "Extra large"; else -> "Default" }, icon = Ic.Expand, onClick = { dialog = "scale" })
+            }
+            Spacer(Modifier.height(16.dp))
+            SettingsGroup {
+                SettingsRow("Code font", subtitle = if (prefs.codeFont == "mono") "Monospace" else "System", icon = Ic.Terminal, onClick = { dialog = "code" })
+                SettingsRow("Wrap long lines", icon = Ic.Diff, trailing = { OcSwitch(prefs.wrapLines) { prefs.wrapLines = it } })
+            }
+        }
+    }
+    when (dialog) {
+        "font" -> ChoiceDialog("Font", listOf(Triple("default", "Default (serif replies)", null), Triple("system", "System", Ic.Phone)), prefs.fontStyle, { prefs.fontStyle = it }) { dialog = null }
+        "size" -> ChoiceDialog("Text size", listOf(Triple("small", "Small", null), Triple("medium", "Medium", null), Triple("large", "Large", null)), prefs.textSize, { prefs.textSize = it }) { dialog = null }
+        "scale" -> ChoiceDialog("Display size", listOf(Triple("90", "Compact", null), Triple("100", "Default", null), Triple("110", "Large", null), Triple("120", "Extra large", null)), prefs.uiScale, { prefs.uiScale = it }) { dialog = null }
+        "code" -> ChoiceDialog("Code font", listOf(Triple("mono", "Monospace", null), Triple("system", "System", null)), prefs.codeFont, { prefs.codeFont = it }) { dialog = null }
+    }
 }

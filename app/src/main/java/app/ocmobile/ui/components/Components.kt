@@ -122,6 +122,8 @@ fun IconBtn(
     iconSize: Dp = 24.dp,
     bg: Color? = null,
 ) {
+    // Kimi: кнопки верхней панели — круги с обводкой
+    if (LocalInTopBar.current && Oc.look.id == "kimi") return KimiCircleBtn(icon, onClick, tint = if (tint == Oc.c.textDim) Oc.c.text else tint)
     Box(
         modifier.size(size).clip(Oc.pill).then(if (bg != null) Modifier.background(bg) else Modifier).tap(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -136,12 +138,18 @@ fun TopBar(
     serif: Boolean = false,
 ) {
     Box(Modifier.fillMaxWidth().statusBarsPadding().height(64.dp).padding(horizontal = 8.dp)) {
-        Box(Modifier.align(Alignment.CenterStart)) { left?.invoke() }
-        if (title != null) {
-            if (serif) Heading(title, Modifier.align(Alignment.Center).padding(horizontal = 56.dp), size = 22.sp)
-            else Txt(title, Modifier.align(Alignment.Center).padding(horizontal = 56.dp), size = 20.sp, weight = FontWeight.Medium, maxLines = 1)
+        Box(Modifier.align(Alignment.CenterStart)) { androidx.compose.runtime.CompositionLocalProvider(LocalInTopBar provides true) { left?.invoke() } }
+        if (title != null) when (Oc.look.id) {
+            // Hairline: моно-заголовок капсом; Messenger: заголовок слева, как в Telegram
+            "hairline" -> Txt(title.uppercase(), Modifier.align(Alignment.Center).padding(horizontal = 56.dp), size = 13.sp, family = Oc.label, maxLines = 1)
+            "kimi" -> Txt(title, Modifier.align(Alignment.Center).padding(horizontal = 64.dp), size = 20.sp, weight = FontWeight.SemiBold, maxLines = 1)
+            "messenger" -> Txt(title, Modifier.align(Alignment.CenterStart).padding(start = if (left != null) 60.dp else 12.dp, end = 56.dp), size = 20.sp, weight = FontWeight.SemiBold, maxLines = 1)
+            else -> if (serif) Heading(title, Modifier.align(Alignment.Center).padding(horizontal = 56.dp), size = 22.sp)
+                else Txt(title, Modifier.align(Alignment.Center).padding(horizontal = 56.dp), size = 20.sp, weight = FontWeight.Medium, maxLines = 1)
         }
-        Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, content = right)
+        androidx.compose.runtime.CompositionLocalProvider(LocalInTopBar provides true) {
+            Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (Oc.look.id == "kimi") 8.dp else 0.dp), content = right)
+        }
     }
 }
 
@@ -181,6 +189,13 @@ fun OcSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     val c = Oc.c
     val track by animateColorAsState(if (checked) c.toggleOn else c.surfaceHigh, tween(160), label = "track")
     val x by animateDpAsState(if (checked) 22.dp else 2.dp, tween(160), label = "thumb")
+    if (Oc.look.id == "hairline") {
+        // Hairline: прямоугольный переключатель из линий
+        Box(Modifier.width(48.dp).height(26.dp).border(1.dp, if (checked) c.accent else c.border, RoundedCornerShape(3.dp)).clickable { onChange(!checked) }) {
+            Box(Modifier.offset(x * 0.86f + 1.dp, 3.dp).size(20.dp).clip(RoundedCornerShape(2.dp)).background(if (checked) c.accent else c.textDim))
+        }
+        return
+    }
     Box(
         Modifier.width(52.dp).height(32.dp).clip(CircleShape).background(track).clickable { onChange(!checked) },
     ) {
@@ -190,17 +205,36 @@ fun OcSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
 
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
-    Txt(text, modifier.padding(start = 20.dp, top = 22.dp, bottom = 10.dp), size = 15.sp, color = Oc.c.textDim)
+    val c = Oc.c
+    val m = modifier.padding(start = 20.dp, top = 22.dp, bottom = 10.dp)
+    when (Oc.look.id) {
+        "hairline" -> Txt(text.uppercase(), m, size = 11.sp, color = c.textDim, family = Oc.label)
+        "notebook" -> Text(text, m.padding(start = 8.dp), fontSize = 16.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+        "messenger" -> Txt(text, m, size = 15.sp, color = c.link, weight = FontWeight.SemiBold)
+        "cards" -> Txt(text, m, size = 13.sp, color = c.textDim, weight = FontWeight.SemiBold)
+        else -> Txt(text, m, size = 15.sp, color = c.textDim)
+    }
 }
+
+/** Цветные квадратики под иконками настроек в Messenger — как в Telegram. */
+private val tgColors = listOf(0xFFF2564E, 0xFFF49B34, 0xFF45B649, 0xFF3D8BF2, 0xFF9B6BEB, 0xFF3DB4E6, 0xFFEF5DA8, 0xFF5C6BC0)
+private fun tgColor(key: String) = Color(tgColors[(key.hashCode() and 0x7fffffff) % tgColors.size])
 
 /** Группа строк в одной «плитке»: между строками щель в 2 dp, края скруглены. */
 @Composable
 fun SettingsGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-        content = content,
-    )
+    val c = Oc.c
+    // щели между строками окрашены фоном группы: так получаются линии 1px без отдельных разделителей
+    val m = when (Oc.look.id) {
+        "hairline" -> modifier.padding(horizontal = 16.dp).fillMaxWidth().border(1.dp, c.border).background(c.border)
+        "notebook" -> modifier.padding(horizontal = 24.dp).fillMaxWidth().background(c.border).padding(vertical = 1.dp)
+        "messenger" -> modifier.fillMaxWidth().background(c.border)
+        "cards" -> modifier.padding(horizontal = 16.dp).fillMaxWidth()
+        "chatgpt" -> modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(18.dp)).background(c.border)
+        else -> modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp))
+    }
+    val gap = when (Oc.look.id) { "hairline", "notebook", "messenger", "chatgpt" -> 1.dp; "cards" -> 8.dp; else -> 2.dp }
+    Column(m, verticalArrangement = Arrangement.spacedBy(gap), content = content)
 }
 
 @Composable
@@ -216,22 +250,64 @@ fun SettingsRow(
     trailing: @Composable (() -> Unit)? = null,
 ) {
     val c = Oc.c
+    val look = Oc.look.id
+    val bg = when (look) {
+        "hairline", "notebook" -> modifier.fillMaxWidth().background(c.bg)
+        "cards" -> modifier.fillMaxWidth().clip(Oc.round(16.dp)).background(c.surface).border(1.dp, c.border, Oc.round(16.dp))
+        else -> modifier.fillMaxWidth().background(c.surface)
+    }
+    val pad = when (look) {
+        "hairline" -> Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+        "notebook" -> Modifier.padding(horizontal = 4.dp, vertical = 14.dp)
+        "messenger" -> Modifier.padding(horizontal = 16.dp, vertical = 11.dp)
+        else -> Modifier.padding(horizontal = 20.dp, vertical = 15.dp)
+    }
     Row(
-        modifier.fillMaxWidth().background(c.surface)
-            .then(if (onClick != null) Modifier.tap(scale = 1f, onClick = onClick) else Modifier)
-            .padding(horizontal = 20.dp, vertical = 15.dp),
+        bg.then(if (onClick != null) Modifier.tap(scale = 1f, onClick = onClick) else Modifier).then(pad),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null && circleIcon) {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(c.surfaceHigh), contentAlignment = Alignment.Center) { Ico(icon, tint = titleColor, size = 22.dp) }
-            Spacer(Modifier.width(16.dp))
-        } else if (icon != null) { Ico(icon, tint = titleColor, size = 26.dp); Spacer(Modifier.width(18.dp)) }
+        if (icon != null) when {
+            look == "messenger" && titleColor == c.text -> {
+                Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(tgColor(title)), contentAlignment = Alignment.Center) { Ico(icon, tint = Color.White, size = 19.dp) }
+                Spacer(Modifier.width(18.dp))
+            }
+            look == "cards" -> {
+                Box(Modifier.size(36.dp).clip(Oc.round(11.dp)).background(c.progressTrack), contentAlignment = Alignment.Center) { Ico(icon, tint = c.accent, size = 19.dp) }
+                Spacer(Modifier.width(14.dp))
+            }
+            look == "hairline" -> { Ico(icon, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(16.dp)) }
+            look == "notebook" -> { Ico(icon, tint = c.accent, size = 20.dp); Spacer(Modifier.width(16.dp)) }
+            circleIcon || look == "kimi" -> {
+                Box(Modifier.size(40.dp).clip(CircleShape).background(c.surfaceHigh), contentAlignment = Alignment.Center) { Ico(icon, tint = titleColor, size = 21.dp) }
+                Spacer(Modifier.width(16.dp))
+            }
+            else -> { Ico(icon, tint = titleColor, size = if (look == "chatgpt") 22.dp else 26.dp); Spacer(Modifier.width(18.dp)) }
+        }
         Column(Modifier.weight(1f)) {
-            Txt(title, size = 17.sp, color = titleColor)
-            if (subtitle != null) Txt(subtitle, size = 14.sp, color = c.textDim, modifier = Modifier.padding(top = 2.dp))
+            when (look) {
+                "hairline" -> {
+                    Txt(title, size = 15.sp, color = titleColor)
+                    if (subtitle != null) Txt(subtitle.uppercase(), size = 10.sp, color = c.textDim, family = Oc.label, modifier = Modifier.padding(top = 3.dp), maxLines = 1)
+                }
+                "notebook" -> {
+                    Txt(title, size = 17.sp, color = titleColor, family = Oc.reply)
+                    if (subtitle != null) Text(subtitle, Modifier.padding(top = 1.dp), fontSize = 14.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                }
+                "messenger" -> {
+                    Txt(title, size = 16.sp, color = titleColor)
+                    if (subtitle != null) Txt(subtitle, size = 13.sp, color = c.link, modifier = Modifier.padding(top = 1.dp), maxLines = 1)
+                }
+                else -> {
+                    Txt(title, size = 17.sp, color = titleColor)
+                    if (subtitle != null) Txt(subtitle, size = 14.sp, color = c.textDim, modifier = Modifier.padding(top = 2.dp))
+                }
+            }
         }
         if (trailing != null) { Spacer(Modifier.width(12.dp)); trailing() }
-        if (chevron) Ico(Ic.ChevronRight, tint = c.textDim, size = 22.dp)
+        if (chevron || (onClick != null && trailing == null && look == "hairline")) {
+            if (look == "hairline") Txt("→", size = 14.sp, color = c.textDim, family = Oc.label)
+            else Ico(Ic.ChevronRight, tint = c.textDim, size = 22.dp)
+        }
     }
 }
 
@@ -281,7 +357,7 @@ fun PulsingLogo(size: Dp = 22.dp, color: Color = Oc.c.accent) {
 @Composable
 fun UsageBar(fraction: Float, modifier: Modifier = Modifier, warn: Boolean = false) {
     val c = Oc.c
-    val animated by androidx.compose.animation.core.animateFloatAsState(fraction, tween(700), label = "bar")
+    val animated by androidx.compose.animation.core.animateFloatAsState(fraction, tween(380), label = "bar")
     val fill = if (warn) c.warn else c.progressFill
     Box(modifier.fillMaxWidth().height(14.dp).clip(CircleShape).background(c.progressTrack)) {
         Box(Modifier.fillMaxWidth(animated.coerceIn(0f, 1f).coerceAtLeast(0.04f)).height(14.dp).clip(CircleShape).background(fill))

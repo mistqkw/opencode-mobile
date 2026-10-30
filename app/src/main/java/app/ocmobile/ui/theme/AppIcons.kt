@@ -11,6 +11,15 @@ class AppIcon(val id: String, val label: String, val component: String, val bg: 
 /** Набор иконок приложения: каждая — отдельный activity-alias в манифесте. */
 object AppIcons {
     val all = listOf(
+    // под виды интерфейса
+    AppIcon("look_claude", "Claude", "app.ocmobile.IconLookClaude", Color(0xFFD97757), R.drawable.ic_fg_look_claude),
+    AppIcon("look_terminal", "OpenCode · Terminal", "app.ocmobile.IconLookTerminal", Color(0xFF0A0A0A), R.drawable.ic_fg_look_terminal),
+    AppIcon("look_desktop", "OpenCode · Desktop", "app.ocmobile.IconLookDesktop", Color(0xFF1E1E1E), R.drawable.ic_fg_look_desktop),
+    AppIcon("look_hairline", "Hairline", "app.ocmobile.IconLookHairline", Color(0xFF000000), R.drawable.ic_fg_look_hairline),
+    AppIcon("look_chatgpt", "ChatGPT", "app.ocmobile.IconLookChatgpt", Color(0xFF000000), R.drawable.ic_fg_look_chatgpt),
+    AppIcon("look_kimi", "Kimi", "app.ocmobile.IconLookKimi", Color(0xFF111111), R.drawable.ic_fg_look_kimi),
+    AppIcon("look_notebook", "Notebook", "app.ocmobile.IconLookNotebook", Color(0xFFF7F3EA), R.drawable.ic_fg_look_notebook),
+    // цветные
     AppIcon("terracotta", "Terracotta", "app.ocmobile.IconTerracotta", Color(0xFFDE7356), R.drawable.ic_fg_terracotta),
     AppIcon("classic", "Classic", "app.ocmobile.IconClassic", Color(0xFF0E0F13), R.drawable.ic_fg_classic),
     AppIcon("blue", "Blue", "app.ocmobile.IconBlue", Color(0xFF4A7DFB), R.drawable.ic_fg_blue),
@@ -24,7 +33,7 @@ object AppIcons {
     AppIcon("violet", "Violet", "app.ocmobile.IconViolet", Color(0xFF7B61D9), R.drawable.ic_fg_violet),
     )
 
-    const val DEFAULT = "terracotta"
+    const val DEFAULT = "look_desktop"
 
     /** Включает выбранный alias и выключает остальные; приложение при этом не перезапускается. */
     fun apply(ctx: Context, id: String) {

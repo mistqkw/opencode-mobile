@@ -25,9 +25,18 @@ sealed interface Route {
     data object Connectors : Route
     data object Agents : Route
     data object Skills : Route
+    /** "" — новый навык, «builtin:имя» — встроенный. */
+    data class SkillEdit(val name: String) : Route
     data object Server : Route
     data object ConfigEditor : Route
     data object About : Route
+    data object Capabilities : Route
+    data object OcSettings : Route
+    data object Appearance : Route
+    data object PhoneTools : Route
+    data object GitHub : Route
+    data object Backup : Route
+    data class Preview(val url: String, val sessionId: String?) : Route
 }
 
 /** Минимальная навигация: стек маршрутов и кнопка «назад». */
@@ -37,7 +46,12 @@ class Nav {
     /** 1 — переход вперёд, -1 — назад, 0 — смена корня: от этого зависит анимация экрана. */
     var direction = 0
     fun push(r: Route) { if (current != r) { direction = 1; stack.add(r) } }
-    fun pop(): Boolean { if (stack.size > 1) { direction = -1; stack.removeAt(stack.lastIndex); return true }; return false }
+    fun pop(): Boolean {
+        if (stack.size > 1) { direction = -1; stack.removeAt(stack.lastIndex); return true }
+        // раздел открыт из меню как корень — «назад» ведёт на главный экран
+        if (current != Route.Home) { direction = -1; stack.clear(); stack.add(Route.Home); return true }
+        return false
+    }
     fun root(r: Route) { direction = 0; stack.clear(); stack.add(r) }
     /** Открыть сессию из любого места: стек — Home → чат. */
     fun openChat(id: String) { direction = 1; stack.clear(); stack.add(Route.Home); stack.add(Route.Chat(id)) }

@@ -44,7 +44,7 @@ fun PickerFrame(
     skipHalf: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (Oc.edition == "claude") { OcSheet(onDismiss = onDismiss, title = title, onBack = onBack, skipHalf = skipHalf, content = content); return }
+    if (Oc.claudeLike) { OcSheet(onDismiss = onDismiss, title = title, onBack = onBack, skipHalf = skipHalf, content = content); return }
     val c = Oc.c
     val terminal = Oc.terminal
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {

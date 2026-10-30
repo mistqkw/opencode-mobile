@@ -78,5 +78,5 @@ Auto Backup (восстановление после переустановки)
 ## Лицензии и оговорка
 Неофициальный клиент, не связан с разработчиками OpenCode. «OpenCode» — название их проекта (MIT).
 Приложение содержит proot и libtalloc из пакетов Termux (GPL-2.0 / LGPL-3.0), исходники — в проекте Termux;
-при первом запуске скачивает Ubuntu Base 24.04 и OpenCode. Шрифт Inter — SIL OFL 1.1.
+при первом запуске скачивает Ubuntu Base 24.04 и OpenCode. Шрифты Inter, Source Serif 4, Unbounded и JetBrains Mono — SIL OFL 1.1.
 Код самого приложения — под лицензией MIT (см. `LICENSE`). Бинарные компоненты Termux и Ubuntu остаются под своими лицензиями, как описано выше.

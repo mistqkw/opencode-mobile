@@ -116,6 +116,15 @@ val InterFamily = FontFamily(
     Font(R.font.inter_semibold, FontWeight.Bold),
 )
 
+/** Засечки для ответов и заголовков в редакции Claude — Source Serif 4 (OFL), ближе всего к шрифту Claude. */
+val SerifFamily = FontFamily(
+    Font(R.font.source_serif_regular, FontWeight.Normal),
+    Font(R.font.source_serif_semibold, FontWeight.Medium),
+    Font(R.font.source_serif_semibold, FontWeight.SemiBold),
+    Font(R.font.source_serif_semibold, FontWeight.Bold),
+)
+val SerifDisplay = FontFamily(Font(R.font.source_serif_display, FontWeight.Normal), Font(R.font.source_serif_semibold, FontWeight.SemiBold))
+
 val LocalOc = staticCompositionLocalOf { DarkColors }
 
 object Oc {
@@ -126,35 +135,53 @@ object Oc {
     val terminal: Boolean @Composable @ReadOnlyComposable get() = Graph.prefs.edition == "terminal"
     val desktop: Boolean @Composable @ReadOnlyComposable get() = Graph.prefs.edition == "desktop"
 
+    /** Текущий вид (палитры, шрифты, стиль сообщений). */
+    val look: Look @Composable @ReadOnlyComposable get() = Looks.of(Graph.prefs.edition)
+    /** Каркас Claude — у всех видов, кроме Terminal и Desktop. */
+    val claudeLike: Boolean @Composable @ReadOnlyComposable get() = Looks.of(Graph.prefs.edition).frame == "claude"
+
     val heading: FontFamily
         @Composable @ReadOnlyComposable get() = when (Graph.prefs.edition) {
             "terminal" -> FontFamily.Monospace
-            "desktop" -> InterFamily
-            else -> if (Graph.prefs.fontStyle == "default") FontFamily.Serif else FontFamily.Default
+            "desktop", "chatgpt", "kimi", "cards", "messenger" -> InterFamily
+            "hairline" -> UnboundedFamily
+            "notebook" -> SerifDisplay
+            else -> if (Graph.prefs.fontStyle == "default") SerifDisplay else FontFamily.Default
         }
     val body: FontFamily
         @Composable @ReadOnlyComposable get() = when (Graph.prefs.edition) {
             "terminal" -> FontFamily.Monospace
-            "desktop" -> InterFamily
-            else -> FontFamily.Default
+            "notebook" -> SerifFamily
+            "messenger" -> FontFamily.Default
+            else -> if (Graph.prefs.fontStyle == "default" || Graph.prefs.edition != "claude") InterFamily else FontFamily.Default
         }
+    /** Шрифт ответов: в Claude и Notebook — с засечками. */
+    val reply: FontFamily
+        @Composable @ReadOnlyComposable get() = when (Graph.prefs.edition) {
+            "claude" -> if (Graph.prefs.fontStyle == "default") SerifFamily else FontFamily.Default
+            "notebook" -> SerifFamily
+            else -> body
+        }
+    /** Мелкие подписи: в Hairline — моно. */
+    val label: FontFamily
+        @Composable @ReadOnlyComposable get() = if (Graph.prefs.edition == "hairline") JetBrainsMono else body
     val mono: FontFamily
-        @Composable @ReadOnlyComposable get() = if (Graph.prefs.edition == "terminal" || Graph.prefs.codeFont == "mono") FontFamily.Monospace else Oc.body
+        @Composable @ReadOnlyComposable get() = if (Graph.prefs.edition == "terminal" || Graph.prefs.codeFont == "mono") (if (Graph.prefs.edition == "hairline") JetBrainsMono else FontFamily.Monospace) else Oc.body
 
-    /** Скругление: Claude — мягкое, desktop — сдержанное, terminal — прямые углы. */
+    /** Скругление: Claude — мягкое, desktop — сдержанное, terminal — прямые углы; новые виды — по своему множителю. */
     @Composable @ReadOnlyComposable
     fun round(r: Dp): Shape = when (Graph.prefs.edition) {
         "terminal" -> RoundedCornerShape(0.dp)
         "desktop" -> RoundedCornerShape((r * 0.4f).coerceIn(6.dp, 14.dp))
-        else -> RoundedCornerShape(r)
+        else -> Looks.of(Graph.prefs.edition).let { l -> RoundedCornerShape((r * l.radius).let { x -> l.radiusMax?.let { x.coerceAtMost(it.dp) } ?: x }) }
     }
 
-    /** Таблетки и круглые кнопки: в terminal — прямоугольники, в desktop — скруглённые прямоугольники. */
+    /** Таблетки и круглые кнопки: в terminal — прямоугольники, в desktop и hairline — скруглённые прямоугольники. */
     val pill: Shape
         @Composable @ReadOnlyComposable get() = when (Graph.prefs.edition) {
             "terminal" -> RoundedCornerShape(0.dp)
             "desktop" -> RoundedCornerShape(10.dp)
-            else -> CircleShape
+            else -> Looks.of(Graph.prefs.edition).pill?.let { RoundedCornerShape(it.dp) } ?: CircleShape
         }
 }
 
@@ -162,11 +189,8 @@ object Oc {
 fun OcTheme(content: @Composable () -> Unit) {
     val mode = Graph.prefs.colorMode
     val dark = when (mode) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
-    val colors = when (Graph.prefs.edition) {
-        "terminal" -> if (dark) TerminalDark else TerminalLight
-        "desktop" -> if (dark) DesktopDark else DesktopLight
-        else -> if (dark) DarkColors else LightColors
-    }
+    val look = Looks.of(Graph.prefs.edition)
+    val colors = if (dark) look.dark else look.light
     // Шрифты Claude заметно мельче моих исходных: базовый множитель 0.88 снят по скриншотам с телефона.
     val scale = when (Graph.prefs.textSize) { "small" -> 0.8f; "large" -> 1f; else -> 0.88f }
     val ui = (Graph.prefs.uiScale.toFloatOrNull() ?: 100f) / 100f

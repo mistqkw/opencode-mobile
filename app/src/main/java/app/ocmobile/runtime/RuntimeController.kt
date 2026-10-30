@@ -204,8 +204,20 @@ class RuntimeController(
                 if (version != null) {
                     state.value = RuntimeState.Running(version)
                     prefs.opencodeVersion = version
+                    failures = 0
+                }
+                // Сторож: процесс жив, но не отвечает (завис) — перезапускаем, а не ждём вечно.
+                val dog = launch {
+                    var bad = 0
+                    while (isActive && p.isAlive) {
+                        delay(15_000)
+                        val ok = runCatching { kotlinx.coroutines.withTimeout(10_000) { api.healthVersionOrThrow() } }.isSuccess
+                        bad = if (ok) 0 else bad + 1
+                        if (bad >= 3) { logLine("Server stopped answering — restarting"); p.destroy(); break }
+                    }
                 }
                 runInterruptible { p.waitFor() }
+                dog.cancel()
             } finally {
                 p.destroy()
                 if (p.isAlive) { runCatching { p.waitFor(3, TimeUnit.SECONDS) }; if (p.isAlive) p.destroyForcibly() }
@@ -218,12 +230,18 @@ class RuntimeController(
             val now = System.currentTimeMillis()
             if (now - windowStart > 120_000) { failures = 0; windowStart = now }
             failures++
-            state.value = RuntimeState.Crashed("Server stopped (code $code). See the log in Local server settings.")
-            if (failures >= 5) return@withContext
-            delay(2000L * failures)
+            state.value = RuntimeState.Crashed("Server stopped (code $code). Restarting…")
+            // не сдаёмся: перезапуск с растущей паузой (до 30 с), пока пользователь сам не остановит сервер
+            delay((1500L * failures).coerceAtMost(30_000))
         }
         state.value = RuntimeState.Stopped
     }
+
+    /** Пользователь сам остановил сервер — тогда не поднимаем его при возврате в приложение. */
+    @Volatile var userStopped = false
+
+    /** Процесс сервера ещё жив (после stopServer он завершается не сразу). */
+    val serverAlive get() = process != null
 
     fun requestStop() {
         stopRequested = true
@@ -234,10 +252,12 @@ class RuntimeController(
     fun startServer() {
         val s = state.value
         if (s is RuntimeState.NotInstalled || s is RuntimeState.Installing || s is RuntimeState.InstallFailed) return
+        userStopped = false
         ContextCompat.startForegroundService(app, Intent(app, ServerService::class.java).setAction(ServerService.ACTION_START))
     }
 
     fun stopServer() {
+        userStopped = true
         requestStop()
         app.stopService(Intent(app, ServerService::class.java))
         if (state.value !is RuntimeState.NotInstalled) state.value = RuntimeState.Stopped

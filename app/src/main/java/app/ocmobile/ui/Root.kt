@@ -50,6 +50,9 @@ import app.ocmobile.Graph
 import app.ocmobile.runtime.RuntimeState
 import app.ocmobile.ui.components.Spinner
 import app.ocmobile.ui.components.Txt
+import app.ocmobile.ui.screens.CapabilitiesScreen
+import app.ocmobile.ui.screens.OcSettingsScreen
+import app.ocmobile.ui.screens.AppearanceScreen
 import app.ocmobile.ui.screens.AboutScreen
 import app.ocmobile.ui.screens.AgentsScreen
 import app.ocmobile.ui.screens.EditionScreen
@@ -94,7 +97,9 @@ fun OcRoot() {
     val rt by Graph.runtime.state.collectAsState()
     Box(Modifier.fillMaxSize().background(c.bg)) {
         if (rt is RuntimeState.NotInstalled || rt is RuntimeState.Installing || rt is RuntimeState.InstallFailed) SetupScreen(rt)
-        else Shell(rt)
+        else { Shell(rt); app.ocmobile.ui.components.UpdateHost() }
+        if (!Graph.prefs.onboarded) app.ocmobile.ui.screens.Onboarding()
+        app.ocmobile.ui.components.IntroHost()
         ToastHost()
     }
 }
@@ -103,8 +108,32 @@ fun OcRoot() {
 private fun Shell(rt: RuntimeState) {
     val c = Oc.c
     val nav = remember { Nav() }
+    val openReq by Graph.chats.openRequest.collectAsState()
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    LaunchedEffect(openReq) {
+        openReq?.let { r ->
+            when (r) {
+                "route:settings" -> { drawer.close(); nav.root(Route.Settings) }
+                "route:home" -> { drawer.close(); nav.root(Route.Home) }
+                "route:about" -> { drawer.close(); nav.root(Route.Settings); nav.push(Route.About) }
+                "route:memory" -> { drawer.close(); nav.root(Route.Memory) }
+                "route:drawer" -> drawer.open()
+                "route:onboarding" -> Graph.prefs.onboarded = false
+                "route:onboarded" -> Graph.prefs.onboarded = true
+                "route:github" -> { drawer.close(); nav.root(Route.Settings); nav.push(Route.GitHub) }
+                "route:backup" -> { drawer.close(); nav.root(Route.Settings); nav.push(Route.Backup) }
+                "route:skills" -> { drawer.close(); nav.root(Route.Settings); nav.push(Route.Skills) }
+                "route:phone" -> { drawer.close(); nav.root(Route.Settings); nav.push(Route.PhoneTools) }
+                "route:intro" -> app.ocmobile.ui.components.Intro.replay.intValue++
+                else -> if (r.startsWith("route:connect:")) { drawer.close(); nav.push(Route.Connect(r.removePrefix("route:connect:"))) }
+                    else if (r.startsWith("route:console:")) { drawer.close(); nav.push(Route.ConsoleLogin(r.removePrefix("route:console:"))) }
+                    else if (r.startsWith("route:preview:")) { drawer.close(); nav.push(Route.Preview(r.removePrefix("route:preview:"), (nav.current as? Route.Chat)?.id)) }
+                    else if (!r.startsWith("route:")) nav.openChat(r)
+            }
+            Graph.chats.openRequest.value = null
+        }
+    }
     val open = { scope.launch { drawer.open() }; Unit }
 
     // Сервер поднимается сам при открытии приложения.
@@ -117,10 +146,10 @@ private fun Shell(rt: RuntimeState) {
     }
     // Первый запуск после установки окружения: предлагаем войти (можно пропустить).
     LaunchedEffect(Unit) {
-        if (!Graph.prefs.loginSeen && Graph.prefs.signedIn.isBlank()) { kotlinx.coroutines.delay(500); nav.push(Route.Login) }
+        if (Graph.prefs.onboarded && !Graph.prefs.loginSeen && Graph.prefs.signedIn.isBlank()) { kotlinx.coroutines.delay(500); nav.push(Route.Login) }
     }
 
-    BackHandler(drawer.isOpen || nav.stack.size > 1) {
+    BackHandler(drawer.isOpen || nav.stack.size > 1 || nav.current != Route.Home) {
         if (drawer.isOpen) scope.launch { drawer.close() } else nav.pop()
     }
 
@@ -138,11 +167,12 @@ private fun Shell(rt: RuntimeState) {
                 transitionSpec = {
                     when {
                         nav.direction == 2 -> fadeIn(tween(120)) togetherWith fadeOut(tween(120))
-                        nav.direction > 0 -> (slideInHorizontally(tween(280)) { it / 6 } + fadeIn(tween(280))) togetherWith
-                            (slideOutHorizontally(tween(280)) { -it / 10 } + fadeOut(tween(180)))
-                        nav.direction < 0 -> (slideInHorizontally(tween(280)) { -it / 10 } + fadeIn(tween(280))) togetherWith
-                            (slideOutHorizontally(tween(280)) { it / 6 } + fadeOut(tween(180)))
-                        else -> fadeIn(tween(220)) togetherWith fadeOut(tween(140))
+                        // быстро, как в Claude: экран въезжает за ~200 мс с резким стартом и мягкой остановкой
+                        nav.direction > 0 -> (slideInHorizontally(tween(210, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) { it / 5 } + fadeIn(tween(150))) togetherWith
+                            (slideOutHorizontally(tween(210)) { -it / 12 } + fadeOut(tween(110)))
+                        nav.direction < 0 -> (slideInHorizontally(tween(200, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) { -it / 12 } + fadeIn(tween(150))) togetherWith
+                            (slideOutHorizontally(tween(200)) { it / 5 } + fadeOut(tween(110)))
+                        else -> fadeIn(tween(140)) togetherWith fadeOut(tween(90))
                     }
                 },
                 label = "nav",
@@ -171,9 +201,17 @@ private fun Shell(rt: RuntimeState) {
                         Route.Connectors -> ConnectorsScreen(nav)
                         Route.Agents -> AgentsScreen(nav)
                         Route.Skills -> SkillsScreen(nav)
+                        is Route.SkillEdit -> app.ocmobile.ui.screens.SkillEditScreen(r.name, nav)
                         Route.Server -> ServerScreen(nav)
                         Route.ConfigEditor -> ConfigEditorScreen(nav)
                         Route.About -> AboutScreen(nav)
+                        Route.Capabilities -> CapabilitiesScreen(nav)
+                        Route.OcSettings -> OcSettingsScreen(nav)
+                        Route.Appearance -> AppearanceScreen(nav)
+                        Route.PhoneTools -> app.ocmobile.ui.screens.PhoneToolsScreen(nav)
+                        Route.GitHub -> app.ocmobile.ui.screens.GitHubScreen(nav)
+                        Route.Backup -> app.ocmobile.ui.screens.BackupScreen(nav)
+                        is Route.Preview -> app.ocmobile.ui.screens.PreviewScreen(r.url, r.sessionId, nav)
                     }
                 }
             }

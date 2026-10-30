@@ -73,6 +73,18 @@ fun CodeScreen(nav: Nav, onMenu: () -> Unit) {
     var filterMenu by remember { mutableStateOf(false) }
     var addDevice by remember { mutableStateOf(false) }
     var deviceMenu by remember { mutableStateOf<Device?>(null) }
+    var connecting by remember { mutableStateOf<String?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // Переключаемся только на устройство, которое отвечает: иначе экран врал бы, что ноутбук подключён.
+    fun switchTo(d: Device) {
+        if (d.id == activeId || connecting != null) return
+        connecting = d.id
+        scope.launch {
+            val err = Graph.api.reachable(d.url, d.password)
+            connecting = null
+            if (err == null) Graph.devices.select(d.id) else Graph.chats.toasts.tryEmit("${d.name}: $err")
+        }
+    }
     val pinned = Graph.prefs.pinnedSet()
     val remote = Graph.devices.active()
 
@@ -97,7 +109,7 @@ fun CodeScreen(nav: Nav, onMenu: () -> Unit) {
                     Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         DeviceChip("This phone", connected && activeId.isEmpty(), activeId.isEmpty(), Ic.Phone, { Graph.devices.select("") }, {})
                         devices.forEach { d ->
-                            DeviceChip(d.name, connected && activeId == d.id, activeId == d.id, Ic.Laptop, { Graph.devices.select(d.id) }, { deviceMenu = d })
+                            DeviceChip(d.name, connected && activeId == d.id, activeId == d.id, Ic.Laptop, { switchTo(d) }, { deviceMenu = d }, connecting == d.id)
                         }
                         Row(
                             Modifier.clip(CircleShape).border(1.dp, c.border, CircleShape).tap(onClick = { addDevice = true }).height(52.dp).padding(horizontal = 20.dp),
@@ -146,7 +158,7 @@ fun CodeScreen(nav: Nav, onMenu: () -> Unit) {
 private fun Modifier.androidNavPad(): Modifier = this.then(Modifier.padding(bottom = 0.dp))
 
 @Composable
-private fun DeviceChip(name: String, online: Boolean, active: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, onLong: () -> Unit) {
+private fun DeviceChip(name: String, online: Boolean, active: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, onLong: () -> Unit, busy: Boolean = false) {
     val c = Oc.c
     Row(
         Modifier.clip(CircleShape).background(if (active) c.surfaceHigh else androidx.compose.ui.graphics.Color.Transparent)
@@ -156,7 +168,11 @@ private fun DeviceChip(name: String, online: Boolean, active: Boolean, icon: and
     ) {
         Ico(icon, tint = if (active) c.text else c.textDim, size = 22.dp); Spacer(Modifier.width(10.dp))
         Txt(name, size = 18.sp, maxLines = 1)
-        if (active) { Spacer(Modifier.width(10.dp)); Box(Modifier.size(8.dp).clip(CircleShape).background(if (online) c.ok else c.warn)) }
+        if (busy) { Spacer(Modifier.width(10.dp)); app.ocmobile.ui.components.Spinner(14.dp, stroke = 2.dp) }
+        else if (active) {
+            Spacer(Modifier.width(10.dp)); Box(Modifier.size(8.dp).clip(CircleShape).background(if (online) c.ok else c.danger))
+            if (!online) { Spacer(Modifier.width(6.dp)); Txt("Offline", size = 14.sp, color = c.danger) }
+        }
     }
 }
 

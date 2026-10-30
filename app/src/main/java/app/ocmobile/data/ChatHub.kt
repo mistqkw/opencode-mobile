@@ -30,6 +30,9 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     private val all = MutableStateFlow<Map<String, Session>>(emptyMap())
     val sessions = MutableStateFlow<List<Session>>(emptyList())
     val statuses = MutableStateFlow<Map<String, String>>(emptyMap())
+    /** Текст, который положить в поле ввода при открытии чата (например, «/навык »). */
+    val drafts = mutableMapOf<String, String>()
+    fun draft(id: String, text: String) { drafts[id] = text }
     val permissions = MutableStateFlow<List<PermissionReq>>(emptyList())
     val questions = MutableStateFlow<List<QuestionReq>>(emptyList())
     val loaded = MutableStateFlow(false)
@@ -38,6 +41,34 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     val toasts = MutableSharedFlow<String>(extraBufferCapacity = 8)
 
     private val chats = HashMap<String, Chat>()
+
+    /** Задачи, которые оборвались, когда сервер остановился: в чате предлагаем продолжить или отменить. */
+    val interrupted = MutableStateFlow(prefs.interruptedIds.split(',').filter { it.isNotBlank() }.toSet())
+
+    private fun saveBusy() { prefs.busyIds = statuses.value.filterValues { it != "idle" }.keys.joinToString(",") }
+
+    fun dismissInterrupted(id: String) {
+        interrupted.update { it - id }
+        prefs.interruptedIds = interrupted.value.joinToString(",")
+    }
+
+    suspend fun resumeInterrupted(ctx: android.content.Context, id: String) {
+        dismissInterrupted(id)
+        send(ctx, id, "The server was stopped in the middle of your last task. Check what is already done and continue from where you stopped.", emptyList())
+    }
+
+    /** Была занята до остановки, а теперь стоит: если последний ответ не дописан или оборван — значит, прервали. */
+    private suspend fun findInterrupted(nowBusy: Set<String>) {
+        val was = prefs.busyIds.split(',').filter { it.isNotBlank() }.toSet()
+        val found = was.filter { it !in nowBusy && it in all.value && !isIncognito(it) }.filter { id ->
+            val last = runCatching { api.messages(id, session(id)?.directory, 4) }.getOrNull()?.lastOrNull { !it.info.isUser }?.info
+            last == null || last.time.completed == null || last.error != null
+        }
+        if (found.isNotEmpty()) {
+            interrupted.update { it + found }
+            prefs.interruptedIds = interrupted.value.joinToString(",")
+        }
+    }
 
     fun start() {
         // Сессии «инкогнито» не переживают перезапуск: остатки удаляем при старте.
@@ -87,9 +118,13 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
                 runCatching { qs += api.questions(d) }
                 runCatching { api.statuses(d).forEach { (k, v) -> v.str("type")?.takeIf { it != "idle" }?.let { t -> st[k] = t } } }
             }
-            permissions.value = perms
+            val (auto, manual) = perms.partition { autoAllows(it.permission) }
+            permissions.value = manual
+            auto.forEach { r -> Graph.scope.launch { runCatching { api.replyPermission(r.id, session(r.sessionID)?.directory, "once") } } }
             questions.value = qs
+            findInterrupted(st.keys)
             statuses.value = st
+            saveBusy()
         } catch (_: Exception) { }
     }
 
@@ -130,7 +165,11 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             "session.status" -> {
                 val id = p.str("sessionID") ?: return
                 val t = p.obj("status")?.str("type") ?: return
+                val was = statuses.value[id]
                 statuses.update { if (t == "idle") it - id else it + (id to t) }
+                saveBusy()
+                if (t != "idle" && id in interrupted.value) dismissInterrupted(id)
+                if (t == "idle" && was != null) finished(id)
                 val st = p.obj("status")
                 if (t == "retry" && st != null) {
                     val a = st.obj("action")
@@ -138,10 +177,14 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
                     if (st.str("message")?.contains("Free usage", ignoreCase = true) == true && prefs.providerId != FreeModels.POLLINATIONS_ID) fallToPollinations(id)
                 } else retries.update { it - id }
             }
-            "session.idle" -> p.str("sessionID")?.let { id -> statuses.update { it - id } }
+            "session.idle" -> p.str("sessionID")?.let { id -> val was = statuses.value[id]; statuses.update { it - id }; saveBusy(); if (was != null) finished(id) }
             "permission.asked" -> {
                 val r = parsePermission(p)
-                permissions.update { l -> l.filterNot { it.id == r.id } + r }
+                // режим уже разрешает это — отвечаем сами, пользователя не дёргаем (старые сессии, правила агента)
+                if (autoAllows(r.permission)) {
+                    val dir = e.directory ?: session(r.sessionID)?.directory
+                    Graph.scope.launch { runCatching { api.replyPermission(r.id, dir, "once") }.onFailure { permissions.update { l -> l.filterNot { it.id == r.id } + r } } }
+                } else permissions.update { l -> l.filterNot { it.id == r.id } + r }
             }
             "permission.replied" -> p.str("requestID")?.let { rid -> permissions.update { l -> l.filterNot { it.id == rid } } }
             "question.asked" -> {
@@ -162,12 +205,19 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
 
     // ---------- отправка ----------
 
-    /** Правила разрешений для новой сессии по выбранному режиму. */
+    /** Что текущий режим разрешает без вопроса. */
+    fun autoAllows(permission: String, mode: String = prefs.permissionMode) = when (mode) {
+        "auto" -> true
+        "edits" -> permission in setOf("edit", "write", "patch", "multiedit", "read", "list", "glob", "grep", "todowrite", "todoread")
+        else -> false
+    }
+
+    /** Правила разрешений для сессии по выбранному режиму. «Auto» — явное «разрешить всё»: без него OpenCode спрашивает про bash. */
     fun permissionRules(mode: String = prefs.permissionMode): JsonArray? {
         val base = when (mode) {
             "ask" -> listOf(rule("*", "ask"))
-            "edits" -> listOf(rule("bash", "ask"), rule("webfetch", "ask"))
-            else -> emptyList()
+            "edits" -> listOf(rule("*", "allow"), rule("bash", "ask"), rule("webfetch", "ask"))
+            else -> listOf(rule("*", "allow"))
         }
         // память лежит вне проекта: к ней агент ходит без вопросов (правила в конце — они главнее)
         val mem = if (prefs.memoryEnabled) listOf("external_directory", "read", "edit").flatMap { perm ->
@@ -186,20 +236,44 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
         put("permission", permission); put("pattern", pattern); put("action", action)
     }
 
+    /** Сессии, которым правила уже выставлены под текущий режим (режим меняется — выставляем заново). */
+    private val ruled = HashMap<String, String>()
+
     suspend fun send(ctx: Context, sessionId: String, text: String, atts: List<Attachment>, keepParts: List<JsonObject> = emptyList()) {
         val dir = session(sessionId)?.directory
-        val localId = if (keepParts.isEmpty()) chat(sessionId).addLocalUser(text) else null
-        val parts = buildJsonArray {
-            add(buildJsonObject { put("type", "text"); put("text", text) })
-            keepParts.forEach { add(it) }
-            atts.forEach { add(Attachments.toFilePart(ctx, it)) }
+        if (ruled[sessionId] != prefs.permissionMode) runCatching {
+            api.setSessionPermission(sessionId, dir, permissionRules() ?: JsonArray(emptyList()))
+            ruled[sessionId] = prefs.permissionMode
         }
+        val localId = if (keepParts.isEmpty()) chat(sessionId).addLocalUser(text) else null
+        val text = expandSlash(text)
+        // свежая память — в инструкции до запроса (агент мог поменять её в прошлом ответе)
+        if (prefs.memoryEnabled && !Graph.devices.isRemote) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Memory.sync() }
         try {
+            val attParts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { atts.map { Attachments.toPart(ctx, it) } }
+            val parts = buildJsonArray {
+                if (text.isNotBlank() || (keepParts.isEmpty() && attParts.isEmpty())) add(buildJsonObject { put("type", "text"); put("text", text) })
+                keepParts.forEach { add(it) }
+                attParts.forEach { add(it) }
+            }
             api.promptAsync(sessionId, dir, parts, prefs.providerId, prefs.modelId, prefs.agent, prefs.variant)
         } catch (e: Exception) {
             localId?.let { chat(sessionId).dropLocal(it) }
             throw e
         }
+    }
+
+    /**
+     * «/имя аргументы»: навык — просим агента загрузить его (инструмент skill), команда — подставляем её шаблон.
+     * Неизвестное «/…» уходит как есть.
+     */
+    fun expandSlash(text: String): String {
+        if (!text.startsWith("/")) return text
+        val name = text.drop(1).substringBefore(' ').substringBefore('\n')
+        val args = text.drop(1 + name.length).trim()
+        val c = Graph.catalog.commands.value.firstOrNull { it.name == name } ?: return text
+        return if (c.source == "skill") "Use the \"$name\" skill." + (if (args.isNotBlank()) "\n\n$args" else "")
+        else c.template?.replace("\$ARGUMENTS", args)?.takeIf { it.isNotBlank() } ?: text
     }
 
     /**
@@ -218,8 +292,47 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
                 p.raw.str("filename")?.let { put("filename", it) }
                 p.raw.str("url")?.let { put("url", it) }
             }
+        } + m.parts.filter { it.type == "text" && Attachments.parseAttached(it.text) != null }.map { p ->
+            buildJsonObject { put("type", "text"); put("text", p.text); put("synthetic", true) }
         }
         send(ctx, sessionId, text, atts, keep)
+    }
+
+    /** Приложение на экране — его ставит MainActivity. */
+    @Volatile var foreground = false
+    /** Открыть чат по нажатию на уведомление. */
+    val openRequest = MutableStateFlow<String?>(null)
+
+    /** Агент закончил: в приложении — лёгкая вибрация, в фоне — уведомление с началом ответа. */
+    private fun finished(id: String) {
+        if (isIncognito(id)) return
+        val ctx = Graph.app
+        if (foreground) {
+            if (prefs.haptics) runCatching {
+                val v = ctx.getSystemService(android.os.Vibrator::class.java)
+                v?.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_TICK))
+            }
+            return
+        }
+        Graph.scope.launch {
+            delay(400)
+            val msg = chats[id]?.messages?.lastOrNull { !it.info.isUser }
+            val text = msg?.parts?.filter { it.type == "text" }?.joinToString(" ") { it.text }?.replace(Regex("[`*#>_]"), "")?.trim()
+                ?.takeIf { it.isNotBlank() } ?: msg?.info?.errorMessage ?: "The task is done"
+            val title = session(id)?.displayTitle?.ifBlank { null } ?: "OpenCode"
+            runCatching {
+                val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
+                if (nm.getNotificationChannel("replies") == null) nm.createNotificationChannel(android.app.NotificationChannel("replies", "Replies", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+                val open = android.app.PendingIntent.getActivity(
+                    ctx, id.hashCode(), android.content.Intent(ctx, app.ocmobile.MainActivity::class.java).putExtra("session", id).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                    android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
+                )
+                nm.notify(id.hashCode(), android.app.Notification.Builder(ctx, "replies")
+                    .setSmallIcon(app.ocmobile.R.drawable.ic_stat).setContentTitle(title).setContentText(text.take(160))
+                    .setStyle(android.app.Notification.BigTextStyle().bigText(text.take(600)))
+                    .setContentIntent(open).setAutoCancel(true).build())
+            }
+        }
     }
 
     private var switching = false

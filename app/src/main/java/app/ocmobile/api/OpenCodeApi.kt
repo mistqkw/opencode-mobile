@@ -45,8 +45,8 @@ class OpenCodeApi(private val prefs: Prefs) {
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    /** Клиент для SSE: чтение без таймаута. */
-    val streamHttp: OkHttpClient = http.newBuilder().readTimeout(0, TimeUnit.MILLISECONDS).build()
+    /** Клиент для SSE: сервер шлёт heartbeat каждые 10 с, поэтому 30 с тишины — оборванное соединение, переподключаемся. */
+    val streamHttp: OkHttpClient = http.newBuilder().readTimeout(30, TimeUnit.SECONDS).pingInterval(20, TimeUnit.SECONDS).build()
 
     fun request(path: String, query: Map<String, String?> = emptyMap()): Request.Builder {
         val url = (baseUrl + path).toHttpUrl().newBuilder().apply {
@@ -97,6 +97,18 @@ class OpenCodeApi(private val prefs: Prefs) {
         if (!r.isSuccessful) throw ApiException(r.code, "health ${r.code}")
         (runCatching { OcJson.parseToJsonElement(text) as? JsonObject }.getOrNull())?.takeIf { it.bool("healthy") == true }?.str("version")
     }
+
+    /** Проверка чужого сервера до переключения на него: отвечает ли и подходит ли пароль. null — всё хорошо, иначе причина. */
+    suspend fun reachable(url: String, password: String): String? = try {
+        val req = Request.Builder().url("$url/global/health").header("Authorization", Credentials.basic("opencode", password)).build()
+        healthHttp.newBuilder().connectTimeout(4, TimeUnit.SECONDS).readTimeout(4, TimeUnit.SECONDS).build().newCall(req).await().use { r ->
+            when {
+                r.code == 401 -> "Wrong password"
+                !r.isSuccessful -> "Server answered ${r.code}"
+                else -> null
+            }
+        }
+    } catch (e: Exception) { "Not reachable — is it on, on the same network, and is `opencode serve` running?" }
 
     suspend fun healthVersion(): String? = try {
         (call("GET", "/global/health") as? JsonObject)?.takeIf { it.bool("healthy") == true }?.str("version")
@@ -280,6 +292,10 @@ class OpenCodeApi(private val prefs: Prefs) {
 
     suspend fun skills(): List<NamedItem> =
         OcJson.decodeFromJsonElement(ListSerializer(NamedItem.serializer()), call("GET", "/skill") ?: JsonArray(emptyList()))
+
+    /** Инструменты, которые сервер отдаёт модели (встроенные и MCP), с описаниями и схемами параметров. */
+    suspend fun tools(providerId: String, modelId: String, directory: String?): JsonArray =
+        call("GET", "/experimental/tool", mapOf("provider" to providerId, "model" to modelId, "directory" to directory)) as? JsonArray ?: JsonArray(emptyList())
 
     suspend fun mcpStatus(): JsonObject = call("GET", "/mcp") as? JsonObject ?: JsonObject(emptyMap())
 

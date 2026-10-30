@@ -174,6 +174,11 @@ fun ServerScreen(nav: Nav) {
                 SettingsRow("Start with the app", icon = Ic.Zap, trailing = { OcSwitch(prefs.autoStartServer) { prefs.autoStartServer = it } })
                 SettingsRow("Keep CPU awake while running", icon = Ic.Server, trailing = { OcSwitch(prefs.keepAwake) { prefs.keepAwake = it } })
                 SettingsRow("Compatibility mode", subtitle = "PROOT_NO_SECCOMP — try if crashes happen on your phone", icon = Ic.Shield, trailing = { OcSwitch(prefs.noSeccomp) { prefs.noSeccomp = it } })
+                // Android 12+ убивает «лишние» дочерние процессы приложений (phantom process killer) — у proot их много
+                SettingsRow("Server keeps stopping?", subtitle = "Developer options → turn on “Disable child process restrictions”", icon = Ic.Info, onClick = {
+                    runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        .onFailure { Graph.chats.toasts.tryEmit("Turn on Developer options first: tap Build number 7 times in About phone") }
+                })
             }
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
@@ -314,6 +319,28 @@ fun AboutScreen(nav: Nav) {
                 SettingsRow("OpenCode (in container)", subtitle = Graph.prefs.opencodeVersion.ifBlank { "not installed" }, icon = Ic.Terminal)
                 SettingsRow("OpenCode documentation", icon = Ic.External, onClick = { open("https://opencode.ai/docs") })
                 SettingsRow("OpenCode Go console", icon = Ic.External, onClick = { open("https://opencode.ai/console") })
+            }
+            // Обновления из релизов GitHub
+            val upd by app.ocmobile.data.Updater.state.collectAsState()
+            SettingsGroup {
+                SettingsRow(
+                    "Check for updates", icon = Ic.Download, chevron = true,
+                    subtitle = when (val u = upd) {
+                        is app.ocmobile.data.Updater.State.Checking -> "Checking GitHub…"
+                        is app.ocmobile.data.Updater.State.UpToDate -> "You're on the newest version"
+                        is app.ocmobile.data.Updater.State.Available -> "${u.r.name} is out — tap to install"
+                        is app.ocmobile.data.Updater.State.Downloading -> "Downloading ${(u.progress * 100).toInt()}%"
+                        is app.ocmobile.data.Updater.State.Installing -> "Installing…"
+                        is app.ocmobile.data.Updater.State.Failed -> u.message
+                        else -> "From releases of ${app.ocmobile.data.Updater.REPO}"
+                    },
+                    onClick = {
+                        if (upd !is app.ocmobile.data.Updater.State.Available) app.ocmobile.data.Updater.check()
+                        app.ocmobile.ui.components.UpdateUi.open.value = true
+                    },
+                )
+                SettingsRow("Check automatically", subtitle = "Looks for a new version when the app starts", icon = Ic.Refresh,
+                    trailing = { OcSwitch(Graph.prefs.updateAuto) { Graph.prefs.updateAuto = it } })
             }
             Txt(
                 "Unofficial client. Bundles proot and libtalloc from the Termux packages (GPL-2.0 / LGPL-3.0) and downloads Ubuntu Base 24.04 and OpenCode (MIT) on first run.",

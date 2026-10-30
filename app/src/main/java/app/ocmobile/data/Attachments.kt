@@ -27,6 +27,51 @@ object Attachments {
         return Attachment(uri, mime, name)
     }
 
+    /**
+     * Часть промпта для вложения. Модели принимают только то, что умеют (картинки, иногда PDF);
+     * остальное — звук, видео, архивы, любые файлы — кладём на диск окружения и говорим агенту, где оно лежит.
+     */
+    fun toPart(ctx: Context, a: Attachment): JsonObject {
+        val m = app.ocmobile.Graph.catalog.model(app.ocmobile.Graph.prefs.providerId, app.ocmobile.Graph.prefs.modelId)
+        val inline = (a.isImage && m?.supportsImages != false) || (a.mime == "application/pdf" && m?.capabilities?.input?.pdf == true)
+        if (inline) return toFilePart(ctx, a)
+        val bytes = ctx.contentResolver.openInputStream(a.uri)!!.use { it.readBytes() }
+        if (app.ocmobile.Graph.devices.isRemote) {
+            // на чужой компьютер файл не положить: текст отправляем прямо в сообщении
+            if (!isTextLike(a.mime, a.name) || bytes.size > 256_000) throw java.io.IOException("Only images and text files can be sent to a remote device")
+            return synthetic("<attached-file name=\"${a.name}\" mime=\"${a.mime}\" size=\"${bytes.size}\"/>\nContents of ${a.name}:\n```\n${String(bytes)}\n```")
+        }
+        val dir = app.ocmobile.Graph.paths.host(UPLOADS).apply { mkdirs() }
+        var f = java.io.File(dir, safeName(a.name))
+        var i = 2
+        while (f.exists()) { f = java.io.File(dir, safeName(a.name).let { n -> n.substringBeforeLast('.', n) + "-$i" + (if ('.' in n) "." + n.substringAfterLast('.') else "") }); i++ }
+        f.writeBytes(bytes)
+        val guest = "$UPLOADS/${f.name}"
+        return synthetic(
+            "<attached-file path=\"$guest\" name=\"${a.name}\" mime=\"${a.mime}\" size=\"${bytes.size}\"/>\n" +
+                "The user attached the file ${a.name} (${a.mime}, ${human(bytes.size.toLong())}). It is saved at $guest — open it with your tools when needed.",
+        )
+    }
+
+    const val UPLOADS = "/root/uploads"
+
+    private fun synthetic(text: String) = buildJsonObject { put("type", "text"); put("text", text); put("synthetic", true) }
+
+    private fun safeName(n: String) = n.replace(Regex("[/\\\\:*?\"<>|]"), "_").ifBlank { "file" }
+
+    fun isTextLike(mime: String, name: String) = mime.startsWith("text/") || mime in setOf("application/json", "application/xml", "application/javascript", "application/x-sh", "application/yaml", "application/toml") ||
+        name.substringAfterLast('.', "").lowercase() in setOf("txt", "md", "json", "kt", "java", "py", "js", "ts", "tsx", "c", "h", "cpp", "rs", "go", "sh", "yml", "yaml", "toml", "xml", "html", "css", "csv", "log", "ini", "conf", "gradle", "kts", "sql")
+
+    fun human(b: Long) = when { b >= 1_000_000 -> "%.1f MB".format(b / 1e6); b >= 1000 -> "%.0f KB".format(b / 1e3); else -> "$b B" }
+
+    /** Синтетическая часть с вложением → (имя, путь); null, если это не вложение. */
+    fun parseAttached(text: String): Pair<String, String?>? {
+        if (!text.startsWith("<attached-file ")) return null
+        val head = text.substringBefore("/>")
+        fun attr(k: String) = Regex("$k=\"([^\"]*)\"").find(head)?.groupValues?.get(1)
+        return (attr("name") ?: "file") to attr("path")
+    }
+
     fun toFilePart(ctx: Context, a: Attachment): JsonObject {
         var bytes = ctx.contentResolver.openInputStream(a.uri)!!.use { it.readBytes() }
         var mime = a.mime

@@ -1,0 +1,59 @@
+# Релиз по тегу: v0.0.1-beta-3 → собрать APK, подписать тем же ключом, что и прошлые версии, выложить в Releases.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release, e.g. v0.0.1-beta-3"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Ключ подписи из секрета: без него обновление поверх установленной версии не встанет.
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "SIGNING_KEYSTORE_B64 secret is missing"; exit 1; }
+          mkdir -p ~/.android
+          echo "$KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+
+      - name: Build
+        run: ./gradlew --no-daemon :app:assembleRelease
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK="opencode-mobile-$TAG.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$APK"
+          NOTES="docs/releases/$TAG.md"
+          [ -f "$NOTES" ] || echo "OpenCode mobile $TAG" > "$NOTES"
+          PRE=""; case "$TAG" in *alpha*|*beta*|*rc*) PRE="--prerelease";; esac
+          NAME="${TAG/-beta-/ beta-}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" $PRE --title "$NAME" --notes-file "$NOTES"
+          fi

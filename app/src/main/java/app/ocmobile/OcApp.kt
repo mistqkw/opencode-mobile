@@ -4,6 +4,8 @@ import android.app.Application
 import app.ocmobile.api.EventHub
 import app.ocmobile.api.OpenCodeApi
 import app.ocmobile.data.Catalog
+import app.ocmobile.data.LiveNotify
+import app.ocmobile.data.PhoneBridge
 import app.ocmobile.data.Devices
 import app.ocmobile.data.ChatHub
 import app.ocmobile.data.Memory
@@ -20,7 +22,10 @@ import kotlinx.coroutines.launch
 import app.ocmobile.data.Vault
 
 class OcApp : Application() {
+    @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
     override fun onCreate() {
+        // своя панель над выделенным текстом (Copy / Select all / Reply / Read aloud) — через LocalTextToolbar
+        androidx.compose.foundation.ComposeFoundationFlags.isNewContextMenuEnabled = false
         super.onCreate()
         Graph.init(this)
     }
@@ -47,6 +52,8 @@ object Graph {
         devices = Devices(prefs)
         api = OpenCodeApi(prefs)
         runtime = RuntimeController(a, paths, prefs, api)
+        // кто уже пользовался приложением до экрана знакомства — не показываем его заново
+        if (!prefs.onboarded && paths.rootfsReady && prefs.loginSeen) prefs.onboarded = true
         events = EventHub(api, runtime)
         chats = ChatHub(api, events, prefs)
         usage = UsageTracker(a, api, prefs, events)
@@ -56,6 +63,10 @@ object Graph {
         catalog.start()
         usage.start()
         Scheduler.load(a)
+        PhoneBridge.start()
+        LiveNotify.start()
+        // сервер поднялся — подключаем к нему MCP «phone» (запись в конфиге меняется, только если нужно)
+        scope.launch { runtime.state.collect { if (it is app.ocmobile.runtime.RuntimeState.Running) PhoneBridge.register() } }
         Memory.sync()
         Vault.restore()
         Vault.reconcileAccount()

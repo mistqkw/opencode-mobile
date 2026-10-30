@@ -50,7 +50,8 @@ object FreeModels {
     }
 
     /** Модели Copilot, которые отвечают на бесплатном тарифе через /chat/completions. */
-    suspend fun enableCopilot(): Boolean {
+    /** [select] = false — только подключить модели, не меняя выбранную (вход через GitHub не должен навязывать Copilot). */
+    suspend fun enableCopilot(select: Boolean = true): Boolean {
         val token = copilotToken() ?: return false
         apply(
             COPILOT_ID,
@@ -72,7 +73,7 @@ object FreeModels {
                         .put("gpt-4o-mini-2024-07-18", model("GPT-4o mini", 128000, 16384, true, false, true)),
                 ),
         )
-        finish(COPILOT_ID, COPILOT_DEFAULT)
+        if (select) finish(COPILOT_ID, COPILOT_DEFAULT) else { runCatching { Graph.api.disposeAll() }; runCatching { Graph.catalog.refresh() }; Vault.save() }
         return true
     }
 

@@ -174,7 +174,7 @@ fun Markdown(text: String, modifier: Modifier = Modifier, serif: Boolean = Graph
     val mono = Oc.mono
     val blocks = remember(text) { parseBlocks(text) }
     // Claude: с засечками (если не выключено); Terminal и Desktop — свой шрифт редакции
-    val family = if (Oc.edition != "claude") Oc.body else if (serif) FontFamily.Serif else FontFamily.Default
+    val family = Oc.reply
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         blocks.forEach { b ->
             when (b) {

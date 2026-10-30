@@ -173,7 +173,17 @@ data class AgentInfo(
 )
 
 @Serializable
-data class NamedItem(val name: String, val description: String? = null)
+data class NamedItem(
+    val name: String,
+    val description: String? = null,
+    /** command | skill | mcp — откуда пришла команда. */
+    val source: String? = null,
+    val template: String? = null,
+    val agent: String? = null,
+    /** Для навыков: путь к SKILL.md (или «<built-in>») и его текст. */
+    val location: String? = null,
+    val content: String? = null,
+)
 
 data class PermissionReq(
     val id: String,

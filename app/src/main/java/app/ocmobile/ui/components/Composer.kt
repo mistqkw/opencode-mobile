@@ -3,6 +3,8 @@ package app.ocmobile.ui.components
 import android.content.Intent
 import android.net.Uri
 import android.speech.RecognizerIntent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.widthIn
@@ -90,6 +92,7 @@ fun ComposerHost(
     placeholder: String = "Chat with OpenCode…",
     dashed: Boolean = false,
     modifier: Modifier = Modifier,
+    onVoice: (() -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     val c = Oc.c
@@ -120,14 +123,29 @@ fun ComposerHost(
 
     val model = providers.firstOrNull { it.id == prefs.providerId }?.models?.get(prefs.modelId)
     val modelName = model?.name?.takeIf { it.isNotBlank() } ?: prefs.modelId.ifBlank { "Select model" }
+    val (dict, startDict) = rememberDictation()
+    fun takeDictation() { val t = dict.finish(); if (t.isNotBlank()) state.text = if (state.text.isBlank()) t else state.text.trimEnd() + " " + t }
+    // ChatGPT и Kimi: поле в одну строку, модель — в верхней панели
+    val compact = Oc.look.compact
+    val look = Oc.look.id
+    val sendCol = Oc.look.sendColor?.invoke(c)
+    // в Messenger/Hairline/Cards/Notebook отправка тоже цветная; в ChatGPT/Kimi — белая, как в оригиналах
+    val readyCol = if (Oc.look.compact) null else sendCol
 
+    Column(modifier) {
+    SlashMenu(state, nav)
     Column(
-        modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
-            .animateContentSize()
-            .clip(Oc.round(30.dp)).background(c.surface)
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
+            .animateContentSize(tween(140))
+            .clip(if (compact) RoundedCornerShape(if (look == "kimi") 34.dp else 28.dp) else Oc.round(30.dp))
+            .background(when { compact -> c.surfaceHigh; look == "hairline" || look == "notebook" -> c.bg; else -> c.surface })
             .then(
                 when {
                     dashed -> Modifier.dashedBorder(c.textDim, 30.dp)
+                    // Hairline: пустая рамка 1px; Notebook: без рамки, только линейка сверху — как строка в тетради
+                    look == "hairline" -> Modifier.border(1.dp, c.border, Oc.round(30.dp))
+                    look == "notebook" -> Modifier.drawBehind { drawRect(c.accent.copy(alpha = 0.55f), size = androidx.compose.ui.geometry.Size(size.width, 1.5.dp.toPx())) }
+                    compact -> Modifier.border(1.dp, c.border, RoundedCornerShape(if (look == "kimi") 34.dp else 28.dp))
                     Oc.terminal -> Modifier.drawBehind { drawRect(c.link, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
                     Oc.desktop -> Modifier.border(1.dp, c.border, Oc.round(30.dp))
                     else -> Modifier.border(1.5.dp, c.border, Oc.round(30.dp))
@@ -142,17 +160,50 @@ fun ComposerHost(
                 state.attachments.toList().forEach { a -> AttachmentChip(a) { state.attachments.remove(a) } }
             }
         }
+        if (compact && !dict.active) Row(Modifier.fillMaxWidth().padding(if (look == "kimi") 9.dp else 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconBtn(Ic.Plus, { haptic(); state.showAdd = true }, size = 44.dp, bg = if (look == "kimi") c.text.copy(alpha = 0.08f) else androidx.compose.ui.graphics.Color.Transparent)
+            Box(Modifier.weight(1f).padding(horizontal = 8.dp).heightIn(min = 24.dp, max = 160.dp), contentAlignment = Alignment.CenterStart) {
+                if (state.text.isEmpty()) Txt(placeholder, size = 17.sp, color = c.textDim, maxLines = 1)
+                BasicTextField(
+                    value = state.text, onValueChange = { state.text = it },
+                    textStyle = TextStyle(color = c.text, fontSize = 17.sp, fontFamily = Oc.body),
+                    cursorBrush = SolidColor(c.text), maxLines = 6, modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            IconBtn(Ic.Mic, { haptic(); startDict() }, size = 44.dp, tint = c.text)
+            Spacer(Modifier.width(4.dp))
+            val ready = busy || state.canSend
+            val voice = !ready && onVoice != null
+            val bg = when { ready -> readyCol ?: c.text; voice -> sendCol ?: c.border; else -> c.border }
+            Box(
+                Modifier.size(44.dp).clip(CircleShape).background(bg)
+                    .tap(enabled = ready || voice) { haptic(); if (voice) onVoice?.invoke() else if (busy && !state.canSend) onStop() else onSend() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Ico(if (voice) Ic.Waveform else if (busy && !state.canSend) Ic.Stop else Ic.ArrowUp, tint = if (ready) (if (readyCol != null) androidx.compose.ui.graphics.Color.White else c.bg) else if (voice && sendCol != null) androidx.compose.ui.graphics.Color.White else c.text, size = 20.dp)
+            }
+        } else {
         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 2.dp).heightIn(min = 26.dp, max = 200.dp)) {
-            if (state.text.isEmpty()) Txt(placeholder, size = 17.sp, color = c.textDim)
+            if (dict.active) {
+                // что уже сказано — прямо в поле, как в Claude
+                Txt(listOf(state.text, dict.text).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "Listening…" }, size = 17.sp, color = if (dict.text.isBlank()) c.textDim else c.text, maxLines = 8)
+            } else {
+            if (state.text.isEmpty()) when (look) {
+                "hairline" -> Txt(placeholder.uppercase().removeSuffix("…") + " _", size = 13.sp, color = c.textDim, family = Oc.label, modifier = Modifier.padding(top = 2.dp))
+                "notebook" -> androidx.compose.material3.Text(placeholder, fontSize = 18.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                else -> Txt(placeholder, size = 17.sp, color = c.textDim)
+            }
             BasicTextField(
                 value = state.text, onValueChange = { state.text = it },
-                textStyle = TextStyle(color = c.text, fontSize = 17.sp, fontFamily = Oc.body),
+                textStyle = TextStyle(color = c.text, fontSize = if (look == "notebook") 18.sp else 17.sp, fontFamily = if (look == "notebook") Oc.reply else Oc.body),
                 cursorBrush = SolidColor(c.text), maxLines = 8,
                 modifier = Modifier.fillMaxWidth(),
             )
+            }
         }
-        Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (Oc.edition == "claude") {
+        if (dict.active) DictationBar(dict, onCancel = { haptic(); dict.stop() }, onDone = { haptic(); takeDictation() }, onSend = { haptic(); takeDictation(); if (state.canSend) onSend() })
+        else Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (Oc.claudeLike) {
                 IconBtn(Ic.Plus, { haptic(); state.showAdd = true }, size = 40.dp, bg = c.surfaceHigh)
                 Spacer(Modifier.width(8.dp))
                 Row(
@@ -194,28 +245,47 @@ fun ComposerHost(
                     }
                 }
             }
-            if (Oc.edition == "claude") Spacer(Modifier.weight(1f))
-            if (!state.canSend && !busy) {
-                IconBtn(Ic.Mic, {
-                    haptic()
-                    val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    runCatching { mic.launch(i) }.onFailure { Graph.chats.toasts.tryEmit("No speech recognizer on this device") }
-                }, size = 40.dp, bg = c.surfaceHigh, tint = c.textDim)
-                Spacer(Modifier.width(8.dp))
-            }
+            if (Oc.claudeLike) Spacer(Modifier.weight(1f))
+            // микрофон всегда под рукой: дописать голосом к уже набранному и отправить даже во время работы агента
+            IconBtn(Ic.Mic, { haptic(); startDict() }, size = 40.dp, bg = c.surfaceHigh, tint = c.textDim)
+            Spacer(Modifier.width(8.dp))
             val ready = busy || state.canSend
-            val sendBg by animateColorAsState(if (ready) c.text else c.surfaceHigh, label = "sendBg")
+            // пусто и не занято — кнопка голосового режима, как в Claude
+            val voice = !ready && onVoice != null
+            val sendBg by animateColorAsState(if (voice && sendCol != null) sendCol else if (ready && readyCol != null) readyCol else if (ready || voice) c.text else c.surfaceHigh, tween(90), label = "sendBg")
             Box(
                 Modifier.size(40.dp).clip(Oc.pill).background(sendBg)
-                    .tap(enabled = ready) { haptic(); if (busy && !state.canSend) onStop() else onSend() },
+                    .tap(enabled = ready || voice) { haptic(); if (voice) onVoice?.invoke() else if (busy && !state.canSend) onStop() else onSend() },
                 contentAlignment = Alignment.Center,
             ) {
-                Ico(if (busy && !state.canSend) Ic.Stop else Ic.ArrowUp, tint = if (ready) c.bg else c.textDim, size = 20.dp)
+                androidx.compose.animation.AnimatedContent(
+                    if (voice) 2 else if (busy && !state.canSend) 1 else 0, label = "sendIcon",
+                    transitionSpec = { (androidx.compose.animation.fadeIn(tween(90)) + androidx.compose.animation.scaleIn(tween(120), 0.6f)) togetherWith androidx.compose.animation.fadeOut(tween(60)) },
+                ) { k -> Ico(when (k) { 2 -> Ic.Waveform; 1 -> Ic.Stop; else -> Ic.ArrowUp }, tint = if ((voice && sendCol != null) || (ready && readyCol != null)) androidx.compose.ui.graphics.Color.White else if (ready || voice) c.bg else c.textDim, size = 20.dp) }
             }
+        }
         }
     }
 
-    if (state.showAdd) {
+    // цена сообщения до отправки
+    if (!dict.active) CostHint(sessionId?.let { Graph.chats.chat(it) }, state.text, state.attachments.size)
+    }
+
+    if (state.showAdd && look == "kimi") {
+        KimiAddSheet(
+            nav = nav,
+            onDismiss = { state.showAdd = false },
+            onCamera = {
+                val f = File(ctx.cacheDir, "camera").apply { mkdirs() }.let { File(it, "cam-${System.currentTimeMillis()}.jpg") }
+                val u = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
+                cameraUri = u
+                camera.launch(u)
+            },
+            onPhotos = { photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onFiles = { files.launch(arrayOf("*/*")) },
+            onVoice = onVoice,
+        )
+    } else if (state.showAdd) {
         AddSheet(
             onDismiss = { state.showAdd = false },
             sessionId = sessionId,
@@ -231,7 +301,9 @@ fun ComposerHost(
             onFiles = { state.showAdd = false; files.launch(arrayOf("*/*")) },
         )
     }
-    if (state.showModel) ModelSheet(onDismiss = { state.showModel = false })
+    var allModels by remember { mutableStateOf(false) }
+    if (state.showModel && look == "kimi" && !allModels) KimiModelPanel(onDismiss = { state.showModel = false }, onMore = { allModels = true })
+    else if (state.showModel) ModelSheet(onDismiss = { state.showModel = false; allModels = false }, start = if (allModels) "all" else "main")
 }
 
 @Composable
@@ -273,9 +345,9 @@ private fun AddSheet(
         onDismiss = onDismiss,
         title = when (page) { "perm" -> "Permission"; "agent" -> "Agent"; else -> if (Oc.terminal) "Commands" else "Add to session" },
         onBack = if (page != "main") ({ page = "main" }) else null,
-        skipHalf = Oc.edition != "claude",
+        skipHalf = !Oc.claudeLike,
     ) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = if (Oc.edition == "claude") 24.dp else 10.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = if (Oc.claudeLike) 24.dp else 10.dp)) {
             when (page) {
                 "perm" -> {
                     listOf(
@@ -298,7 +370,7 @@ private fun AddSheet(
                 "agent" -> agents.forEach { a ->
                     PickRow(a.name.replaceFirstChar { it.uppercase() }, { prefs.agent = a.name; page = "main" }, selected = prefs.agent == a.name, subtitle = a.description)
                 }
-                else -> if (Oc.edition == "claude") {
+                else -> if (Oc.claudeLike) {
                     Row(Modifier.padding(horizontal = 16.dp).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Tile("Camera", Ic.Camera, Modifier.weight(1f), onCamera)
                         Tile("Photos", Ic.Image, Modifier.weight(1f), onPhotos)
@@ -354,11 +426,11 @@ private fun Tile(label: String, icon: androidx.compose.ui.graphics.vector.ImageV
 }
 
 @Composable
-fun ModelSheet(onDismiss: () -> Unit) {
+fun ModelSheet(start: String = "main", onDismiss: () -> Unit) {
     val c = Oc.c
     val prefs = Graph.prefs
     val providers by Graph.catalog.providers.collectAsState()
-    var page by remember { mutableStateOf("main") }
+    var page by remember { mutableStateOf(start) }
     var query by remember { mutableStateOf("") }
     val current = Graph.catalog.model(prefs.providerId, prefs.modelId)
 
@@ -379,7 +451,7 @@ fun ModelSheet(onDismiss: () -> Unit) {
             }
             return@PickerFrame
         }
-        val claudeEd = Oc.edition == "claude"
+        val claudeEd = Oc.claudeLike
         if (claudeEd && page == "main") {
             ClaudeModelMain(current, onDismiss = onDismiss, onEffort = { page = "effort" }, onMore = { page = "all" })
             return@PickerFrame
@@ -425,7 +497,7 @@ private fun Modifier.dashedBorder(color: androidx.compose.ui.graphics.Color, rad
 }
 
 
-private fun pickModel(providerId: String, m: app.ocmobile.api.ModelInfo) {
+internal fun pickModel(providerId: String, m: app.ocmobile.api.ModelInfo) {
     val prefs = Graph.prefs
     prefs.providerId = providerId; prefs.modelId = m.id
     if (prefs.variant !in m.variantNames) prefs.variant = ""
@@ -494,5 +566,24 @@ private fun ClaudeModelMain(current: app.ocmobile.api.ModelInfo?, onDismiss: () 
         SettingsGroup {
             SettingsRow("More models", chevron = true, onClick = onMore)
         }
+    }
+}
+
+/** ChatGPT и Kimi: модель — «пилюлей» в верхней панели рядом с меню (поле ввода у них в одну строку). */
+@Composable
+fun TopModelPill(state: ComposerState) {
+    if (!Oc.look.compact) return
+    if (Oc.look.id == "kimi") return KimiModelPill { state.showModel = true }
+    val c = Oc.c
+    val providers by Graph.catalog.providers.collectAsState()
+    val prefs = Graph.prefs
+    val name = providers.firstOrNull { it.id == prefs.providerId }?.models?.get(prefs.modelId)?.name?.takeIf { it.isNotBlank() } ?: prefs.modelId.ifBlank { "Model" }
+    Row(
+        Modifier.padding(start = 6.dp).height(40.dp).widthIn(max = 220.dp).clip(CircleShape).background(c.surfaceHigh).tap(scale = 0.97f) { state.showModel = true }.padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Txt(name, size = 15.sp, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+        if (prefs.variant.isNotBlank()) { Spacer(Modifier.width(5.dp)); Txt(prefs.variant.replaceFirstChar { it.uppercase() }, size = 15.sp, color = c.textDim, maxLines = 1) }
+        Spacer(Modifier.width(4.dp)); Ico(Ic.ChevronDown, tint = c.textDim, size = 14.dp)
     }
 }

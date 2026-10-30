@@ -2,4 +2,5 @@
 <paths>
     <cache-path name="camera" path="camera/" />
     <files-path name="export" path="export/" />
+    <files-path name="rootfs" path="rootfs/" />
 </paths>

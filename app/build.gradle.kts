@@ -15,10 +15,13 @@ android {
         // а с targetSdk >= 29 Android запрещает exec из app_data_file (как у Termux).
         // APK раздаём файлом, не через Play.
         targetSdk = 28
-        versionCode = 2
-        versionName = "0.0.1 beta-2"
+        versionCode = 3
+        versionName = "0.0.1 beta-3"
         ndk { abiFilters += "arm64-v8a" }
     }
+
+    // targetSdk 28 — см. выше; для APK вне Play это не ошибка
+    lint { disable += "ExpiredTargetSdkVersion" }
 
     buildTypes {
         debug {

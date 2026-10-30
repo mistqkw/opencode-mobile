@@ -96,4 +96,16 @@ object Ic {
     }
     val Play by lazy { icon("play", "M7 4.5v15l12-7.5z") }
     val Branch by lazy { icon("branch", "M6 3v12", "M18 9a3 3 0 1 0 0 .01", "M6 18a3 3 0 1 0 0 .01", "M18 12a9 9 0 0 1-9 9") }
+    val Pause by lazy { icon("pause", "M8 5v14", "M16 5v14") }
+    val Music by lazy { icon("music", "M9 18V5l12-2v13", "M9 18a3 3 0 1 1-6 0a3 3 0 1 1 6 0z", "M21 16a3 3 0 1 1-6 0a3 3 0 1 1 6 0z") }
+    val Video by lazy { icon("video", "M4 6h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z", "M16 10l5-3v10l-5-3") }
+    val Volume by lazy { icon("volume", "M11 5L6 9H3v6h3l5 4z", "M15.5 8.5a5 5 0 0 1 0 7", "M18.5 5.5a9 9 0 0 1 0 13") }
+    val TextSelect by lazy { icon("textsel", "M5 4h2", "M5 20h2", "M6 4v16", "M11 7h8", "M11 12h8", "M11 17h5") }
+    val Reply by lazy { icon("reply", "M9 14L4 9l5-5", "M4 9h10a6 6 0 0 1 6 6v4") }
+    val Waveform by lazy { icon("waveform", "M4 10v4", "M8 7v10", "M12 4v16", "M16 7v10", "M20 10v4") }
+    val Mic2 by lazy { icon("mic2", "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z", "M5 11a7 7 0 0 0 14 0", "M12 18v3") }
+    val VolumeOff by lazy { icon("volumeoff", "M11 5L6 9H3v6h3l5 4z", "M22 9l-6 6", "M16 9l6 6") }
+    val MicOff by lazy { icon("micoff", "M3 3l18 18", "M9 9v3a3 3 0 0 0 5.1 2.1", "M15 9.3V5a3 3 0 0 0-5.9-.7", "M19 10v1a7 7 0 0 1-1 3.6", "M5 10v1a7 7 0 0 0 11.3 5.5", "M12 18v4", "M8 22h8") }
+    val FontSize by lazy { icon("fontsize", "M4 7V5h10v2", "M9 5v14", "M7 19h4", "M14 12v-1h7v1", "M17.5 11v8", "M16 19h3") }
+    val Bell by lazy { icon("bell", "M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9", "M13.7 21a2 2 0 0 1-3.4 0") }
 }

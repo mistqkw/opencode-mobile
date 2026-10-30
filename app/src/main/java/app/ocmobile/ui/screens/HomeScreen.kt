@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,6 +54,7 @@ import app.ocmobile.ui.components.Txt
 import app.ocmobile.ui.components.rememberComposerState
 import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
+import app.ocmobile.ui.theme.lookBackdrop
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -63,6 +65,7 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
     val scope = rememberCoroutineScope()
     val state = rememberComposerState()
     var sending by remember { mutableStateOf(false) }
+    var voiceHome by remember { mutableStateOf(false) }
     var picker by remember { mutableStateOf(false) }
     var ghost by remember { mutableStateOf(false) }
     var shown by remember { mutableStateOf(false) }
@@ -85,12 +88,24 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
     var composerRect by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     val prog = remember { androidx.compose.animation.core.Animatable(0f) }
 
-    Box(Modifier.fillMaxSize().background(c.bg)) {
+    // «Поделиться → Ask OpenCode»: текст и файлы — сразу в поле ввода
+    // забирает только экран, который сейчас виден: «Поделиться» может открыть второй экземпляр поверх старого
+    val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.LaunchedEffect(life) {
+        life.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) { app.ocmobile.data.ShareInbox.pending.collect { sh ->
+            if (sh == null) return@collect
+            state.text = if (state.text.isBlank()) sh.text else state.text.trimEnd() + "\n" + sh.text
+            sh.uris.forEach { u -> state.attachments.add(app.ocmobile.data.Attachments.describe(ctx, u)) }
+            app.ocmobile.data.ShareInbox.pending.value = null
+        } }
+    }
+    Box(Modifier.fillMaxSize().lookBackdrop()) {
     Column(Modifier.fillMaxSize().imePadding()) {
         Box(Modifier.graphicsLayer { alpha = 1f - prog.value }) {
             TopBar(
-                left = { IconBtn(Ic.Menu, onMenu) },
+                left = { Row(verticalAlignment = Alignment.CenterVertically) { IconBtn(Ic.Menu, onMenu); app.ocmobile.ui.components.TopModelPill(state) } },
                 right = {
+                    app.ocmobile.ui.components.UsageRing(null, nav)
                     IconBtn(Ic.Ghost, { ghost = !ghost }, tint = if (ghost) c.text else c.textDim)
                     if (code) Row(
                         Modifier.padding(end = 8.dp).clip(CircleShape).clickable { picker = true }.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -101,11 +116,12 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
                 },
             )
         }
+        app.ocmobile.ui.components.InterruptedBanner { nav.openChat(it) }
         Column(Modifier.weight(1f).fillMaxWidth().graphicsLayer { alpha = 1f - prog.value * 1.6f; translationY = -prog.value * 40f }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             androidx.compose.animation.AnimatedContent(ghost, label = "home-mode", transitionSpec = { fadeIn() togetherWith fadeOut() }) { g ->
                 androidx.compose.animation.AnimatedVisibility(
-                    shown, enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(500)) +
-                        androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(500)) { it / 8 },
+                    shown, enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(240)) +
+                        androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(240)) { it / 8 },
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         if (g) {
@@ -113,7 +129,11 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
                             Spacer(Modifier.height(22.dp))
                             Txt("Incognito chats stay out of your recents and are deleted when you leave them.", Modifier.padding(horizontal = 40.dp), size = 18.sp, color = c.textDim, align = TextAlign.Center)
                         } else {
-                            if (Oc.desktop) {
+                            if (Oc.look.id == "kimi") {
+                                app.ocmobile.ui.components.KimiHero(code) { nav.push(app.ocmobile.ui.Route.Providers) }
+                            } else if (Oc.look.id in lookHomes) {
+                                LookHome(Oc.look.id, code) { state.text = it }
+                            } else if (Oc.desktop) {
                                 // desktop: тусклая надпись без подписей, под полем — чипы проекта
                                 app.ocmobile.ui.components.PixelWordmark(Modifier.padding(horizontal = 20.dp).graphicsLayer { alpha = 0.32f })
                             } else {
@@ -133,10 +153,12 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
             Modifier.navigationBarsPadding().onGloballyPositioned { composerRect = it.boundsInRoot() }
                 .graphicsLayer { alpha = 1f - prog.value * 1.4f; translationY = prog.value * 90f },
         ) {
+            if (Oc.look.id == "kimi" && !ghost && !state.text.startsWith("/")) app.ocmobile.ui.components.KimiQuickChips(nav, code) { state.text = it }
             ComposerHost(
                 state = state, nav = nav, busy = sending, dashed = ghost,
-                placeholder = if (code) "Describe a task…" else "Chat with OpenCode…",
+                placeholder = if (Oc.look.id == "kimi") "Ask me. Give me a task." else if (code) "Describe a task…" else "Chat with OpenCode…",
                 onStop = {},
+                onVoice = if (code || ghost) null else ({ voiceHome = true }),
                 onSend = {
                     val text = state.text.trim()
                     val atts = state.attachments.toList()
@@ -145,7 +167,7 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
                         try {
                             val dir = if (code || Graph.devices.isRemote) Graph.prefs.currentDir else CHAT_DIR
                             if (!Graph.devices.isRemote) Graph.paths.host(dir).mkdirs()
-                            val flight = launch { prog.animateTo(1f, androidx.compose.animation.core.tween(430, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+                            val flight = launch { prog.animateTo(1f, androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
                             val s = Graph.chats.createSession(dir)
                             if (ghost) Graph.chats.markIncognito(s.id)
                             Graph.chats.send(ctx, s.id, text, atts)
@@ -162,6 +184,7 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
             if (Oc.desktop) DesktopChips(code, dirName, onProject = { picker = true }, onMemory = { nav.push(Route.Memory) })
         }
     }
+    if (voiceHome) VoiceMode(null) { sid -> voiceHome = false; sid?.let { nav.openChatInstant(it) } }
     flightText?.let { text ->
         // положение и размер пузыря: из поля ввода — в правый верхний угол, где он окажется в чате
         val bubbleMaxW = screenW * 0.88f

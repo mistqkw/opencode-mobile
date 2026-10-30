@@ -29,6 +29,10 @@ class Prefs(ctx: Context) {
         }
     }
 
+    private fun lng(key: String, def: Long) = object : ReadWriteProperty<Any?, Long> {
+        override fun getValue(thisRef: Any?, property: KProperty<*>) = sp.getLong(key, def)
+        override fun setValue(thisRef: Any?, property: KProperty<*>, value: Long) { sp.edit().putLong(key, value).apply() }
+    }
     private fun dbl(key: String, def: Double) = object : ReadWriteProperty<Any?, Double> {
         var s by mutableStateOf(sp.getFloat(key, def.toFloat()).toDouble())
         override fun getValue(thisRef: Any?, property: KProperty<*>) = s
@@ -46,19 +50,41 @@ class Prefs(ctx: Context) {
     var codeFont by str("code_font", "mono")          // mono | system
     var wrapLines by bool("wrap_lines", false)
     var haptics by bool("haptics", true)
-    var appIcon by str("app_icon", "terracotta")
+    var updateAuto by bool("update_auto", true)
+    var phoneTools by bool("phone_tools", true)          // MCP «phone»: агент может действовать на этом телефоне
+    var phoneToken by str("phone_token", "")
+    var phoneToolsOff by str("phone_tools_off", "")      // выключенные инструменты через запятую
+    var liveNotify by bool("live_notify", true)          // уведомление с ходом работы и кнопками разрешений
+    var costHint by bool("cost_hint", true)
+    var busyIds by str("busy_ids", "")                   // сессии, которые работали при последнем известном состоянии
+    var interruptedIds by str("interrupted_ids", "")     // задачи, оборванные остановкой сервера              // подсказка цены под полем ввода          // проверять релизы GitHub при запуске
+    var updateCheckedAt by lng("update_checked_at", 0L)
+    var updateSkipped by str("update_skipped", "")       // тег версии, которую попросили пропустить
+    var appIcon by str("app_icon", "look_desktop")
     var uiScale by str("ui_scale", "100")             // 90 | 100 | 110 | 120
     var incognitoIds by str("incognito_ids", "")
     var devicesJson by str("devices", "[]")
     var memoryEnabled by bool("memory_enabled", true)
     var memoryCustom by str("memory_custom", "")
+    /** Сохранять самому (true) или только когда попросят «запомни». */
+    var memoryAuto by bool("memory_auto", true)
+    /** Анимация входа при запуске. */
+    var introEnabled by bool("intro_enabled", true)
+    /** Темы полок через запятую; пусто — любые. */
+    var memoryTopics by str("memory_topics", "")
     var signedIn by str("signed_in", "")          // github | google | email | key | ""
     var loginSeen by bool("login_seen", false)
+    var githubLogin by str("github_login", "")           // вход в GitHub внутри окружения (токен лежит у gh)
+    var githubName by str("github_name", "")
+    var githubAvatar by str("github_avatar", "")
+    var onboarded by bool("onboarded", false)          // первый запуск пройден
     var scheduledJson by str("scheduled", "[]")
     var activeDevice by str("active_device", "")
 
     // Профиль
     var userName by str("user_name", "")
+    /** Язык распознавания речи и озвучки: "" — язык телефона. */
+    var speechLang by str("speech_lang", "")
     var avatarPath by str("avatar_path", "")
 
     // Сервер

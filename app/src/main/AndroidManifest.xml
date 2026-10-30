@@ -2,9 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- инструменты «phone» для агента: будильник, геолокация; Live Update на Android 16 -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
@@ -13,8 +21,8 @@
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:extractNativeLibs="true"
-        android:icon="@mipmap/ic_terracotta"
-        android:roundIcon="@mipmap/ic_terracotta"
+        android:icon="@mipmap/ic_look_desktop"
+        android:roundIcon="@mipmap/ic_look_desktop"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
@@ -24,11 +32,29 @@
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode|smallestScreenSize|screenLayout"
-            android:windowSoftInputMode="adjustResize" />
+            android:windowSoftInputMode="adjustResize">
+            <!-- «Поделиться» из любого приложения: текст, ссылки, картинки и файлы становятся задачей -->
+            <intent-filter android:label="Ask OpenCode">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter android:label="Ask OpenCode">
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".data.PhotoActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <activity-alias
             android:name=".IconTerracotta"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_terracotta"
             android:roundIcon="@mipmap/ic_terracotta"
@@ -180,7 +206,108 @@
             </intent-filter>
         </activity-alias>
 
+        <activity-alias
+            android:name=".IconLookClaude"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_look_claude"
+            android:roundIcon="@mipmap/ic_look_claude"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconLookTerminal"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_look_terminal"
+            android:roundIcon="@mipmap/ic_look_terminal"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconLookDesktop"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_look_desktop"
+            android:roundIcon="@mipmap/ic_look_desktop"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconLookHairline"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_look_hairline"
+            android:roundIcon="@mipmap/ic_look_hairline"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconLookChatgpt"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_look_chatgpt"
+            android:roundIcon="@mipmap/ic_look_chatgpt"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconLookKimi"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_look_kimi"
+            android:roundIcon="@mipmap/ic_look_kimi"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconLookNotebook"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_look_notebook"
+            android:roundIcon="@mipmap/ic_look_notebook"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <receiver android:name=".data.Scheduler$Receiver" android:exported="false" />
+        <receiver android:name=".data.Updater$Receiver" android:exported="false" />
+        <receiver android:name=".data.PhoneBridge$Reminder" android:exported="false" />
+        <receiver android:name=".data.LiveNotify$Action" android:exported="false" />
 
         <service
             android:name=".runtime.ServerService"

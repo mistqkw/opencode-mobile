@@ -147,25 +147,3 @@ fun AgentsScreen(nav: Nav) {
         }
     }
 }
-
-@Composable
-fun SkillsScreen(nav: Nav) {
-    val c = Oc.c
-    var skills by remember { mutableStateOf<List<NamedItem>>(emptyList()) }
-    var cmds by remember { mutableStateOf<List<NamedItem>>(emptyList()) }
-    LaunchedEffect(Unit) {
-        skills = runCatching { Graph.api.skills() }.getOrDefault(emptyList())
-        cmds = runCatching { Graph.api.commands() }.getOrDefault(emptyList())
-    }
-    Column(Modifier.fillMaxSize().background(c.bg)) {
-        TopBar("Skills & commands", left = { IconBtn(Ic.Back, { nav.pop() }) })
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
-            SectionLabel("Skills")
-            if (skills.isEmpty()) Txt("No skills installed", Modifier.padding(horizontal = 20.dp), size = 16.sp, color = c.textDim)
-            else SettingsGroup { skills.forEach { SettingsRow(it.name, subtitle = it.description, icon = Ic.Scroll) } }
-            SectionLabel("Slash commands")
-            if (cmds.isEmpty()) Txt("No commands", Modifier.padding(horizontal = 20.dp), size = 16.sp, color = c.textDim)
-            else SettingsGroup { cmds.forEach { SettingsRow("/" + it.name, subtitle = it.description, icon = Ic.Terminal) } }
-        }
-    }
-}

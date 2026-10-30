@@ -12,4 +12,11 @@
     <color name="ic_bg_pink">#e46a8f</color>
     <color name="ic_bg_teal">#2b8a96</color>
     <color name="ic_bg_violet">#7b61d9</color>
+    <color name="ic_bg_look_claude">#d97757</color>
+    <color name="ic_bg_look_terminal">#0a0a0a</color>
+    <color name="ic_bg_look_desktop">#1c1c1c</color>
+    <color name="ic_bg_look_hairline">#000000</color>
+    <color name="ic_bg_look_chatgpt">#000000</color>
+    <color name="ic_bg_look_kimi">#3d8bff</color>
+    <color name="ic_bg_look_notebook">#f7f3ea</color>
 </resources>
