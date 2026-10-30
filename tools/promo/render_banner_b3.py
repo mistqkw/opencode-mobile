@@ -1,6 +1,6 @@
-"""Баннер для Telegram к v0.0.1 beta-3, 1280x720.
+"""Telegram banner for v0.0.1 beta-3, 1280x720.
 
-    python3 render_banner_b3.py <папка с чистыми скриншотами> <выход.png>
+    python3 render_banner_b3.py <clean screenshots dir> <out.png>
 """
 import os
 import sys

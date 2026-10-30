@@ -1,6 +1,6 @@
 #!/bin/bash
-# Лёгкая сборка: потолок памяти 3 ГБ, 2 ядра из 4, низкий приоритет — рядом остаётся
-# браузер с YouTube. Использование: tools/lite-build.sh [gradle-задачи]
+# Light build: 3 GB memory cap, 2 of 4 cores, low priority, so the rest of the machine stays usable.
+# Usage: tools/lite-build.sh [gradle tasks]
 cd "$(dirname "$0")/.."
 export JAVA_HOME=/home/mista/toolchain/jdk
 exec flock -n /tmp/ocm-build.lock \

@@ -1,4 +1,4 @@
-# Релиз по тегу: v0.0.1-beta-3 → собрать APK, подписать тем же ключом, что и прошлые версии, выложить в Releases.
+# Release on tag: v0.0.1-beta-3 → build the APK, sign it with the same key as earlier versions, publish to Releases.
 name: Release
 
 on:
@@ -30,7 +30,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # Ключ подписи из секрета: без него обновление поверх установленной версии не встанет.
+      # Signing key from a secret: without the same key the update will not install over the existing app.
       - name: Signing key
         env:
           KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}

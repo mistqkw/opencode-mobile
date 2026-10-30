@@ -1,12 +1,12 @@
-"""Ролик к v0.0.1 beta-3, 1080x1920, 30 fps, 15 тактов при 140 BPM (~25.7 с), под audio_b3.py.
+"""Video for v0.0.1 beta-3, 1080x1920, 30 fps, 15 bars at 140 BPM (~25.7 s), timed to audio_b3.py.
 
-Подача: по одному экрану на два такта. Телефон влетает с наклоном попеременно слева и справа,
-рядом номер сцены и заголовок, тонкая выноска указывает на нужное место экрана. Между сценами —
-плоская синяя шторка ровно на долю.
+One screen per two bars. The phone flies in tilted, alternating from the left and the right,
+next to it the scene number and a title, and a thin callout points at the relevant part of the screen. Between scenes
+a flat blue wipe lasting one beat.
 
-    python3 render_beta3.py <папка с чистыми скриншотами> <выход.mp4> [аудио.wav]
+    python3 render_beta3.py <clean screenshots dir> <out.mp4> [audio.wav]
 
-Нужны скриншоты: home, slash, skills, usage, phone, github-code (.png, после clean.py).
+Needs screenshots: home, slash, skills, usage, phone, github-code (.png, after clean.py).
 """
 import os
 import subprocess
@@ -26,7 +26,7 @@ DUR = BARS * BAR
 PW = 560
 PY = 520
 
-# снимок, заголовок в две строки, точка выноски (доли экрана), подпись выноски
+# screenshot, two-line title, callout point (fraction of the screen), callout label
 SCENES = [
     ("home", ("A ball", "that reacts"), (0.5, 0.36), "tap it, poke it,\nlet it nap"),
     ("slash", ("Skills", "behind a slash"), (0.5, 0.60), "/name loads\nthe skill"),
@@ -35,8 +35,8 @@ SCENES = [
     ("phone", ("Hands on", "your phone"), (0.88, 0.265), "alarms, clipboard,\nphotos, location"),
     ("github-code", ("GitHub,", "signed as you"), (0.5, 0.27), "one code, then\ngit push with no\nco-authors"),
 ]
-S0 = 2 * BAR            # начало первой сцены
-SL = 2 * BAR            # длина сцены
+S0 = 2 * BAR            # start of the first scene
+SL = 2 * BAR            # scene length
 END = S0 + len(SCENES) * SL
 
 
@@ -85,7 +85,7 @@ def scene(c, t, k, phones):
     right = k % 2 == 0
     ph = phones[k]
     px_rest = W - PW - 60 if right else 60
-    # вход: из-за края с наклоном, пружиной
+    # entry: from off-screen, tilted, with a spring
     p = out_back(lt / 0.5, 1.15)
     px = lerp(W + 40 if right else -PW - 40, px_rest, p)
     ang = (1 - clamp(lt / 0.5)) * (-9 if right else 9)
@@ -95,7 +95,7 @@ def scene(c, t, k, phones):
     else:
         c.paste(ph, (int(px), PY), ph)
 
-    # номер и заголовок: строки на долях
+    # number and title: one line per beat
     tx = 70 if right else W - 70
     anc = "la" if right else "ra"
     text(c, (tx, 120), f"0{k + 1} / 06", "mono", 30, DIM, anc, clamp(lt / 0.2))
@@ -104,7 +104,7 @@ def scene(c, t, k, phones):
         if a > 0:
             text(c, (tx + (1 - a) * (-50 if right else 50), 170 + j * 100), s, "sans", 88, col, anc, a)
 
-    # выноска: точка на экране, линия к подписи на свободной стороне
+    # callout: dot on the screen, line to the label on the free side
     rim = max(6, PW // 60)
     sw = PW - 2 * rim
     sh = ph.height - 2 * rim
@@ -152,7 +152,7 @@ def outro(c, t):
 
 
 def wipe(c, t):
-    """Синяя шторка через кадр на каждой смене сцены."""
+    """Blue wipe across the frame on every scene change."""
     for tc in [S0 + i * SL for i in range(len(SCENES) + 1)]:
         p = (t - (tc - 0.16)) / 0.32
         if 0 <= p <= 1:

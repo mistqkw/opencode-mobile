@@ -1,9 +1,9 @@
-"""Ролик для TikTok 1080x1920, 30 fps, ~21 с: пиксельная надпись, телефон-карусель, титры.
+"""Beta-1 video for TikTok, 1080x1920, 30 fps, ~21 s: pixel wordmark, phone carousel, captions.
 
-    python3 render_video.py <папка с чистыми скриншотами> <выход.mp4> [аудио.wav]
+    python3 render_video.py <clean screenshots dir> <out.mp4> [audio.wav]
 
-Нужны скриншоты: claude-home, terminal-home, desktop-home, memory, claude-models (.png).
-Кадры идут прямо в ffmpeg, на диск ничего не пишется.
+Needs screenshots: claude-home, terminal-home, desktop-home, memory, claude-models (.png).
+Frames are piped straight into ffmpeg, nothing is written to disk.
 """
 import math
 import os
@@ -18,14 +18,14 @@ from common import (BG, BLUE, DIM, GREEN, LINE, PANEL, PEACH, TEXT, clamp, font,
 
 W, H, FPS = 1080, 1920, 30
 DUR = float(os.environ.get("PROMO_DUR", "21.5"))
-PW = 640          # ширина телефона
+PW = 640          # phone width
 GAP = 80
 SHOTS = ["claude-home", "terminal-home", "desktop-home", "memory", "claude-models"]
 LABELS = {0: ("Claude", "serif"), 1: ("OpenCode Terminal", "mono"), 2: ("OpenCode Desktop", "sans")}
 
 
 def idx_at(t):
-    """Положение карусели: 0..4, переключения с плавным сдвигом."""
+    """Carousel position 0..4, with eased transitions."""
     v = 0.0
     for t0, to in [(7.4, 1), (9.1, 2), (11.1, 3), (14.4, 4)]:
         if t >= t0 + 0.5:
@@ -64,7 +64,7 @@ def render(shots_dir, out, audio=None):
         t = fi / FPS
         c = Image.new("RGB", (W, H), BG)
 
-        # ---------- 0–3.3: надпись и печатная строка ----------
+        # ---------- 0–3.3: wordmark and typed line ----------
         if t < 3.6:
             wm_w = 940
             y0 = 760
@@ -90,7 +90,7 @@ def render(shots_dir, out, audio=None):
                 cx0 = xs + ImageDraw.Draw(c).textlength(shown, font=f) + 4
                 ImageDraw.Draw(c).rectangle([cx0, ty + 2, cx0 + 20, ty + 46], fill=mix(BLUE, BG, fade))
 
-        # ---------- телефон-карусель 3.2–17.9 ----------
+        # ---------- phone carousel 3.2–17.9 ----------
         phone_in = out_back((t - 3.2) / 0.75, 1.3)
         phone_out = in_out_cubic((t - 17.5) / 0.7)
         if 3.2 <= t < 18.3:
@@ -107,7 +107,7 @@ def render(shots_dir, out, audio=None):
                     continue
                 paste_alpha(c, ph, cx + off, py, 1.0)
 
-            # подпись редакции над телефоном (сцена 3)
+            # look name above the phone (scene 3)
             if 6.5 <= t < 11.0:
                 chip_t = clamp((t - 6.7) / 0.4) * (1 - clamp((t - 10.8) / 0.25))
                 for k, (label, kind) in LABELS.items():
@@ -123,7 +123,7 @@ def render(shots_dir, out, audio=None):
                     c.paste(layer, (0, 0), layer)
                     text(c, (W / 2, y0c + 43), label, kind, 44, TEXT, "mm", a)
 
-            # плавающие «полки» (сцена 4)
+            # floating memory "shelves" (scene 4)
             if 11.0 <= t < 14.4:
                 chips = [("about-me.md", 720, -1), ("work.md", 900, 1), ("projects.md", 1080, -1)]
                 for i, (label, y, side) in enumerate(chips):
@@ -144,7 +144,7 @@ def render(shots_dir, out, audio=None):
                     c.paste(layer, (0, 0), layer)
                     text(c, (x + 66, yy + 48), label, "mono", 38, TEXT, "lm", 1 - outq)
 
-        # ---------- титры ----------
+        # ---------- captions ----------
         lines(c, t, [("Your own server", "sans", 104, TEXT, 170, 0), ("inside your phone", "sans", 104, BLUE, 290, 0.15),
                      ("Ubuntu + OpenCode · no computer needed", "mono", 34, DIM, 430, 0.35)], 3.45, 6.2)
         lines(c, t, [("Three interfaces", "sans", 104, TEXT, 150, 0)], 6.55, 10.9)
@@ -152,7 +152,7 @@ def render(shots_dir, out, audio=None):
         lines(c, t, [("Any model", "sans", 104, TEXT, 150, 0), ("free models included*", "mono", 34, DIM, 290, 0.2),
                      ("*free models share a daily limit", "mono", 26, DIM, 345, 0.35)], 14.5, 17.4)
 
-        # ---------- финал ----------
+        # ---------- ending ----------
         if t >= 17.6:
             wm_w = 900
             y0 = 640

@@ -1,6 +1,6 @@
-"""Общее для ролика и баннера: шрифты, плавность, пиксельная надпись, макет телефона.
+"""Shared by the videos and banners: fonts, easing, the pixel wordmark, the phone frame.
 
-Только Pillow. Шрифты берутся из системы; пути можно переопределить переменными
+Pillow only. Fonts come from the system; paths can be overridden with
 PROMO_SANS, PROMO_SANS_MEDIUM, PROMO_MONO, PROMO_SERIF.
 """
 import math
@@ -39,7 +39,7 @@ def font(kind, size):
     return _cache[key]
 
 
-# ---------- плавность ----------
+# ---------- easing ----------
 def clamp(x, a=0.0, b=1.0):
     return max(a, min(b, x))
 
@@ -67,7 +67,7 @@ def mix(c1, c2, t):
     return tuple(int(lerp(a, b, t)) for a, b in zip(c1, c2))
 
 
-# ---------- пиксельная надпись (та же сетка, что в приложении) ----------
+# ---------- pixel wordmark (same grid as in the app) ----------
 GLYPHS = {
     "o": ["....", "XXXX", "X..X", "X..X", "X..X", "XXXX", "....", "...."],
     "p": ["....", "XXXX", "X..X", "X..X", "X..X", "XXXX", "X...", "X..."],
@@ -88,7 +88,7 @@ def _h(a, b):
 
 
 def wordmark(img, x, y, width, enter=1.0, effect=None, p=1.0, bg=BG, dim=None, bright=None, sweep=None):
-    """Рисует «opencode» клетками. enter 0..1 — сборка, effect: wave/scan/scatter/glitch/build + прогресс p."""
+    """Draws "opencode" in cells. enter 0..1 is the build-in; effect: wave/scan/scatter/glitch/build with progress p."""
     d = ImageDraw.Draw(img)
     cell = width / COLS
     dim = dim or (150, 150, 150)
@@ -155,7 +155,7 @@ def wordmark_height(width):
     return width / COLS * ROWS
 
 
-# ---------- телефон ----------
+# ---------- phone ----------
 def rounded_mask(size, radius):
     m = Image.new("L", size, 0)
     ImageDraw.Draw(m).rounded_rectangle([0, 0, size[0] - 1, size[1] - 1], radius=radius, fill=255)
@@ -163,7 +163,7 @@ def rounded_mask(size, radius):
 
 
 def phone_image(screen, width):
-    """Скриншот в плоской рамке телефона. Возвращает RGBA."""
+    """Screenshot in a flat phone frame. Returns RGBA."""
     rim = max(6, width // 60)
     sw = width - 2 * rim
     sh = int(sw * screen.height / screen.width)

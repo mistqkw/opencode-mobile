@@ -1,6 +1,6 @@
-"""Звук к ролику: тихий бит 110 BPM, аккорды и «свуши» на смене сцен. Без внешних семплов, только math.
+"""Soundtrack for the beta-1 video: soft 110 BPM beat, chords and whooshes on scene changes. No samples, only math.
 
-    python3 audio.py <выход.wav> [длительность]
+    python3 audio.py <out.wav> [duration]
 """
 import math
 import random
@@ -67,7 +67,7 @@ def main(out, dur=21.5):
         return s
 
     K, Hh = kick(), hat()
-    # бит с 3.2 с (появляется телефон) до конца
+    # beat from 3.2 s (the phone appears) to the end
     t = 3.2
     beat = 0
     while t < dur - 0.2:
@@ -78,7 +78,7 @@ def main(out, dur=21.5):
             add(t, Hh, 0.08)
         t += BEAT
         beat += 1
-    # аккорды Am - F - C - G, по такту
+    # chords Am - F - C - G, one per bar
     chords = [(220.0, 261.63, 329.63), (174.61, 220.0, 261.63), (261.63, 329.63, 392.0), (196.0, 246.94, 293.66)]
     bar = BEAT * 4
     t, i = 0.0, 0
@@ -88,12 +88,12 @@ def main(out, dur=21.5):
         add(t, tone(chords[i % 4][0] / 2, bar, 0.02, 0.3), 0.09)
         t += bar
         i += 1
-    # сборка надписи: тики по клеткам в начале, свуши на сменах сцен
+    # wordmark build: ticks at the start, whooshes on scene changes
     for k in range(18):
         add(0.15 + k * 0.055, tone(900 + 60 * k, 0.03, 0.002, 0.02), 0.05)
     for ts in (3.1, 6.4, 7.35, 9.05, 11.05, 14.35, 17.45):
         add(ts, whoosh(), 0.28)
-    # финальный аркпеджио
+    # final arpeggio
     for k, f in enumerate((440.0, 523.25, 659.25, 880.0)):
         add(19.0 + k * 0.12, tone(f, 0.5, 0.01, 0.4), 0.1)
     peak = max(1e-6, max(abs(v) for v in buf))

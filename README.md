@@ -1,82 +1,78 @@
 # OpenCode mobile
 
-<p align="center"><img src="docs/banner.png" alt="OpenCode mobile"></p>
+An Android app that runs its own OpenCode server on the phone. It unpacks Ubuntu 24.04 in proot (no root), starts `opencode serve` on 127.0.0.1 and gives it a mobile UI. You don't need a computer, but you can also connect to OpenCode running on one.
 
-**v0.0.1 beta-2** · Android 8+ (arm64) · неофициальный клиент
-
-Android-приложение, внутри которого живёт **свой сервер OpenCode**: Ubuntu 24.04 в proot + `opencode serve`
-на 127.0.0.1. Компьютер не нужен. Можно и наоборот — подключиться к OpenCode на компьютере (Code → Devices).
+Current version: **v0.0.1 beta-3**. Android 8+, arm64. Unofficial client.
 
 <p align="center">
-  <img src="docs/screenshots/claude-home.png" width="22%" alt="Claude">
-  <img src="docs/screenshots/terminal-home.png" width="22%" alt="OpenCode Terminal">
-  <img src="docs/screenshots/desktop-home.png" width="22%" alt="OpenCode Desktop">
-  <img src="docs/screenshots/memory.png" width="22%" alt="Memory">
+  <img src="docs/screenshots/home.png" width="19%" alt="Home">
+  <img src="docs/screenshots/slash.png" width="19%" alt="Slash menu with skills">
+  <img src="docs/screenshots/skills.png" width="19%" alt="Skills">
+  <img src="docs/screenshots/phone-tools.png" width="19%" alt="Phone tools">
+  <img src="docs/screenshots/interfaces.png" width="19%" alt="Interface picker">
 </p>
 
-## Что умеет
-- **Три интерфейса** (Settings → Interface): *Claude* — мягкий, как мобильный Claude; *OpenCode · Terminal* —
-  моноширинный, прямые углы, синяя полоса у сообщений, как в консоли; *OpenCode · Desktop* — плоские панели,
-  Inter, бледно-синий акцент, как в десктоп-приложении. Окна выбора модели и «Add to session» тоже свои в каждом.
-- **Чат и Code раздельно.** Обычные чаты живут в `/root/chats`, всё остальное — вкладка Code с проектами.
-- **Память.** Агент читает `/root/memory/MEMORY.md` и раскладывает факты по «полкам» (about-me, work, projects…).
-  Правила памяти и ручные заметки — Settings → Memory.
-- **Лимиты и расход** (5 ч / 7 д / 30 д), картинки в чате, Scheduled, Artifacts, MCP-коннекторы, навыки, права.
-- **Вход не пропадает:** копия ключей и памяти лежит вне окружения и переживает его переустановку.
-- Пасхалки: нажмите на надпись «opencode» на новом чате.
+## Features
+
+**Skills.** Type `/` in the chat to pick a skill or command. Skills are regular `SKILL.md` folders, so you can import the ones you use in Claude or ChatGPT (.zip, .skill or SKILL.md), paste the instructions of a custom GPT or a Claude project, or ask the agent to write a new skill in the chat.
+
+**GitHub.** Sign in once with a device code. The app installs git and the GitHub CLI in Ubuntu and sets git to your name and noreply email. After that the agent can clone, commit, push and open pull requests as you. It is told never to add Co-Authored-By or other AI attribution.
+
+**Phone tools.** The app exposes an MCP server to the agent, so it can show notifications, set reminders and alarms, read and fill the clipboard, take a photo, get your location, save files to Downloads and share them. Each tool can be switched off. Sites the agent builds open in a live preview inside the app.
+
+**Usage.** A ring in the top bar shows the 5-hour, weekly and monthly limits you set, and what fills the context window (system prompt, tools, MCP, skills, memory, messages). The composer can show an estimated cost before you send.
+
+**Interrupted tasks.** If Android kills the server in the middle of a task, the chat offers Continue or Cancel when you come back. Progress can also be shown on the lock screen, with Allow and Deny buttons for permission requests.
+
+**Interfaces.** Several looks to choose from in Settings, including OpenCode Desktop and OpenCode Terminal. The app icon can follow the look.
+
+**Memory.** The agent keeps facts in markdown files under `/root/memory` and sorts them by topic. You can view and edit them in Settings → Memory.
+
+**Models.** OpenCode Zen and Go (sign in from the app), the free models, GitHub Copilot, Pollinations without an account, or your own key for any provider OpenCode supports.
+
+**Updates and backup.** The app checks GitHub releases and installs updates with one tap. Settings → Backup & move saves chats, sign-ins, memory, skills, projects and settings into one file you can restore on another phone.
 
 <p align="center">
-  <img src="docs/screenshots/claude-chat.png" width="22%" alt="Chat (Claude)">
-  <img src="docs/screenshots/terminal-chat.png" width="22%" alt="Chat (Terminal)">
-  <img src="docs/screenshots/desktop-chat.png" width="22%" alt="Chat (Desktop)">
+  <img src="docs/screenshots/usage.png" width="24%" alt="Usage">
+  <img src="docs/screenshots/providers.png" width="24%" alt="Providers">
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/claude-models.png" width="22%" alt="Select model">
-  <img src="docs/screenshots/claude-add.png" width="22%" alt="Add to session">
-  <img src="docs/screenshots/desktop-models.png" width="22%" alt="Desktop picker">
-  <img src="docs/screenshots/terminal-models.png" width="22%" alt="Terminal picker">
-</p>
+## Install
 
-## Установка
-1. Скачайте APK из [Releases](../../releases) и установите (разрешите установку из неизвестных источников).
-2. При первом запуске приложение скачает и распакует окружение (Ubuntu Base + OpenCode) — нужен интернет и место.
-3. Выберите модель. Встроенные бесплатные модели Zen (OpenCode) ограничены на стороне сервера: лимит считает сам
-   сервис, сброс срабатывает не всегда, и этим страдают не только мобильные клиенты (см. issues OpenCode
-   [#58830](https://github.com/anomalyco/opencode/issues/58830), [#58814](https://github.com/anomalyco/opencode/issues/58814)).
-   Поэтому в приложении есть запасные бесплатные пути (Providers → Free models, а при ошибке лимита — кнопки в чате):
-   - **GitHub Copilot** — войти аккаунтом GitHub; доступны GPT-4.1, GPT-4o и GPT-4o mini (то, что реально отвечает на
-     бесплатном тарифе Copilot; сервер OpenCode 1.19.4 сам скрывает эти модели, поэтому приложение подключает их как отдельного провайдера);
-   - **Pollinations** — вообще без аккаунта, модель GPT-OSS 20B; сообщения уходят на pollinations.ai. Включается сам, когда Zen отвечает лимитом (последнее сообщение отправляется заново);
-   - свой ключ: Google Gemini, Groq, OpenRouter и другие (Settings → Providers).
+1. Download the APK from [Releases](../../releases) and install it. Android will ask you to allow installs from this source.
+2. On first launch the app downloads Ubuntu Base and OpenCode, so you need internet and free space.
+3. Pick a model. The free Zen models share a limit that the OpenCode service counts on its side. When it runs out, the app offers other free options.
 
-Бета: возможны ошибки. Сообщения об ошибках — в [Issues](../../issues).
+Next updates arrive inside the app.
 
-## Как устроено
-- `runtime/` — proot (из Termux, лежит в `jniLibs` как `libproot.so`), загрузка и распаковка rootfs и OpenCode,
-  `ServerService` (foreground) держит процесс.
-- `api/` — REST + SSE клиент OpenCode 1.x (`/session`, `/global/event`, `/config`, `/auth/*` …).
-- `data/` — состояние чатов из SSE, каталог моделей, учёт лимитов, память (`Memory`), хранилище входа (`Vault`).
-- `ui/` — Compose-экраны и компоненты; редакции интерфейса — `ui/theme/Theme.kt` (`Oc.round`, `Oc.pill`, палитры).
-- `tools/promo/` — скрипты, которыми сделаны ролик и баннер.
+This is a beta and there are bugs. Please report them in [Issues](../../issues).
 
-## Версии
-OpenCode запинен на 1.19.4 (`RuntimeController.OC_VERSION`) — клиент проверен на его API.
-`targetSdk = 28` осознанно: proot запускает бинарники из каталога данных (как Termux).
+## How it works
 
-## Сборка
+- `runtime/` downloads and unpacks the rootfs and OpenCode and runs them through proot (taken from Termux, shipped as `libproot.so` in `jniLibs`). `ServerService` is a foreground service that keeps the server alive.
+- `api/` is a REST and SSE client for OpenCode 1.x.
+- `data/` holds chat state from SSE, the model catalog, usage tracking, memory, skills, GitHub sign-in, the phone MCP server (`PhoneBridge`), backup and updates.
+- `ui/` contains the Compose screens. Looks are defined in `ui/theme/Looks.kt`.
+- `tools/promo/` has the scripts that render the promo video and banners.
+
+OpenCode is pinned to 1.19.4 (`RuntimeController.OC_VERSION`), the version the client is tested against.
+
+`targetSdk` is 28 on purpose: from 29 on, Android does not allow running binaries from the app's data directory, and proot needs that (Termux does the same). For the same reason the app is distributed as an APK and not through Google Play.
+
+## Build
+
 ```
-export JAVA_HOME=~/toolchain/jdk
-./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon
+./gradlew :app:assembleDebug
 ```
-Перед сборкой проверьте свободную память (`free -m`). APK: `app/build/outputs/apk/debug/`.
 
-## Что не проверено
-Ключи Google/Groq/OpenRouter на разных аккаунтах, Copilot на платных тарифах (набор моделей зашит из трёх проверенных),
-Auto Backup (восстановление после переустановки), светлые темы редакций, Android 14–16 в разных прошивках.
+JDK 21 is required. Release builds are made by GitHub Actions when a `v*` tag is pushed (`.github/workflows/release.yml`).
 
-## Лицензии и оговорка
-Неофициальный клиент, не связан с разработчиками OpenCode. «OpenCode» — название их проекта (MIT).
-Приложение содержит proot и libtalloc из пакетов Termux (GPL-2.0 / LGPL-3.0), исходники — в проекте Termux;
-при первом запуске скачивает Ubuntu Base 24.04 и OpenCode. Шрифты Inter, Source Serif 4, Unbounded и JetBrains Mono — SIL OFL 1.1.
-Код самого приложения — под лицензией MIT (см. `LICENSE`). Бинарные компоненты Termux и Ubuntu остаются под своими лицензиями, как описано выше.
+## Not tested yet
+
+Phones other than a Pixel, Android 14–16 on other firmware, light themes of every look, Copilot on paid plans, and restoring a backup on a different phone.
+
+## License
+
+The app's own code is MIT (see `LICENSE`).
+
+OpenCode mobile is an unofficial client and is not affiliated with the OpenCode developers. "OpenCode" is the name of their project (MIT). The app includes proot and libtalloc from Termux (GPL-2.0 / LGPL-3.0), whose sources are in the Termux project, and downloads Ubuntu Base 24.04 and OpenCode on first launch. Those components keep their own licenses. Fonts: Inter, Source Serif 4, Unbounded and JetBrains Mono, all SIL OFL 1.1.

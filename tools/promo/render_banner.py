@@ -1,6 +1,6 @@
-"""Баннер для Telegram 1280x720.
+"""Telegram banner for beta-1, 1280x720.
 
-    python3 render_banner.py <папка с чистыми скриншотами> <выход.png>
+    python3 render_banner.py <clean screenshots dir> <out.png>
 """
 import os
 import sys
@@ -16,7 +16,7 @@ W, H = 1280, 720
 def main(shots, out):
     c = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(c)
-    # тонкая сетка из точек — фактура без свечений
+    # fine dot grid as texture
     for x in range(40, W, 40):
         for y in range(40, H, 40):
             d.rectangle([x, y, x + 1, y + 1], fill=(28, 28, 28))
@@ -28,7 +28,7 @@ def main(shots, out):
     text(c, (72, y + 84), "Your own OpenCode server", "sans", 48, TEXT)
     text(c, (72, y + 144), "right in your phone", "sans", 48, BLUE)
 
-    # три редакции чипами
+    # the three looks as chips
     x = 72
     cy = y + 250
     for label, r in (("Claude", 26), ("Terminal", 0), ("Desktop", 9)):
@@ -40,7 +40,7 @@ def main(shots, out):
     text(c, (72, H - 54), "github.com/mistqkw/opencode-mobile", "mono", 24, DIM)
 
     names = ["claude-home", "terminal-home", "desktop-home"]
-    specs = [(-9, 700, 170), (0, 830, 130), (9, 960, 190)]  # угол, x, y
+    specs = [(-9, 700, 170), (0, 830, 130), (9, 960, 190)]  # angle, x, y
     for name, (ang, px, py) in zip(names, specs):
         ph = phone_image(Image.open(os.path.join(shots, name + ".png")), 276)
         ph = ph.rotate(ang, resample=Image.BICUBIC, expand=True)

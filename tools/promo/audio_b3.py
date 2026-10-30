@@ -1,7 +1,7 @@
-"""Музыка к ролику beta-3: 140 BPM, ля минор, щипковое арпеджио, саб-бас, хлопок в полутемпе.
-Вступление — только арпеджио, на 2-м такте вход барабанов, последний такт — аккорд на выдохе.
+"""Music for the beta-3 video: 140 BPM, A minor, plucked arpeggio, sub bass, half-time clap.
+The intro is only the arpeggio, drums come in on bar 2, the last bar is a held chord.
 
-    python3 audio_b3.py <выход.wav> [число тактов]
+    python3 audio_b3.py <out.wav> [bars]
 """
 import sys
 import wave
@@ -14,7 +14,7 @@ BEAT = 60.0 / BPM
 BAR = BEAT * 4
 rng = np.random.default_rng(3)
 
-# Am – F – C – G, корни в герцах (вторая октава для баса)
+# Am – F – C – G, roots in Hz (second octave, for the bass)
 ROOTS = [110.0, 87.31, 130.81, 98.0]
 CHORDS = [[0, 3, 7, 12, 15], [0, 4, 7, 12, 16], [0, 4, 7, 12, 16], [0, 4, 7, 12, 14]]
 ARP = [0, 2, 1, 3, 4, 3, 1, 2]
@@ -37,7 +37,7 @@ def kick():
 def clap():
     t = np.arange(int(0.22 * SR)) / SR
     n = rng.uniform(-1, 1, t.size)
-    n = np.diff(n, prepend=0)                         # грубый верхний фильтр
+    n = np.diff(n, prepend=0)                         # crude high-pass
     env = np.exp(-t * 22) + 0.6 * np.exp(-((t - 0.012) % 0.011) * 400) * (t < 0.035)
     return n * env
 
@@ -63,7 +63,7 @@ def main(out, bars=15):
         t0 = b * BAR
         root = ROOTS[b % 4]
         last = b == bars - 1
-        # арпеджио шестнадцатыми; вступление темнее
+        # sixteenth-note arpeggio; darker in the intro
         bright = 0.45 if b < 2 else 1.0
         if not last:
             for k in range(16):
@@ -75,7 +75,7 @@ def main(out, bars=15):
                 add(t0, note(root * 4 * 2 ** (semi / 12), 2.4, 0.6), 0.12)
         drums = 2 <= b < bars - 1
         if drums:
-            # саб-бас: корень на «раз» и сдвинутый на «и» третьей доли
+            # sub bass: root on beat 1 and on the "and" of beat 3
             for at, ln in ((0, BEAT * 2.4), (BEAT * 2.5, BEAT * 1.4)):
                 t = np.arange(int(ln * SR)) / SR
                 s = np.sin(2 * np.pi * root * t) * np.minimum(1, t / 0.01) * np.minimum(1, (ln - t) / 0.05)
@@ -86,7 +86,7 @@ def main(out, bars=15):
             add(t0 + BEAT * 2, C, 0.5)
             for k in range(8):
                 add(t0 + k * BEAT / 2 + (0.018 if k % 2 else 0), HO if k % 4 == 3 else H, 0.16 if k % 2 else 0.1)
-        # подъём шума перед входом барабанов
+        # noise riser before the drums come in
         if b == 1:
             t = np.arange(int(BAR * SR)) / SR
             s = np.convolve(rng.uniform(-1, 1, t.size), np.ones(6) / 6, "same") * (t / BAR) ** 3

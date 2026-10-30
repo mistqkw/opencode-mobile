@@ -1,8 +1,8 @@
-"""Готовит скриншоты для README и ролика: убирает строку состояния (время, уведомления) и ставит чистую.
+"""Prepares screenshots for the README and videos: replaces the status bar (time, notifications) with a clean one.
 
-    python3 clean.py <папка с сырыми скриншотами> <куда сложить>
+    python3 clean.py <raw screenshots dir> <output dir>
 
-Сырые — PNG 1080x2424 с телефона (adb exec-out screencap -p). Результат — 720 px по ширине.
+Raw shots are 1080x2424 PNGs from the phone (adb exec-out screencap -p). Output is 720 px wide.
 """
 import os
 import sys
@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, os.path.dirname(__file__))
 from common import font  # noqa: E402
 
-BAR = 104  # высота строки состояния в пикселях исходника
+BAR = 104  # status bar height in source pixels
 
 
 def clean(src, dst):
@@ -23,12 +23,12 @@ def clean(src, dst):
     lum = sum(bg) / 3
     fg = (240, 240, 240) if lum < 128 else (30, 30, 30)
     d.text((78, BAR // 2 + 4), "9:41", font=font("sans", 44), fill=fg, anchor="lm")
-    # батарея справа
+    # battery on the right
     bx, by = w - 150, BAR // 2 - 14
     d.rounded_rectangle([bx, by, bx + 60, by + 28], radius=7, outline=fg, width=3)
     d.rectangle([bx + 6, by + 6, bx + 46, by + 22], fill=fg)
     d.rectangle([bx + 62, by + 8, bx + 66, by + 20], fill=fg)
-    # сеть: три полоски
+    # signal: three bars
     for i in range(3):
         d.rectangle([bx - 70 + i * 16, by + 24 - i * 8 - 4, bx - 70 + i * 16 + 10, by + 24], fill=fg)
     nw = 720
