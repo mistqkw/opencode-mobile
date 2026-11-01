@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network)
     implementation(libs.gms.code.scanner)
+    implementation(libs.androidx.fragment)
 
     testImplementation(libs.junit)
 }

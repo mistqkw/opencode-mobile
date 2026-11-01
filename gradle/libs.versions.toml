@@ -24,6 +24,8 @@ coil-network = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = 
 junit = { module = "junit:junit", version.ref = "junit" }
 # QR scanner from Google Play services: no camera permission, the system provides the scanner UI
 gms-code-scanner = { module = "com.google.android.gms:play-services-code-scanner", version = "16.1.0" }
+# Play services pull in fragment 1.0.0, too old for registerForActivityResult (lint error in release builds)
+androidx-fragment = { module = "androidx.fragment:fragment", version = "1.8.9" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
