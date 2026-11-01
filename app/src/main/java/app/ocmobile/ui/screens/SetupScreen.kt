@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,14 +32,14 @@ import app.ocmobile.ui.components.UsageBar
 import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.launch
 
-/** Первый запуск: ставим Ubuntu и OpenCode внутрь телефона. */
+/** First launch: install Ubuntu and OpenCode inside the phone. */
 @Composable
 fun SetupScreen(rt: RuntimeState) {
     val c = Oc.c
     val scope = rememberCoroutineScope()
     val log by Graph.runtime.log.collectAsState()
     Column(
-        Modifier.fillMaxSize().background(c.bg).statusBarsPadding().navigationBarsPadding().padding(28.dp),
+        Modifier.fillMaxSize().screenBackdrop("SetupScreen1").statusBarsPadding().navigationBarsPadding().padding(28.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
         Logo(80.dp)

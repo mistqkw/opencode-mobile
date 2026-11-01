@@ -18,5 +18,7 @@
     <color name="ic_bg_look_hairline">#000000</color>
     <color name="ic_bg_look_chatgpt">#000000</color>
     <color name="ic_bg_look_kimi">#3d8bff</color>
+    <color name="ic_bg_look_cloud">#232428</color>
+    <color name="ic_bg_cloud_light">#f4f5f7</color>
     <color name="ic_bg_look_notebook">#f7f3ea</color>
 </resources>

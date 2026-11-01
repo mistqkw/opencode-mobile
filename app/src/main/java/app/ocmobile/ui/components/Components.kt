@@ -1,5 +1,6 @@
 package app.ocmobile.ui.components
 
+import app.ocmobile.ui.theme.kimiLike
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -93,7 +94,7 @@ fun Txt(
     )
 }
 
-/** Заголовок с засечками. */
+/** Serif heading. */
 @Composable
 fun Heading(text: String, modifier: Modifier = Modifier, size: TextUnit = 26.sp, color: Color = Oc.c.text, align: TextAlign? = null) =
     Txt(text, modifier, size, color, FontWeight.Normal, Oc.heading, align = align, lineHeight = size * 1.22f)
@@ -122,8 +123,8 @@ fun IconBtn(
     iconSize: Dp = 24.dp,
     bg: Color? = null,
 ) {
-    // Kimi: кнопки верхней панели — круги с обводкой
-    if (LocalInTopBar.current && Oc.look.id == "kimi") return KimiCircleBtn(icon, onClick, tint = if (tint == Oc.c.textDim) Oc.c.text else tint)
+    // Kimi: top bar buttons are outlined circles
+    if (LocalInTopBar.current && Oc.look.id.kimiLike) return KimiCircleBtn(icon, onClick, tint = if (tint == Oc.c.textDim) Oc.c.text else tint)
     Box(
         modifier.size(size).clip(Oc.pill).then(if (bg != null) Modifier.background(bg) else Modifier).tap(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -137,18 +138,19 @@ fun TopBar(
     right: @Composable RowScope.() -> Unit = {},
     serif: Boolean = false,
 ) {
+    // cl0udly: the bar sits on a dark strip of sky with a pixel edge
     Box(Modifier.fillMaxWidth().statusBarsPadding().height(64.dp).padding(horizontal = 8.dp)) {
         Box(Modifier.align(Alignment.CenterStart)) { androidx.compose.runtime.CompositionLocalProvider(LocalInTopBar provides true) { left?.invoke() } }
         if (title != null) when (Oc.look.id) {
-            // Hairline: моно-заголовок капсом; Messenger: заголовок слева, как в Telegram
+            // Hairline: mono uppercase title; Messenger: title on the left, like in Telegram
             "hairline" -> Txt(title.uppercase(), Modifier.align(Alignment.Center).padding(horizontal = 56.dp), size = 13.sp, family = Oc.label, maxLines = 1)
-            "kimi" -> Txt(title, Modifier.align(Alignment.Center).padding(horizontal = 64.dp), size = 20.sp, weight = FontWeight.SemiBold, maxLines = 1)
+            "kimi", "cloud" -> Txt(title, Modifier.align(Alignment.Center).padding(horizontal = 64.dp), size = 20.sp, weight = FontWeight.SemiBold, maxLines = 1)
             "messenger" -> Txt(title, Modifier.align(Alignment.CenterStart).padding(start = if (left != null) 60.dp else 12.dp, end = 56.dp), size = 20.sp, weight = FontWeight.SemiBold, maxLines = 1)
             else -> if (serif) Heading(title, Modifier.align(Alignment.Center).padding(horizontal = 56.dp), size = 22.sp)
                 else Txt(title, Modifier.align(Alignment.Center).padding(horizontal = 56.dp), size = 20.sp, weight = FontWeight.Medium, maxLines = 1)
         }
         androidx.compose.runtime.CompositionLocalProvider(LocalInTopBar provides true) {
-            Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (Oc.look.id == "kimi") 8.dp else 0.dp), content = right)
+            Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (Oc.look.id.kimiLike) 8.dp else 0.dp), content = right)
         }
     }
 }
@@ -190,7 +192,7 @@ fun OcSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     val track by animateColorAsState(if (checked) c.toggleOn else c.surfaceHigh, tween(160), label = "track")
     val x by animateDpAsState(if (checked) 22.dp else 2.dp, tween(160), label = "thumb")
     if (Oc.look.id == "hairline") {
-        // Hairline: прямоугольный переключатель из линий
+        // Hairline: a rectangular switch made of lines
         Box(Modifier.width(48.dp).height(26.dp).border(1.dp, if (checked) c.accent else c.border, RoundedCornerShape(3.dp)).clickable { onChange(!checked) }) {
             Box(Modifier.offset(x * 0.86f + 1.dp, 3.dp).size(20.dp).clip(RoundedCornerShape(2.dp)).background(if (checked) c.accent else c.textDim))
         }
@@ -216,15 +218,15 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** Цветные квадратики под иконками настроек в Messenger — как в Telegram. */
+/** Colored squares under settings icons in Messenger, like in Telegram. */
 private val tgColors = listOf(0xFFF2564E, 0xFFF49B34, 0xFF45B649, 0xFF3D8BF2, 0xFF9B6BEB, 0xFF3DB4E6, 0xFFEF5DA8, 0xFF5C6BC0)
 private fun tgColor(key: String) = Color(tgColors[(key.hashCode() and 0x7fffffff) % tgColors.size])
 
-/** Группа строк в одной «плитке»: между строками щель в 2 dp, края скруглены. */
+/** A group of rows in one "tile": a 2 dp gap between rows, rounded edges. */
 @Composable
 fun SettingsGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val c = Oc.c
-    // щели между строками окрашены фоном группы: так получаются линии 1px без отдельных разделителей
+    // gaps between rows are painted with the group background: that gives 1px lines without separate dividers
     val m = when (Oc.look.id) {
         "hairline" -> modifier.padding(horizontal = 16.dp).fillMaxWidth().border(1.dp, c.border).background(c.border)
         "notebook" -> modifier.padding(horizontal = 24.dp).fillMaxWidth().background(c.border).padding(vertical = 1.dp)
@@ -277,7 +279,7 @@ fun SettingsRow(
             }
             look == "hairline" -> { Ico(icon, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(16.dp)) }
             look == "notebook" -> { Ico(icon, tint = c.accent, size = 20.dp); Spacer(Modifier.width(16.dp)) }
-            circleIcon || look == "kimi" -> {
+            circleIcon || look.kimiLike -> {
                 Box(Modifier.size(40.dp).clip(CircleShape).background(c.surfaceHigh), contentAlignment = Alignment.Center) { Ico(icon, tint = titleColor, size = 21.dp) }
                 Spacer(Modifier.width(16.dp))
             }
@@ -340,7 +342,7 @@ fun Spinner(size: Dp = 22.dp, color: Color = Oc.c.accent, stroke: Dp = 2.5.dp) {
     }
 }
 
-/** Индикатор работы: «>» и мигающий курсор — как в терминале. */
+/** Work indicator: ">" and a blinking cursor, like in a terminal. */
 @Composable
 fun PulsingLogo(size: Dp = 22.dp, color: Color = Oc.c.accent) {
     val t = rememberInfiniteTransition(label = "cursor")
@@ -459,7 +461,7 @@ fun OcDialog(
     )
 }
 
-/** Строка выбора в диалогах/листах: подсветка синим и галочка у выбранного. */
+/** Picker row in dialogs/sheets: blue highlight and a check on the selected one. */
 @Composable
 fun ChoiceRow(label: String, selected: Boolean, onClick: () -> Unit, icon: ImageVector? = null, subtitle: String? = null, badge: String? = null) {
     val c = Oc.c

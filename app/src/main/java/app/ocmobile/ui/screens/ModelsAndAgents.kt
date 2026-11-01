@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -54,7 +55,7 @@ fun ModelsScreen(nav: Nav) {
     var pickMain by remember { mutableStateOf(false) }
     var pickSmall by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { cfg = runCatching { Graph.api.config() }.getOrDefault(cfg) }
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("ModelsAndAgents1")) {
         TopBar("Models", left = { IconBtn(Ic.Back, { nav.pop() }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             SettingsGroup {
@@ -100,7 +101,7 @@ fun PermissionsScreen(nav: Nav) {
         cfg = runCatching { Graph.api.patchConfig(buildJsonObject { put("permission", buildJsonObject { put(k, v) }) }) }.getOrDefault(cfg)
     }
     val opts = listOf("allow" to "Allow", "ask" to "Ask", "deny" to "Deny")
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("ModelsAndAgents2")) {
         TopBar("Permissions", left = { IconBtn(Ic.Back, { nav.pop() }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             SectionLabel("New sessions")
@@ -128,7 +129,7 @@ fun AgentsScreen(nav: Nav) {
     val scope = rememberCoroutineScope()
     val agents by Graph.catalog.agents.collectAsState()
     LaunchedEffect(Unit) { Graph.catalog.refresh() }
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("ModelsAndAgents3")) {
         TopBar("Agents", left = { IconBtn(Ic.Back, { nav.pop() }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             SettingsGroup {

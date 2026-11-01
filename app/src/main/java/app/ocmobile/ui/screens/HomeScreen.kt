@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.kimiLike
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -83,13 +84,13 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
     val screenW = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
 
-    // анимация отправки: текст из поля ввода «перелетает» на место пузыря в чате, остальное гаснет
+    // send animation: the text from the input "flies" to the bubble's place in the chat, the rest fades
     var flightText by remember { mutableStateOf<String?>(null) }
     var composerRect by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     val prog = remember { androidx.compose.animation.core.Animatable(0f) }
 
-    // «Поделиться → Ask OpenCode»: текст и файлы — сразу в поле ввода
-    // забирает только экран, который сейчас виден: «Поделиться» может открыть второй экземпляр поверх старого
+    // "Share → Ask OpenCode": text and files go straight into the input
+    // only the screen that's visible now takes it: "Share" may open a second instance on top of the old one
     val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     androidx.compose.runtime.LaunchedEffect(life) {
         life.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) { app.ocmobile.data.ShareInbox.pending.collect { sh ->
@@ -99,14 +100,15 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
             app.ocmobile.data.ShareInbox.pending.value = null
         } }
     }
-    Box(Modifier.fillMaxSize().lookBackdrop()) {
+    Box(Modifier.fillMaxSize().lookBackdrop(home = true)) {
     Column(Modifier.fillMaxSize().imePadding()) {
         Box(Modifier.graphicsLayer { alpha = 1f - prog.value }) {
             TopBar(
                 left = { Row(verticalAlignment = Alignment.CenterVertically) { IconBtn(Ic.Menu, onMenu); app.ocmobile.ui.components.TopModelPill(state) } },
                 right = {
                     app.ocmobile.ui.components.UsageRing(null, nav)
-                    IconBtn(Ic.Ghost, { ghost = !ghost }, tint = if (ghost) c.text else c.textDim)
+                    if (Oc.look.id == "cloud") app.ocmobile.ui.components.GhostCloudButton(ghost) { ghost = !ghost }
+                    else IconBtn(Ic.Ghost, { ghost = !ghost }, tint = if (ghost) c.text else c.textDim)
                     if (code) Row(
                         Modifier.padding(end = 8.dp).clip(CircleShape).clickable { picker = true }.padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -117,6 +119,7 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
             )
         }
         app.ocmobile.ui.components.InterruptedBanner { nav.openChat(it) }
+        app.ocmobile.ui.components.AccessBanner()
         Column(Modifier.weight(1f).fillMaxWidth().graphicsLayer { alpha = 1f - prog.value * 1.6f; translationY = -prog.value * 40f }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             androidx.compose.animation.AnimatedContent(ghost, label = "home-mode", transitionSpec = { fadeIn() togetherWith fadeOut() }) { g ->
                 androidx.compose.animation.AnimatedVisibility(
@@ -125,16 +128,25 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         if (g) {
+                            if (Oc.look.id == "cloud") {
+                                // anonymous chat: a ghost cloud, nothing is saved
+                                app.ocmobile.ui.components.GhostCloud(112.dp, eyesLook = state.text.isNotEmpty())
+                                Spacer(Modifier.height(26.dp))
+                                Txt("Anonymous chat", size = 24.sp, weight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                                Spacer(Modifier.height(10.dp))
+                                Txt("Nothing is kept: it stays out of your history and memory, and it's deleted as soon as you leave.", Modifier.padding(horizontal = 40.dp), size = 16.sp, color = c.textDim, align = TextAlign.Center, lineHeight = 23.sp)
+                            } else {
                             Ico(Ic.Ghost, tint = c.textDim, size = 56.dp)
                             Spacer(Modifier.height(22.dp))
                             Txt("Incognito chats stay out of your recents and are deleted when you leave them.", Modifier.padding(horizontal = 40.dp), size = 18.sp, color = c.textDim, align = TextAlign.Center)
+                            }
                         } else {
-                            if (Oc.look.id == "kimi") {
-                                app.ocmobile.ui.components.KimiHero(code) { nav.push(app.ocmobile.ui.Route.Providers) }
+                            if (Oc.look.id.kimiLike) {
+                                app.ocmobile.ui.components.KimiHero(code, typing = state.text.isNotEmpty()) { nav.push(app.ocmobile.ui.Route.Providers) }
                             } else if (Oc.look.id in lookHomes) {
                                 LookHome(Oc.look.id, code) { state.text = it }
                             } else if (Oc.desktop) {
-                                // desktop: тусклая надпись без подписей, под полем — чипы проекта
+                                // desktop: a dim label without captions, project chips under the input
                                 app.ocmobile.ui.components.PixelWordmark(Modifier.padding(horizontal = 20.dp).graphicsLayer { alpha = 0.32f })
                             } else {
                                 app.ocmobile.ui.components.PixelWordmark(Modifier.padding(horizontal = 20.dp))
@@ -153,10 +165,10 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
             Modifier.navigationBarsPadding().onGloballyPositioned { composerRect = it.boundsInRoot() }
                 .graphicsLayer { alpha = 1f - prog.value * 1.4f; translationY = prog.value * 90f },
         ) {
-            if (Oc.look.id == "kimi" && !ghost && !state.text.startsWith("/")) app.ocmobile.ui.components.KimiQuickChips(nav, code) { state.text = it }
+            if (Oc.look.id.kimiLike && !ghost && !state.text.startsWith("/")) app.ocmobile.ui.components.KimiQuickChips(nav, code) { state.text = it }
             ComposerHost(
                 state = state, nav = nav, busy = sending, dashed = ghost,
-                placeholder = if (Oc.look.id == "kimi") "Ask me. Give me a task." else if (code) "Describe a task…" else "Chat with OpenCode…",
+                placeholder = if (Oc.look.id.kimiLike) "Ask me. Give me a task." else if (code) "Describe a task…" else "Chat with OpenCode…",
                 onStop = {},
                 onVoice = if (code || ghost) null else ({ voiceHome = true }),
                 onSend = {
@@ -186,7 +198,7 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
     }
     if (voiceHome) VoiceMode(null) { sid -> voiceHome = false; sid?.let { nav.openChatInstant(it) } }
     flightText?.let { text ->
-        // положение и размер пузыря: из поля ввода — в правый верхний угол, где он окажется в чате
+        // bubble position and size: from the input to the top right corner, where it will be in the chat
         val bubbleMaxW = screenW * 0.88f
         val maxTextPx = with(density) { (bubbleMaxW - 36.dp).roundToPx() }
         val bodyFont = Oc.body
@@ -218,7 +230,7 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
     if (picker) ProjectPicker({ picker = false })
 }
 
-/** «Build · Модель  Провайдер» — как строка режима в терминальном OpenCode. */
+/** "Build · Model  Provider", like the mode line in terminal OpenCode. */
 @Composable
 private fun ModeLine(code: Boolean) {
     val c = Oc.c
@@ -271,7 +283,7 @@ private fun TipLine(code: Boolean) {
 }
 
 
-/** Строка под полем в desktop-версии: проект и Git (или память для обычного чата). */
+/** The line under the input in the desktop look: project and Git (or memory for a regular chat). */
 @Composable
 private fun DesktopChips(code: Boolean, dirName: String, onProject: () -> Unit, onMemory: () -> Unit) {
     val c = Oc.c

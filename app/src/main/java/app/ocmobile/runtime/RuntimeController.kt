@@ -18,8 +18,8 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * Владелец локального сервера: ставит Ubuntu rootfs и OpenCode, запускает
- * `opencode serve` внутри proot и следит, чтобы процесс жил.
+ * Owns the local server: installs the Ubuntu rootfs and OpenCode, runs
+ * `opencode serve` inside proot and keeps the process alive.
  */
 class RuntimeController(
     private val app: Application,
@@ -30,7 +30,7 @@ class RuntimeController(
     companion object {
         const val ROOTFS_URL = "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.5-base-arm64.tar.gz"
         const val ROOTFS_SHA = "a91d5a93010193712d346d761372b7c9db6dfcf093893161c64ca107f05914f2"
-        // Пинним проверенную версию: клиент написан под её API.
+        // Pin a tested version: the client is written against its API.
         const val OC_VERSION = "1.19.4"
         const val OC_SHA = "8568230ccd847dc93e95b9f6894379077d3e014a16b48040743573e77c23e85f"
         const val OC_BIN = "/usr/local/bin/opencode"
@@ -49,7 +49,7 @@ class RuntimeController(
 
     fun logLine(s: String) = log.update { (it + s).takeLast(600) }
 
-    // ---------- установка ----------
+    // ---------- install ----------
 
     suspend fun install() = withContext(Dispatchers.IO) {
         if (installing) return@withContext
@@ -87,7 +87,7 @@ class RuntimeController(
 
     private fun OC_URL_OR(v: String) = ocUrl(v)
 
-    /** Обновить OpenCode до последней версии ветки 1.x (клиент проверен на 1.19.4). */
+    /** Update OpenCode to the latest 1.x release (the client is tested on 1.19.4). */
     suspend fun updateOpencode(): String = withContext(Dispatchers.IO) {
         val wasRunning = state.value is RuntimeState.Running
         val latest = Regex("\"version\":\\s*\"([0-9.]+)\"").find(Downloader.getText("https://registry.npmjs.org/opencode-ai/latest"))?.groupValues?.get(1)
@@ -150,7 +150,7 @@ class RuntimeController(
         w("/etc/resolv.conf", "nameserver 1.1.1.1\nnameserver 8.8.8.8\n")
         w("/etc/hosts", "127.0.0.1 localhost\n::1 localhost ip6-localhost\n")
         w("/etc/hostname", "opencode-mobile\n")
-        // apt внутри proot не может сбросить привилегии до пользователя _apt.
+        // apt inside proot can't drop privileges to the _apt user.
         w("/etc/apt/apt.conf.d/99proot", "APT::Sandbox::User \"root\";\nAcquire::Retries \"3\";\n")
         val pem = app.assets.open("cacert.pem").use { it.readBytes() }
         for (p in listOf("/etc/ssl/certs/ca-certificates.crt", "/etc/ssl/cert.pem")) {
@@ -168,7 +168,7 @@ class RuntimeController(
     private fun frac(d: Long, t: Long) = if (t > 0) (d.toFloat() / t).coerceIn(0f, 1f) else null
     private fun mb(d: Long, t: Long) = if (t > 0) "%.0f / %.0f MB".format(d / 1e6, t / 1e6) else "%.0f MB".format(d / 1e6)
 
-    // ---------- запуск ----------
+    // ---------- run ----------
 
     suspend fun supervise() = withContext(Dispatchers.IO) {
         stopRequested = false
@@ -206,7 +206,7 @@ class RuntimeController(
                     prefs.opencodeVersion = version
                     failures = 0
                 }
-                // Сторож: процесс жив, но не отвечает (завис) — перезапускаем, а не ждём вечно.
+                // Watchdog: the process is alive but not answering (hung), so restart it instead of waiting forever.
                 val dog = launch {
                     var bad = 0
                     while (isActive && p.isAlive) {
@@ -231,16 +231,16 @@ class RuntimeController(
             if (now - windowStart > 120_000) { failures = 0; windowStart = now }
             failures++
             state.value = RuntimeState.Crashed("Server stopped (code $code). Restarting…")
-            // не сдаёмся: перезапуск с растущей паузой (до 30 с), пока пользователь сам не остановит сервер
+            // don't give up: restart with a growing pause (up to 30 s) until the user stops the server
             delay((1500L * failures).coerceAtMost(30_000))
         }
         state.value = RuntimeState.Stopped
     }
 
-    /** Пользователь сам остановил сервер — тогда не поднимаем его при возврате в приложение. */
+    /** The user stopped the server: then we don't start it when they come back to the app. */
     @Volatile var userStopped = false
 
-    /** Процесс сервера ещё жив (после stopServer он завершается не сразу). */
+    /** The server process is still alive (after stopServer it doesn't exit right away). */
     val serverAlive get() = process != null
 
     fun requestStop() {
@@ -248,7 +248,7 @@ class RuntimeController(
         process?.destroy()
     }
 
-    /** Запуск сервера через foreground-сервис: иначе Android убьёт процесс в фоне. */
+    /** Start the server through a foreground service, otherwise Android kills the process in the background. */
     fun startServer() {
         val s = state.value
         if (s is RuntimeState.NotInstalled || s is RuntimeState.Installing || s is RuntimeState.InstallFailed) return
@@ -263,7 +263,7 @@ class RuntimeController(
         if (state.value !is RuntimeState.NotInstalled) state.value = RuntimeState.Stopped
     }
 
-    /** Выполнить команду внутри Ubuntu (установка git и т. п.). */
+    /** Run a command inside Ubuntu (installing git and so on). */
     suspend fun runGuest(
         argv: List<String>,
         cwd: String = "/root",
@@ -281,7 +281,7 @@ class RuntimeController(
         p.exitValue()
     }
 
-    /** git, ripgrep и т. п. — без них агент в Ubuntu почти бесполезен. */
+    /** git, ripgrep and the like: without them the agent in Ubuntu is nearly useless. */
     suspend fun installDevTools(onLine: (String) -> Unit): Int {
         val script = "apt-get update && apt-get install -y --no-install-recommends git ripgrep curl ca-certificates openssh-client unzip less nano python3 build-essential"
         return runGuest(listOf("/bin/bash", "-lc", script), onLine = onLine)

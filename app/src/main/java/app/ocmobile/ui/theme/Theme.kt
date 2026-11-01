@@ -45,8 +45,8 @@ class OcColors(
     val scrim: Color,
 )
 
-// Палитра снята со скриншотов мобильного Claude: тёплый почти-чёрный, графитовые карточки,
-// коралловый акцент и синие индикаторы.
+// The palette is taken from screenshots of mobile Claude: warm near-black, graphite cards,
+// coral accent and blue indicators.
 val DarkColors = OcColors(
     isDark = true,
     bg = Color(0xFF141414), surface = Color(0xFF202020), surfaceHigh = Color(0xFF2B2B2A),
@@ -67,7 +67,7 @@ val LightColors = OcColors(
     userBubble = Color(0xFFEAE7DC), codeBg = Color(0xFFEFEDE4), scrim = Color(0x66000000),
 )
 
-// OpenCode desktop: токены сняты из таблиц стилей приложения (тёмная #151515, текст #ededed, акцент #9dbefe, Inter).
+// OpenCode desktop: tokens taken from the app's stylesheets (dark #151515, text #ededed, accent #9dbefe, Inter).
 val DesktopDark = OcColors(
     isDark = true,
     bg = Color(0xFF151515), surface = Color(0xFF1C1C1C), surfaceHigh = Color(0xFF262626),
@@ -88,7 +88,7 @@ val DesktopLight = OcColors(
     userBubble = Color(0xFFF0F0F0), codeBg = Color(0xFFF4F4F4), scrim = Color(0x66000000),
 )
 
-// OpenCode в терминале: почти чёрный, персиковый акцент и синяя полоса слева, как в TUI.
+// OpenCode in the terminal: near-black, peach accent and a blue bar on the left, like the TUI.
 val TerminalDark = OcColors(
     isDark = true,
     bg = Color(0xFF0A0A0A), surface = Color(0xFF141414), surfaceHigh = Color(0xFF1E1E1E),
@@ -116,7 +116,7 @@ val InterFamily = FontFamily(
     Font(R.font.inter_semibold, FontWeight.Bold),
 )
 
-/** Засечки для ответов и заголовков в редакции Claude — Source Serif 4 (OFL), ближе всего к шрифту Claude. */
+/** Serif for replies and headings in the Claude edition: Source Serif 4 (OFL), the closest to Claude's font. */
 val SerifFamily = FontFamily(
     Font(R.font.source_serif_regular, FontWeight.Normal),
     Font(R.font.source_serif_semibold, FontWeight.Medium),
@@ -130,20 +130,20 @@ val LocalOc = staticCompositionLocalOf { DarkColors }
 object Oc {
     val c: OcColors @Composable @ReadOnlyComposable get() = LocalOc.current
 
-    /** Заголовки — с засечками, как в Claude; в «System» — системный шрифт. */
+    /** Headings are serif, like Claude; in "System" the system font. */
     val edition: String @Composable @ReadOnlyComposable get() = Graph.prefs.edition
     val terminal: Boolean @Composable @ReadOnlyComposable get() = Graph.prefs.edition == "terminal"
     val desktop: Boolean @Composable @ReadOnlyComposable get() = Graph.prefs.edition == "desktop"
 
-    /** Текущий вид (палитры, шрифты, стиль сообщений). */
+    /** The current look (palettes, fonts, message style). */
     val look: Look @Composable @ReadOnlyComposable get() = Looks.of(Graph.prefs.edition)
-    /** Каркас Claude — у всех видов, кроме Terminal и Desktop. */
+    /** The Claude frame: every look except Terminal and Desktop. */
     val claudeLike: Boolean @Composable @ReadOnlyComposable get() = Looks.of(Graph.prefs.edition).frame == "claude"
 
     val heading: FontFamily
         @Composable @ReadOnlyComposable get() = when (Graph.prefs.edition) {
             "terminal" -> FontFamily.Monospace
-            "desktop", "chatgpt", "kimi", "cards", "messenger" -> InterFamily
+            "desktop", "chatgpt", "kimi", "cloud", "cards", "messenger" -> InterFamily
             "hairline" -> UnboundedFamily
             "notebook" -> SerifDisplay
             else -> if (Graph.prefs.fontStyle == "default") SerifDisplay else FontFamily.Default
@@ -155,20 +155,20 @@ object Oc {
             "messenger" -> FontFamily.Default
             else -> if (Graph.prefs.fontStyle == "default" || Graph.prefs.edition != "claude") InterFamily else FontFamily.Default
         }
-    /** Шрифт ответов: в Claude и Notebook — с засечками. */
+    /** Reply font: serif in Claude and Notebook. */
     val reply: FontFamily
         @Composable @ReadOnlyComposable get() = when (Graph.prefs.edition) {
             "claude" -> if (Graph.prefs.fontStyle == "default") SerifFamily else FontFamily.Default
             "notebook" -> SerifFamily
             else -> body
         }
-    /** Мелкие подписи: в Hairline — моно. */
+    /** Small labels: mono in Hairline. */
     val label: FontFamily
         @Composable @ReadOnlyComposable get() = if (Graph.prefs.edition == "hairline") JetBrainsMono else body
     val mono: FontFamily
         @Composable @ReadOnlyComposable get() = if (Graph.prefs.edition == "terminal" || Graph.prefs.codeFont == "mono") (if (Graph.prefs.edition == "hairline") JetBrainsMono else FontFamily.Monospace) else Oc.body
 
-    /** Скругление: Claude — мягкое, desktop — сдержанное, terminal — прямые углы; новые виды — по своему множителю. */
+    /** Corner radius: soft for Claude, restrained for desktop, square for terminal; new looks use their own multiplier. */
     @Composable @ReadOnlyComposable
     fun round(r: Dp): Shape = when (Graph.prefs.edition) {
         "terminal" -> RoundedCornerShape(0.dp)
@@ -176,7 +176,7 @@ object Oc {
         else -> Looks.of(Graph.prefs.edition).let { l -> RoundedCornerShape((r * l.radius).let { x -> l.radiusMax?.let { x.coerceAtMost(it.dp) } ?: x }) }
     }
 
-    /** Таблетки и круглые кнопки: в terminal — прямоугольники, в desktop и hairline — скруглённые прямоугольники. */
+    /** Pills and round buttons: rectangles in terminal, rounded rectangles in desktop and hairline. */
     val pill: Shape
         @Composable @ReadOnlyComposable get() = when (Graph.prefs.edition) {
             "terminal" -> RoundedCornerShape(0.dp)
@@ -191,7 +191,7 @@ fun OcTheme(content: @Composable () -> Unit) {
     val dark = when (mode) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
     val look = Looks.of(Graph.prefs.edition)
     val colors = if (dark) look.dark else look.light
-    // Шрифты Claude заметно мельче моих исходных: базовый множитель 0.88 снят по скриншотам с телефона.
+    // Claude's fonts are noticeably smaller than my originals: a base factor of 0.88 taken from phone screenshots.
     val scale = when (Graph.prefs.textSize) { "small" -> 0.8f; "large" -> 1f; else -> 0.88f }
     val ui = (Graph.prefs.uiScale.toFloatOrNull() ?: 100f) / 100f
     val d = LocalDensity.current

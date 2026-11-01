@@ -9,11 +9,11 @@ import app.ocmobile.api.ProviderInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
-/** Подключённые провайдеры, их модели и агенты — то, что нужно для выбора модели. */
+/** Connected providers, their models and agents: what model selection needs. */
 class Catalog(private val api: OpenCodeApi, private val prefs: Prefs, private val events: EventHub) {
     val providers = MutableStateFlow<List<ProviderInfo>>(emptyList())
     val agents = MutableStateFlow<List<AgentInfo>>(emptyList())
-    /** Команды и навыки для меню «/» в поле ввода. */
+    /** Commands and skills for the "/" menu in the input. */
     val commands = MutableStateFlow<List<app.ocmobile.api.NamedItem>>(emptyList())
     val loaded = MutableStateFlow(false)
     private var defaults: Map<String, String> = emptyMap()
@@ -41,7 +41,7 @@ class Catalog(private val api: OpenCodeApi, private val prefs: Prefs, private va
 
     fun provider(id: String): ProviderInfo? = providers.value.firstOrNull { it.id == id }
 
-    /** Если выбранной модели нет (первый запуск или провайдера отключили) — берём лучшую доступную. */
+    /** If the selected model is gone (first launch or the provider was disconnected), take the best available one. */
     private fun ensureSelection() {
         val list = providers.value
         if (list.isEmpty()) return
@@ -53,7 +53,7 @@ class Catalog(private val api: OpenCodeApi, private val prefs: Prefs, private va
         }
     }
 
-    /** После подключения провайдера делаем его модель выбранной: предпочитаем быстрые («flash») и рекомендованные сервером. */
+    /** After a provider is connected, select its model: prefer fast ("flash") ones and the server's recommended ones. */
     fun selectBestFor(providerId: String) {
         val p = provider(providerId) ?: return
         val m = defaults[providerId]?.let { p.models[it] }

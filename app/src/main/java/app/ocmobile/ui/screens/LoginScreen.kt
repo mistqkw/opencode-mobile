@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import android.annotation.SuppressLint
 import android.content.ClipboardManager
 import android.content.Context
@@ -70,7 +71,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
-/** Сохраняет ключ аккаунта OpenCode на сервере: он работает и для Zen, и для Go. */
+/** Saves the OpenCode account key on the server: it works for both Zen and Go. */
 suspend fun connectAccount(key: String, method: String) {
     Graph.api.setApiKey("opencode", key)
     runCatching { Graph.api.setApiKey("opencode-go", key) }
@@ -80,7 +81,7 @@ suspend fun connectAccount(key: String, method: String) {
     runCatching { Graph.catalog.refresh() }
 }
 
-/** Экран входа: бесплатные модели через аккаунт GitHub или Google (или Groq/OpenRouter) — без подписки. */
+/** Sign-in screen: free models through a GitHub or Google account (or Groq/OpenRouter), no subscription. */
 @Composable
 fun LoginScreen(nav: Nav) {
     val c = Oc.c
@@ -88,8 +89,8 @@ fun LoginScreen(nav: Nav) {
     LaunchedEffect(Unit) { shown = true }
     fun leave() { Graph.prefs.loginSeen = true; if (!nav.pop()) nav.root(Route.Home) }
 
-    // Как в Claude: один главный путь и пара входов, без технических подробностей.
-    Column(Modifier.fillMaxSize().background(c.bg).statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp)) {
+    // Like in Claude: one main path and a couple of sign-in options, no technical details.
+    Column(Modifier.fillMaxSize().screenBackdrop("LoginScreen1").statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp)) {
         Row(Modifier.fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically) { IconBtn(Ic.Close, { leave() }) }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             PixelWordmark(Modifier.padding(horizontal = 12.dp))

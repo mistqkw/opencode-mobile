@@ -30,8 +30,8 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * Обновления из релизов GitHub: раз в несколько часов смотрит mistqkw/opencode-mobile,
- * сравнивает версию с установленной, по «Install» качает APK и отдаёт его системному установщику.
+ * Updates from GitHub releases: every few hours it checks mistqkw/opencode-mobile,
+ * compares the version with the installed one, downloads the APK on "Install" and hands it to the system installer.
  */
 object Updater {
     const val REPO = "mistqkw/opencode-mobile"
@@ -55,7 +55,7 @@ object Updater {
 
     val current: String get() = BuildConfig.VERSION_NAME
 
-    /** Автопроверка при запуске: не чаще раза в 6 часов и только если она включена. */
+    /** Auto check on launch: at most once every 6 hours and only if it's on. */
     fun autoCheck() {
         val p = Graph.prefs
         if (!p.updateAuto || System.currentTimeMillis() - p.updateCheckedAt < EVERY_MS) return
@@ -96,7 +96,7 @@ object Updater {
 
     private fun JsonObject.str(k: String) = this[k]?.jsonPrimitive?.content.orEmpty()
 
-    /** «v0.0.1-beta-3» против «0.0.1 beta-2»: сначала числа, потом стадия (alpha < beta < rc < релиз) и её номер. */
+    /** "v0.0.1-beta-3" vs "0.0.1 beta-2": numbers first, then the stage (alpha < beta < rc < release) and its number. */
     fun compare(a: String, b: String): Int {
         fun key(v: String): List<Int> {
             val m = Regex("""(\d+)\.(\d+)(?:\.(\d+))?(?:[\s._-]*(alpha|beta|rc)[\s._-]*(\d+)?)?""", RegexOption.IGNORE_CASE).find(v) ?: return listOf(0, 0, 0, 0, 0)
@@ -108,14 +108,14 @@ object Updater {
         return 0
     }
 
-    /** Можно ли ставить APK: Android спрашивает разрешение «Установка неизвестных приложений» один раз. */
+    /** Whether APKs can be installed: Android asks for "Install unknown apps" permission once. */
     fun canInstall(ctx: Context) = Build.VERSION.SDK_INT < 26 || ctx.packageManager.canRequestPackageInstalls()
 
     fun openInstallPermission(ctx: Context) = ctx.startActivity(
         Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     )
 
-    /** Скачать и сразу передать установщику. */
+    /** Download and hand straight to the installer. */
     fun install(ctx: Context, r: Release) {
         if (job?.isActive == true) return
         val app = ctx.applicationContext
@@ -151,7 +151,7 @@ object Updater {
         }
     }
 
-    /** Ответ установщика: попросить подтверждение у пользователя или сообщить об ошибке. */
+    /** The installer's answer: ask the user to confirm or report an error. */
     class Receiver : BroadcastReceiver() {
         override fun onReceive(ctx: Context, intent: Intent) {
             val r = (state.value as? State.Installing)?.r

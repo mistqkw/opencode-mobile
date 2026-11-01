@@ -1,5 +1,7 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.kimiLike
+import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +33,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -79,6 +83,15 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
     val pinned = Graph.prefs.pinnedSet()
 
     LaunchedEffect(Unit) { Graph.chats.refreshSessions() }
+    // search in chat text and memory, with a pause after typing so the database isn't hit on every letter
+    var hits by remember { mutableStateOf<List<app.ocmobile.data.Search.Hit>>(emptyList()) }
+    var memHits by remember { mutableStateOf<List<app.ocmobile.data.Search.MemoryHit>>(emptyList()) }
+    LaunchedEffect(query) {
+        if (query.trim().length < 2) { hits = emptyList(); memHits = emptyList(); return@LaunchedEffect }
+        kotlinx.coroutines.delay(300)
+        hits = app.ocmobile.data.Search.chats(query.trim())
+        memHits = app.ocmobile.data.Search.memory(query.trim())
+    }
 
     val needInput = (questions.map { it.sessionID } + perms.map { it.sessionID }).toSet()
     val list = sessions.filter { s ->
@@ -90,7 +103,7 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(c.bg)) {
+    Box(Modifier.fillMaxSize().screenBackdrop("RecentsScreen1")) {
         Column(Modifier.fillMaxSize()) {
             TopBar(
                 "Recents",
@@ -113,17 +126,33 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
                     }
                 },
             )
+            // from the drawer: the search bar rises from the bottom to its place, the keyboard opens by itself
+            val fromDrawer = remember { SearchHandoff.pending.also { SearchHandoff.pending = false } }
+            val fly = remember { androidx.compose.animation.core.Animatable(if (fromDrawer) 1f else 0f) }
+            val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+            LaunchedEffect(Unit) {
+                if (fromDrawer) {
+                    fly.animateTo(0f, androidx.compose.animation.core.spring(0.82f, 260f))
+                    runCatching { focus.requestFocus() }
+                }
+            }
+            val pill = Oc.look.id.kimiLike
+            val barShape = if (pill) CircleShape else Oc.round(22.dp)
             Row(
-                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(22.dp)).border(1.5.dp, c.border, Oc.round(22.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
+                Modifier.padding(horizontal = 16.dp).fillMaxWidth()
+                    .graphicsLayer { translationY = fly.value * size.height * 14f; alpha = 1f - fly.value * 0.3f }
+                    .clip(barShape)
+                    .then(if (pill) Modifier.background(c.surfaceHigh.copy(alpha = 0.7f)).border(1.dp, c.border, barShape) else Modifier.border(1.5.dp, c.border, barShape))
+                    .padding(horizontal = 18.dp, vertical = if (pill) 15.dp else 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Ico(Ic.Search, tint = c.textDim, size = 24.dp); Spacer(Modifier.width(12.dp))
                 Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Txt("Search", size = 18.sp, color = c.textDim)
-                    BasicTextField(query, { query = it }, singleLine = true, textStyle = TextStyle(color = c.text, fontSize = 18.sp), cursorBrush = SolidColor(c.text), modifier = Modifier.fillMaxWidth())
+                    if (query.isEmpty()) Txt("Search chats and memory", size = 18.sp, color = c.textDim)
+                    BasicTextField(query, { query = it }, singleLine = true, textStyle = TextStyle(color = c.text, fontSize = 18.sp), cursorBrush = SolidColor(c.text), modifier = Modifier.fillMaxWidth().focusRequester(focus))
                 }
             }
-            if (list.isEmpty()) EmptyState(Ic.Code, "Nothing here", if (sessions.isEmpty()) "Start a session and it will show up here." else "No sessions match this filter.", Modifier.padding(top = 60.dp))
+            if (list.isEmpty() && hits.isEmpty() && memHits.isEmpty()) EmptyState(Ic.Code, "Nothing here", if (sessions.isEmpty()) "Start a session and it will show up here." else "No sessions match this filter.", Modifier.padding(top = 60.dp))
             LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 8.dp, bottom = 120.dp)) {
                 items(list, key = { it.id }) { s ->
                     var actions by remember { mutableStateOf(false) }
@@ -147,6 +176,26 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
                             Txt(ago(s.time.updated) + " · " + s.directory.substringAfterLast('/').ifBlank { "/" }, size = 15.sp, color = c.textDim, maxLines = 1)
                         }
                         if (s.id in needInput) Box(Modifier.size(10.dp).clip(CircleShape).background(c.link))
+                    }
+                }
+                if (hits.isNotEmpty()) {
+                    item(key = "h-msg") { app.ocmobile.ui.components.SectionLabel("In messages") }
+                    items(hits.size, key = { "m$it" }) { i ->
+                        val h = hits[i]
+                        Column(Modifier.fillMaxWidth().tap(scale = 1f) { nav.openChat(h.sessionId) }.padding(horizontal = 20.dp, vertical = 11.dp)) {
+                            Txt(h.title.ifBlank { "Untitled" } + " · " + ago(h.time), size = 14.sp, color = c.textDim, maxLines = 1)
+                            Txt((if (h.user) "You: " else "") + h.snippet, size = 16.sp, maxLines = 3, lineHeight = 22.sp)
+                        }
+                    }
+                }
+                if (memHits.isNotEmpty()) {
+                    item(key = "h-mem") { app.ocmobile.ui.components.SectionLabel("In memory") }
+                    items(memHits.size, key = { "k$it" }) { i ->
+                        val h = memHits[i]
+                        Column(Modifier.fillMaxWidth().tap(scale = 1f) { nav.push(Route.Memory) }.padding(horizontal = 20.dp, vertical = 11.dp)) {
+                            Txt(h.shelf, size = 14.sp, color = c.textDim, maxLines = 1)
+                            Txt(h.line, size = 16.sp, maxLines = 3, lineHeight = 22.sp)
+                        }
                     }
                 }
             }

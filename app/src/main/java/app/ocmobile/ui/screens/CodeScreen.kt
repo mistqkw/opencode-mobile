@@ -1,5 +1,7 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.kimiLike
+import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -58,7 +60,7 @@ import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.launch
 
-/** Вкладка Code как в Claude: устройства (Remote control) и список сессий карточками. */
+/** The Code tab like in Claude: devices (Remote control) and a list of sessions as cards. */
 @Composable
 fun CodeScreen(nav: Nav, onMenu: () -> Unit) {
     val c = Oc.c
@@ -75,7 +77,7 @@ fun CodeScreen(nav: Nav, onMenu: () -> Unit) {
     var deviceMenu by remember { mutableStateOf<Device?>(null) }
     var connecting by remember { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    // Переключаемся только на устройство, которое отвечает: иначе экран врал бы, что ноутбук подключён.
+    // Switch only to a device that answers: otherwise the screen would claim the laptop is connected.
     fun switchTo(d: Device) {
         if (d.id == activeId || connecting != null) return
         connecting = d.id
@@ -100,9 +102,9 @@ fun CodeScreen(nav: Nav, onMenu: () -> Unit) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(c.bg)) {
+    Box(Modifier.fillMaxSize().screenBackdrop("CodeScreen1")) {
         Column(Modifier.fillMaxSize()) {
-            TopBar("Code", left = { IconBtn(Ic.Menu, onMenu) }, right = { IconBtn(Ic.Clock2, { nav.push(Route.Recents) }) })
+            TopBar(if (Oc.look.id.kimiLike) "Remote devices" else "Code", left = { IconBtn(Ic.Menu, onMenu) }, right = { IconBtn(Ic.Clock2, { nav.push(Route.Recents) }) })
             LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item { Txt("Devices", Modifier.padding(start = 8.dp, top = 8.dp), size = 16.sp, color = c.textDim) }
                 item {
@@ -241,8 +243,30 @@ private fun AddDeviceSheet(onDismiss: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     OcSheet(onDismiss, "Add device", skipHalf = false) {
         Column(Modifier.imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Txt("Control OpenCode that runs on your computer. On it, start the server:", size = 16.sp, color = c.textDim, lineHeight = 22.sp)
-            Txt("OPENCODE_SERVER_PASSWORD=secret opencode serve --hostname 0.0.0.0", Modifier.clip(Oc.round(14.dp)).background(c.codeBg).padding(12.dp), size = 13.sp, family = Oc.mono)
+            Txt("Control OpenCode that runs on your computer. On it, run this — it starts OpenCode and shows a QR code:", size = 16.sp, color = c.textDim, lineHeight = 22.sp)
+            Txt(QR_COMMAND, Modifier.clip(Oc.round(14.dp)).background(c.codeBg).padding(12.dp), size = 13.sp, family = Oc.mono)
+            // QR scanner from Play services; without it the code can be opened with the phone's camera
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            Box(
+                Modifier.fillMaxWidth().clip(Oc.pill).background(c.text).clickable {
+                    error = null
+                    val opts = com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions.Builder()
+                        .setBarcodeFormats(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_QR_CODE).build()
+                    com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(ctx, opts).startScan()
+                        .addOnSuccessListener { b ->
+                            if (app.ocmobile.data.ConnectLink.offer(b.rawValue.orEmpty())) onDismiss()
+                            else error = "That's not a cl0udly connection code"
+                        }
+                        .addOnFailureListener { error = "The scanner isn't available. Point your camera app at the code instead." }
+                }.padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Ico(Ic.Camera, tint = c.bg, size = 20.dp); Spacer(Modifier.width(10.dp))
+                    Txt("Scan QR code", size = 16.sp, color = c.bg)
+                }
+            }
+            Txt("Or enter it by hand:", size = 14.sp, color = c.textDim, modifier = Modifier.padding(top = 6.dp))
             OcTextField(name, { name = it }, placeholder = "Name (e.g. Laptop)")
             OcTextField(url, { url = it }, placeholder = "Address, e.g. 192.168.0.5:4096")
             OcTextField(pass, { pass = it }, placeholder = "Server password", password = true)
@@ -267,3 +291,6 @@ private fun AddDeviceSheet(onDismiss: () -> Unit) {
         }
     }
 }
+
+/** Command for the computer: starts OpenCode with a password and shows a QR code for the phone. */
+private const val QR_COMMAND = "curl -fsSL https://raw.githubusercontent.com/mistqkw/opencode-mobile/main/tools/connect-qr.sh | sh"

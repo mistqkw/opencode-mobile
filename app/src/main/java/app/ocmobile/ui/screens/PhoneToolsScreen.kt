@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -39,7 +40,7 @@ import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.launch
 
-/** Что агент может делать на телефоне: MCP-сервер «phone», который приложение поднимает само. */
+/** What the agent can do on the phone: the "phone" MCP server the app runs itself. */
 @Composable
 fun PhoneToolsScreen(nav: Nav) {
     val c = Oc.c
@@ -55,7 +56,7 @@ fun PhoneToolsScreen(nav: Nav) {
     val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { rev++ }
     val off = prefs.phoneToolsOff.split(',').filter { it.isNotBlank() }.toSet()
 
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("PhoneToolsScreen1")) {
         TopBar("Phone tools", left = { IconBtn(Ic.Back, { nav.pop() }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             Txt(

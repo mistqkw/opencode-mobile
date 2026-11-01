@@ -30,8 +30,8 @@ import androidx.compose.ui.window.PopupProperties
 import app.ocmobile.ui.theme.Oc
 
 /**
- * Панель над выделенным текстом — как в Claude: Copy, Select all, Reply, Read aloud.
- * Подменяет системную через LocalTextToolbar; для «Reply» и «Read aloud» выделение берём через копирование.
+ * The bar over selected text, like in Claude: Copy, Select all, Reply, Read aloud.
+ * Replaces the system one via LocalTextToolbar; for "Reply" and "Read aloud" the selection is taken via copy.
  */
 class ChatTextToolbar : TextToolbar {
     var rect by mutableStateOf<Rect?>(null)

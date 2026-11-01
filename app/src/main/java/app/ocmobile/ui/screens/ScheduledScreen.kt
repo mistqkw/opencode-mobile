@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -46,7 +47,7 @@ import app.ocmobile.ui.components.tap
 import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
 
-/** Вкладка Scheduled tasks: промпт в заданное время создаёт новую сессию. */
+/** The Scheduled tasks tab: a prompt at a set time creates a new session. */
 @Composable
 fun ScheduledScreen(nav: Nav, onMenu: () -> Unit) {
     val c = Oc.c
@@ -55,7 +56,7 @@ fun ScheduledScreen(nav: Nav, onMenu: () -> Unit) {
     var edit by remember { mutableStateOf<ScheduledTask?>(null) }
     var creating by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize().background(c.bg)) {
+    Box(Modifier.fillMaxSize().screenBackdrop("ScheduledScreen1")) {
         Column(Modifier.fillMaxSize()) {
             TopBar("Scheduled tasks", left = { IconBtn(Ic.Menu, onMenu) })
             if (tasks.isEmpty()) {

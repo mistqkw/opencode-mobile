@@ -23,7 +23,7 @@ data class UsageWindow(
     val label: String,
     val used: Double,
     val limit: Double,
-    /** Когда начнёт «отпускать»: самая старая запись в окне + длина окна. */
+    /** When it starts to "let go": the oldest entry in the window plus the window length. */
     val resetAt: Long?,
 ) {
     val fraction get() = if (limit > 0) (used / limit).coerceIn(0.0, 1.0) else 0.0
@@ -42,9 +42,9 @@ data class UsageSnapshot(
 )
 
 /**
- * У OpenCode нет публичного API для остатка лимитов Go, поэтому считаем сами:
- * копим стоимость каждого ответа (поле cost сообщения) и складываем по скользящим окнам
- * 5 часов / 7 дней / 30 дней. Считается только то, что прошло через этот сервер.
+ * OpenCode has no public API for the remaining Go limits, so we count ourselves:
+ * sum up the cost of each reply (the message's cost field) over sliding windows
+ * of 5 hours / 7 days / 30 days. Only what went through this server is counted.
  */
 class UsageTracker(
     private val ctx: Context,
@@ -88,7 +88,7 @@ class UsageTracker(
         if (publish) { snapshot.value = compute(); save() }
     }
 
-    /** Перечитывает недавние сессии: так учитывается то, что было до установки счётчика. */
+    /** Rereads recent sessions so that usage from before the counter existed is included. */
     suspend fun backfill() {
         if (refreshing.value) return
         refreshing.value = true

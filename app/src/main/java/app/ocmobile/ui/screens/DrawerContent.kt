@@ -1,5 +1,7 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
+import app.ocmobile.ui.theme.kimiLike
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,16 +58,18 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
     val recent = sessions.filter { it.id !in pinnedIds }.take(12)
     fun go(r: Route) { close(); nav.root(r) }
 
-    Box(Modifier.fillMaxSize().background(c.bg)) {
+    Box(Modifier.fillMaxSize().screenBackdrop("DrawerContent1")) {
         LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 140.dp)) {
             item { DrawerHeader { go(it) } }
             item {
-                val navs = if (Oc.look.id == "kimi")
-                    // Kimi: разделы с подписями как в их меню, плюс память
-                    listOf(Triple("Scheduled tasks", Ic.Clock2, Route.Scheduled), Triple("Remote devices", Ic.Laptop, Route.Code), Triple("Projects", Ic.Folder, Route.Projects), Triple("Artifacts", Ic.Puzzle, Route.Artifacts), Triple("Memory", Ic.Sparkle, Route.Memory))
+                val navs = if (Oc.look.id.kimiLike)
+                    // Kimi: sections with labels like in their menu, plus memory
+                    listOf(Triple("Scheduled tasks", Ic.Clock2, Route.Scheduled), Triple("Remote devices", Ic.Laptop, Route.Code), Triple("Projects", Ic.Folder, Route.Projects), Triple("Artifacts", Ic.Puzzle, Route.Artifacts), Triple("Memory", Ic.Sparkle, Route.Memory)) +
+                        // cl0udly has its own room: chat and play while the agent works
+                        (if (Oc.look.id == "cloud") listOf(Triple("cl0udly", Ic.Cloud, Route.Mascot)) else emptyList())
                 else listOf(Triple("Projects", Ic.Folder, Route.Projects), Triple("Code", Ic.Code, Route.Code), Triple("Artifacts", Ic.Puzzle, Route.Artifacts), Triple("Scheduled", Ic.Clock2, Route.Scheduled))
                 if (Oc.look.id == "cards") {
-                    // Cards: разделы — плитками 2×2
+                    // Cards: sections as 2×2 tiles
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         navs.chunked(2).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -84,7 +88,7 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
                 item { Txt("Pinned", Modifier.padding(start = 24.dp, top = 6.dp, bottom = 6.dp), size = 16.sp, color = c.textDim) }
                 items(pinned, key = { "p" + it.id }) { SessionRow(it, statuses[it.id], nav, close) }
             }
-            item { Txt(if (Oc.look.id == "kimi") "Chat history" else "Recents", Modifier.padding(start = 24.dp, top = 14.dp, bottom = 6.dp), size = 16.sp, color = c.textDim) }
+            item { Txt(if (Oc.look.id.kimiLike) "Chat history" else "Recents", Modifier.padding(start = 24.dp, top = 14.dp, bottom = 6.dp), size = 16.sp, color = c.textDim) }
             items(recent, key = { "r" + it.id }) { SessionRow(it, statuses[it.id], nav, close) }
             if (recent.isEmpty() && pinned.isEmpty()) item { Txt("No sessions yet", Modifier.padding(start = 24.dp, top = 8.dp), size = 16.sp, color = c.textDim) }
         }
@@ -94,15 +98,16 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
                 .padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (Oc.look.id == "kimi") {
-                // Kimi: внизу поиск по истории и круглая кнопка настроек
+            if (Oc.look.id.kimiLike) {
+                // Kimi: history search at the bottom and a round settings button
                 Row(
                     Modifier.weight(1f).height(52.dp).clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.7f)).border(1.dp, c.border, CircleShape)
-                        .tap(scale = 0.98f) { go(Route.Recents) }.padding(horizontal = 18.dp),
+                        .tap(scale = 0.98f) { SearchHandoff.pending = true; go(Route.Recents) }.padding(horizontal = 18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) { Ico(Ic.Search, tint = c.textDim, size = 22.dp); Spacer(Modifier.width(12.dp)); Txt("Search", size = 17.sp, color = c.textDim) }
                 Spacer(Modifier.width(10.dp))
-                app.ocmobile.ui.components.KimiCircleBtn(Ic.Sliders, { go(Route.Settings) }, size = 52.dp)
+                if (Oc.look.id == "cloud") app.ocmobile.ui.components.KimiCircleBtn(Ic.Edit, { go(Route.Home) }, size = 52.dp)
+                else app.ocmobile.ui.components.KimiCircleBtn(Ic.Sliders, { go(Route.Settings) }, size = 52.dp)
             } else {
             Avatar(52.dp) { go(Route.Settings) }
             Spacer(Modifier.weight(1f))
@@ -122,12 +127,12 @@ fun Avatar(size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
     }
 }
 
-/** Шапка меню: у каждого вида своя. */
+/** Drawer header: each look has its own. */
 @Composable
 private fun DrawerHeader(go: (Route) -> Unit) {
     val c = Oc.c
     when (Oc.look.id) {
-        // Telegram: цветная плашка с аватаром и именем
+        // Telegram: a colored panel with avatar and name
         "messenger" -> Column(Modifier.fillMaxWidth().background(c.surface).padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 14.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Avatar(64.dp) { go(Route.Settings) }
@@ -138,7 +143,7 @@ private fun DrawerHeader(go: (Route) -> Unit) {
             Txt(Graph.prefs.userName.ifBlank { "OpenCode" }, size = 17.sp, weight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             Txt("OpenCode on this phone", size = 14.sp, color = c.textDim)
         }
-        // Hairline: моно-подпись, широкий заголовок и линия
+        // Hairline: mono label, wide heading and a line
         "hairline" -> Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 12.dp, bottom = 4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Txt("TEXFI / OPENCODE", Modifier.weight(1f), size = 11.sp, color = c.textDim, family = Oc.label)
@@ -147,21 +152,23 @@ private fun DrawerHeader(go: (Route) -> Unit) {
             Heading("Open", size = 30.sp)
             Box(Modifier.padding(top = 2.dp)) { Heading("Code.", size = 30.sp, color = c.accent) }
         }
-        // ChatGPT: сверху строка поиска
+        // ChatGPT: a search bar at the top
         "chatgpt" -> Row(
             Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp).fillMaxWidth().height(44.dp).clip(CircleShape).background(c.surfaceHigh)
                 .tap(scale = 0.99f) { go(Route.Recents) }.padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) { Ico(Ic.Search, tint = c.textDim, size = 20.dp); Spacer(Modifier.width(10.dp)); Txt("Search", size = 16.sp, color = c.textDim) }
-        // Kimi: строгий заголовок без маскота (маскот только на пустом экране и пока думает)
-        // Kimi: аватар, имя и круглая кнопка нового чата
-        "kimi" -> Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Kimi: a plain heading without the mascot (the mascot is only on the empty screen and while thinking)
+        // Kimi: avatar, name and a round new chat button
+        "kimi", "cloud" -> Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Avatar(44.dp) { go(Route.Settings) }
             Spacer(Modifier.width(14.dp))
             Txt(Graph.prefs.userName.ifBlank { "OpenCode" }, Modifier.weight(1f), size = 19.sp, weight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 1)
-            app.ocmobile.ui.components.KimiCircleBtn(Ic.Edit, { go(Route.Home) }, size = 48.dp)
+            // cl0udly: settings at the top, new chat at the bottom by the search
+            if (Oc.look.id == "cloud") app.ocmobile.ui.components.KimiCircleBtn(Ic.Sliders, { go(Route.Settings) }, size = 48.dp)
+            else app.ocmobile.ui.components.KimiCircleBtn(Ic.Edit, { go(Route.Home) }, size = 48.dp)
         }
-        // Notebook: заголовок и дата курсивом
+        // Notebook: heading and date in italics
         "notebook" -> Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 12.dp, bottom = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Heading("Notebook", Modifier.weight(1f), size = 30.sp)
@@ -187,7 +194,7 @@ private fun NavItem(label: String, icon: androidx.compose.ui.graphics.vector.Ima
             "hairline" -> { Ico(icon, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(18.dp)); Txt(label.uppercase(), Modifier.weight(1f), size = 13.sp, family = Oc.label); Txt("→", size = 13.sp, color = c.textDim, family = Oc.label) }
             "messenger" -> { Ico(icon, tint = c.textDim, size = 24.dp); Spacer(Modifier.width(28.dp)); Txt(label, size = 16.sp) }
             "notebook" -> { Ico(icon, tint = c.accent, size = 22.dp); Spacer(Modifier.width(18.dp)); Txt(label, size = 18.sp, family = Oc.reply) }
-            "kimi" -> { Ico(icon, tint = c.text, size = 23.dp); Spacer(Modifier.width(20.dp)); Txt(label, size = 18.sp) }
+            "kimi", "cloud" -> { Ico(icon, tint = c.text, size = 23.dp); Spacer(Modifier.width(20.dp)); Txt(label, size = 18.sp) }
             else -> { Ico(icon, tint = c.textDim, size = 26.dp); Spacer(Modifier.width(20.dp)); Txt(label, size = 18.sp, color = c.textDim) }
         }
     }
@@ -206,20 +213,46 @@ private fun SessionRow(s: Session, status: String?, nav: Nav, close: () -> Unit)
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (Oc.look.id == "messenger") {
-            // как список чатов: кружок с первой буквой
+            // like a chat list: a circle with the first letter
             val hue = listOf(0xFFE17076, 0xFFFAA774, 0xFF7BC862, 0xFF6EC9CB, 0xFF65AADD, 0xFFA695E7, 0xFFEE7AAE)[(s.id.hashCode() and 0x7fffffff) % 7]
             Box(Modifier.size(44.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color(hue)), contentAlignment = Alignment.Center) {
                 Txt(s.displayTitle.take(1).uppercase(), size = 18.sp, color = androidx.compose.ui.graphics.Color.White, weight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             }
             Spacer(Modifier.width(14.dp))
-        } else if (Oc.look.id != "kimi") {
+        } else if (Oc.look.id == "cloud") {
+            // cl0udly: icon by chat type
+            Ico(
+                when (app.ocmobile.data.ChatKind.of(s)) {
+                    app.ocmobile.data.ChatKind.Code -> Ic.Code
+                    app.ocmobile.data.ChatKind.Task -> Ic.ListCheck
+                    app.ocmobile.data.ChatKind.Research -> Ic.Globe
+                    app.ocmobile.data.ChatKind.Writing -> Ic.Edit
+                    app.ocmobile.data.ChatKind.Talk -> Ic.Chat
+                },
+                tint = c.textDim, size = 20.dp,
+            )
+            Spacer(Modifier.width(16.dp))
+        } else if (!Oc.look.id.kimiLike) {
             Ico(if (s.directory == app.ocmobile.data.CHAT_DIR) Ic.Chat else if (s.directory.isBlank()) Ic.Terminal else Ic.Code, tint = c.textDim, size = if (Oc.look.id == "hairline") 18.dp else 22.dp)
             Spacer(Modifier.width(18.dp))
         }
         Txt(s.displayTitle, Modifier.weight(1f), size = if (Oc.look.id == "hairline") 15.sp else if (Oc.look.id == "messenger") 16.sp else 18.sp, maxLines = 1, family = if (Oc.look.id == "notebook") Oc.reply else null)
+        // how many helpers worked in this chat
+        val all = Graph.chats.allSessions.collectAsState().value
+        val helpers = androidx.compose.runtime.remember(all, s.id) { all.values.count { it.parentID == s.id } }
+        if (helpers > 0) {
+            Spacer(Modifier.width(10.dp))
+            Row(Modifier.clip(CircleShape).background(c.surfaceHigh).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Ico(Ic.Users, tint = c.textDim, size = 13.dp); Spacer(Modifier.width(4.dp))
+                Txt("$helpers", size = 12.sp, color = c.textDim)
+            }
+        }
         if (needs || status != null) {
             Spacer(Modifier.width(12.dp))
             Box(Modifier.size(11.dp).clip(CircleShape).background(if (needs) c.link else c.textDim))
         }
     }
 }
+
+/** Search opened from the drawer: in Recents the search bar "flies" up from where it was. */
+object SearchHandoff { @Volatile var pending = false }

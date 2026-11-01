@@ -7,7 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import java.io.File
 
-/** Прозрачный экран для инструмента phone.take_photo: открывает камеру и отдаёт снимок мосту. */
+/** Transparent screen for the phone.take_photo tool: opens the camera and hands the photo to the bridge. */
 class PhotoActivity : ComponentActivity() {
     private var file: File? = null
 
@@ -18,7 +18,7 @@ class PhotoActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // после пересоздания (поворот, нехватка памяти) камера уже открыта — только вспоминаем файл
+        // after a recreate (rotation, low memory) the camera is already open, just remember the file
         savedInstanceState?.getString("file")?.let { file = File(it); return }
         val f = File(File(cacheDir, "camera").apply { mkdirs() }, "agent-${System.currentTimeMillis()}.jpg")
         file = f

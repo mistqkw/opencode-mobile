@@ -11,16 +11,16 @@ android {
     defaultConfig {
         applicationId = "app.ocmobile"
         minSdk = 26
-        // 28 — осознанно: proot запускает бинарники из каталога данных приложения,
-        // а с targetSdk >= 29 Android запрещает exec из app_data_file (как у Termux).
-        // APK раздаём файлом, не через Play.
+        // 28 on purpose: proot runs binaries from the app data directory,
+        // and with targetSdk >= 29 Android forbids exec from app_data_file (same as Termux).
+        // The APK is distributed as a file, not through Play.
         targetSdk = 28
-        versionCode = 3
-        versionName = "0.0.1 beta-3"
+        versionCode = 4
+        versionName = "0.0.1 beta-4"
         ndk { abiFilters += "arm64-v8a" }
     }
 
-    // targetSdk 28 — см. выше; для APK вне Play это не ошибка
+    // targetSdk 28: see above; not an error for an APK outside Play
     lint { disable += "ExpiredTargetSdkVersion" }
 
     buildTypes {
@@ -31,7 +31,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Пока нет своего ключа — подписываем debug-ключом, чтобы APK ставился на телефон.
+            // No own key yet: sign with the debug key so the APK installs on the phone.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -44,8 +44,8 @@ android {
     }
 
     packaging {
-        // proot и его библиотеки лежат как lib*.so и должны быть распакованы на диск,
-        // иначе их нельзя запустить как исполняемые файлы.
+        // proot and its libraries ship as lib*.so and must be extracted to disk,
+        // otherwise they can't be run as executables.
         jniLibs.useLegacyPackaging = true
         jniLibs.keepDebugSymbols += "**/*.so"
         resources.excludes += listOf("/META-INF/{AL2.0,LGPL2.1}", "DebugProbesKt.bin")
@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.coil.compose)
     implementation(libs.coil.network)
+    implementation(libs.gms.code.scanner)
 
     testImplementation(libs.junit)
 }

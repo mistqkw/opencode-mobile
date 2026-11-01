@@ -100,7 +100,7 @@ data class MessageInfo(
     val errorName: String? get() = error?.str("name")
 }
 
-/** Часть сообщения хранится как есть: набор типов у OpenCode растёт, строгая модель ломалась бы. */
+/** A message part is stored as is: OpenCode keeps adding part types, a strict model would break. */
 data class Part(val raw: JsonObject) {
     val id get() = raw.str("id") ?: ""
     val messageID get() = raw.str("messageID") ?: ""
@@ -176,11 +176,11 @@ data class AgentInfo(
 data class NamedItem(
     val name: String,
     val description: String? = null,
-    /** command | skill | mcp — откуда пришла команда. */
+    /** command | skill | mcp: where the command came from. */
     val source: String? = null,
     val template: String? = null,
     val agent: String? = null,
-    /** Для навыков: путь к SKILL.md (или «<built-in>») и его текст. */
+    /** For skills: the path to SKILL.md (or "<built-in>") and its text. */
     val location: String? = null,
     val content: String? = null,
 )
@@ -198,7 +198,7 @@ data class QuestionOption(val label: String, val description: String)
 data class QuestionItem(val question: String, val header: String, val options: List<QuestionOption>, val multiple: Boolean, val custom: Boolean)
 data class QuestionReq(val id: String, val sessionID: String, val questions: List<QuestionItem>)
 
-// ---------- помощники для JsonObject ----------
+// ---------- JsonObject helpers ----------
 
 fun JsonObject.str(k: String): String? = (this[k] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.contentOrNull
 fun JsonObject.obj(k: String): JsonObject? = this[k] as? JsonObject

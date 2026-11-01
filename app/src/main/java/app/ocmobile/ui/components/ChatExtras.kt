@@ -39,7 +39,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
-/** Сервер остановился посреди задачи: продолжить с того места или отменить. */
+/** The server stopped mid-task: continue from there or cancel. */
 @Composable
 fun InterruptedCard(id: String) {
     val c = Oc.c
@@ -48,7 +48,7 @@ fun InterruptedCard(id: String) {
     val set by Graph.chats.interrupted.collectAsState()
     if (id !in set) return
     val look = Oc.look.id
-    val shape = when (look) { "terminal" -> RectangleShape; "hairline" -> RoundedCornerShape(2.dp); "kimi" -> RoundedCornerShape(28.dp); else -> RoundedCornerShape(20.dp) }
+    val shape = when (look) { "terminal" -> RectangleShape; "hairline" -> RoundedCornerShape(2.dp); "kimi", "cloud" -> RoundedCornerShape(28.dp); else -> RoundedCornerShape(20.dp) }
     Column(
         Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth().clip(shape).background(if (look == "hairline" || look == "terminal") c.bg else c.surface)
             .border(1.dp, c.warn.copy(alpha = 0.5f), shape).padding(16.dp),
@@ -67,7 +67,7 @@ fun InterruptedCard(id: String) {
     }
 }
 
-/** На главном: список прерванных задач, чтобы не искать их по чатам. */
+/** On home: a list of interrupted tasks, so you don't have to hunt for them in chats. */
 @Composable
 fun InterruptedBanner(onOpen: (String) -> Unit) {
     val c = Oc.c
@@ -88,7 +88,7 @@ fun InterruptedBanner(onOpen: (String) -> Unit) {
     }
 }
 
-/** Над полем ввода: открыть в превью сайт, который агент запустил или записал. */
+/** Above the input: open in the preview a site the agent started or wrote. */
 @Composable
 fun PreviewChips(chat: Chat, id: String, nav: Nav) {
     val c = Oc.c
@@ -109,8 +109,8 @@ fun PreviewChips(chat: Chat, id: String, nav: Nav) {
 }
 
 /**
- * Сколько примерно обойдётся сообщение: контекст чата (уже в кеше), новый текст и ответ средней длины
- * по ценам модели. Если модель считается в лимитах — ещё и доля 5-часового лимита.
+ * Roughly what a message will cost: the chat context (already cached), the new text and an average-length reply
+ * at the model's prices. If the model counts toward limits, also the share of the 5-hour limit.
  */
 @Composable
 fun CostHint(chat: Chat?, text: String, attachments: Int) {

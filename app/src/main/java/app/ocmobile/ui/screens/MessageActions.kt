@@ -36,7 +36,7 @@ fun userText(m: ChatMessage) = m.parts.filter { it.type == "text" && it.raw.str(
 fun assistantText(m: ChatMessage) = m.parts.filter { it.type == "text" }.joinToString("\n\n") { it.text }
 fun messageText(m: ChatMessage) = if (m.info.isUser) userText(m) else assistantText(m)
 
-/** Меню долгого нажатия на сообщение — как в Claude: копировать, выделить, править, повторить. */
+/** Long-press menu for a message, like in Claude: copy, select, edit, retry. */
 @Composable
 fun MessageActionsSheet(
     m: ChatMessage,

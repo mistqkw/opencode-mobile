@@ -9,7 +9,7 @@ import java.security.SecureRandom
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
-/** Настройки приложения. Каждое поле — Compose-состояние, записанное в SharedPreferences. */
+/** App settings. Each field is Compose state stored in SharedPreferences. */
 class Prefs(ctx: Context) {
     private val sp: SharedPreferences = ctx.getSharedPreferences("oc", Context.MODE_PRIVATE)
 
@@ -41,61 +41,80 @@ class Prefs(ctx: Context) {
         }
     }
 
-    // Внешний вид
-    var recentModels by str("recent_models", "")      // provider/model через запятую, свежие первыми
-    var edition by str("edition", "claude")           // claude | terminal | desktop
+    // Appearance
+    var recentModels by str("recent_models", "")      // provider/model, comma-separated, most recent first
+    var edition by str("edition", "cloud")           // claude | terminal | desktop
     var colorMode by str("color_mode", "system")      // system | light | dark
     var fontStyle by str("font_style", "default")     // default | system
     var textSize by str("text_size", "medium")        // small | medium | large
     var codeFont by str("code_font", "mono")          // mono | system
     var wrapLines by bool("wrap_lines", false)
     var haptics by bool("haptics", true)
-    var updateAuto by bool("update_auto", true)
-    var phoneTools by bool("phone_tools", true)          // MCP «phone»: агент может действовать на этом телефоне
+    var accessBannerHidden by bool("access_banner_hidden", false)  // dismissed the hint about background work and notifications
+    // the cl0udly mascot: the "cl0udly" tab in settings
+    var mascotOn by bool("mascot_on", true)
+    var mascotHaptics by bool("mascot_haptics", true)
+    var mascotSensors by bool("mascot_sensors", true)        // shake, tilt, upside down
+    var mascotBattery by bool("mascot_battery", true)        // charging and low battery
+    var mascotSleepy by bool("mascot_sleepy", true)          // dozes off if left alone for long
+    var mascotMorning by bool("mascot_morning", true)
+    var mascotSeasonal by bool("mascot_seasonal", true)      // snow, leaves, confetti, sneezes
+    var mascotOutfit by str("mascot_outfit", "auto")        // auto, off or a holiday name
+    var mascotPersona by bool("mascot_persona", true)       // the agent introduces itself as the cl0udly cloud
+    var petCount by str("pet_count", "0")             // how many times the mascot was petted
+    var lastMorning by str("last_morning", "")         // the day the mascot already did its morning stretch
+    var pongBest by str("pong_best", "0")              // best ping-pong rally with the mascot
+    var navStack by str("nav_stack", "")               // time|screens: bring the user back where they were
+    var teamMode by str("team_mode", "off")             // off | manual | auto
+    var teamMembers by str("team_members", "[]")        // JSON: [{name, role, provider, model}]
+    var teamPool by str("team_pool", "")                // auto: models, comma-separated, provider/model
+    var teamMax by str("team_max", "3")                 // auto: the most helpers allowed
+    var updateAuto by bool("update_auto", true)          // check GitHub releases on launch
+    var phoneTools by bool("phone_tools", true)          // "phone" MCP: the agent can act on this phone
     var phoneToken by str("phone_token", "")
-    var phoneToolsOff by str("phone_tools_off", "")      // выключенные инструменты через запятую
-    var liveNotify by bool("live_notify", true)          // уведомление с ходом работы и кнопками разрешений
-    var costHint by bool("cost_hint", true)
-    var busyIds by str("busy_ids", "")                   // сессии, которые работали при последнем известном состоянии
-    var interruptedIds by str("interrupted_ids", "")     // задачи, оборванные остановкой сервера              // подсказка цены под полем ввода          // проверять релизы GitHub при запуске
+    var phoneToolsOff by str("phone_tools_off", "")      // disabled tools, comma-separated
+    var liveNotify by bool("live_notify", true)          // notification with work progress and permission buttons
+    var costHint by bool("cost_hint", true)              // price hint under the input
+    var busyIds by str("busy_ids", "")                   // sessions that were running at the last known state
+    var interruptedIds by str("interrupted_ids", "")     // tasks cut off by a server stop
     var updateCheckedAt by lng("update_checked_at", 0L)
-    var updateSkipped by str("update_skipped", "")       // тег версии, которую попросили пропустить
-    var appIcon by str("app_icon", "look_desktop")
+    var updateSkipped by str("update_skipped", "")       // tag of the version the user asked to skip
+    var appIcon by str("app_icon", "look_cloud")
     var uiScale by str("ui_scale", "100")             // 90 | 100 | 110 | 120
     var incognitoIds by str("incognito_ids", "")
     var devicesJson by str("devices", "[]")
     var memoryEnabled by bool("memory_enabled", true)
     var memoryCustom by str("memory_custom", "")
-    /** Сохранять самому (true) или только когда попросят «запомни». */
+    /** Save on its own (true) or only when asked to "remember". */
     var memoryAuto by bool("memory_auto", true)
-    /** Анимация входа при запуске. */
+    /** Intro animation on launch. */
     var introEnabled by bool("intro_enabled", true)
-    /** Темы полок через запятую; пусто — любые. */
+    /** Shelf topics, comma-separated; empty means any. */
     var memoryTopics by str("memory_topics", "")
     var signedIn by str("signed_in", "")          // github | google | email | key | ""
     var loginSeen by bool("login_seen", false)
-    var githubLogin by str("github_login", "")           // вход в GitHub внутри окружения (токен лежит у gh)
+    var githubLogin by str("github_login", "")           // GitHub sign-in inside the environment (gh holds the token)
     var githubName by str("github_name", "")
     var githubAvatar by str("github_avatar", "")
-    var onboarded by bool("onboarded", false)          // первый запуск пройден
+    var onboarded by bool("onboarded", false)          // first launch done
     var scheduledJson by str("scheduled", "[]")
     var activeDevice by str("active_device", "")
 
-    // Профиль
+    // Profile
     var userName by str("user_name", "")
-    /** Язык распознавания речи и озвучки: "" — язык телефона. */
+    /** Language for speech recognition and read-aloud: "" means the phone's language. */
     var speechLang by str("speech_lang", "")
     var avatarPath by str("avatar_path", "")
 
-    // Сервер
-    var serverPort by str("server_port", "4096")
+    // Server
+    var serverPort by str("server_port", if (app.ocmobile.BuildConfig.DEBUG) "4196" else "4096")
     var keepAwake by bool("keep_awake", true)
     var autoStartServer by bool("auto_start", true)
     var noSeccomp by bool("no_seccomp", false)
     var runtimeReady by bool("runtime_ready", false)
     var opencodeVersion by str("opencode_version", "")
 
-    // Выбор модели / режимов
+    // Model / mode selection
     var providerId by str("model_provider", "")
     var modelId by str("model_id", "")
     var variant by str("model_variant", "")
@@ -104,7 +123,7 @@ class Prefs(ctx: Context) {
     var currentDir by str("current_dir", "/root/work")
     var pinned by str("pinned", "")
 
-    // Лимиты подписки (в долларах). По умолчанию — опубликованные лимиты OpenCode Go.
+    // Subscription limits (in dollars). Default: the published OpenCode Go limits.
     var limit5h by dbl("limit_5h", 12.0)
     var limitWeek by dbl("limit_week", 30.0)
     var limitMonth by dbl("limit_month", 60.0)

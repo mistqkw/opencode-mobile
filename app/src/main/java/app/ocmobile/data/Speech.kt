@@ -5,7 +5,7 @@ import android.speech.RecognizerIntent
 import app.ocmobile.Graph
 import java.util.Locale
 
-/** Язык речи для диктовки, голосового режима и «Read aloud» — выбирается в Settings → Voice. */
+/** Speech language for dictation, voice mode and "Read aloud": picked in Settings → Voice. */
 object Speech {
     val languages = listOf(
         "" to "Auto (phone language)", "ru-RU" to "Русский", "en-US" to "English", "uk-UA" to "Українська",
@@ -23,7 +23,7 @@ object Speech {
         .putExtra(RecognizerIntent.EXTRA_LANGUAGE, tag())
         .putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, tag())
 
-    /** Голос для чтения: выбранный язык, а в «Auto» — по тексту (кириллица → русский). */
+    /** Voice for reading: the chosen language, or in "Auto" by the text (Cyrillic → Russian). */
     fun ttsLocale(text: String): Locale = when {
         Graph.prefs.speechLang.isNotBlank() -> Locale.forLanguageTag(Graph.prefs.speechLang)
         text.any { it in 'а'..'я' || it in 'А'..'Я' } -> Locale.forLanguageTag("ru-RU")

@@ -5,13 +5,13 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
-/** Удалённый сервер OpenCode (например, компьютер): адрес вида http://192.168.0.5:4096 и пароль. */
+/** A remote OpenCode server (for example a computer): an address like http://192.168.0.5:4096 and a password. */
 @Serializable
 data class Device(val id: String, val name: String, val url: String, val password: String)
 
 /**
- * Remote control: приложение может работать не только с локальным сервером в proot,
- * но и с любым `opencode serve`, доступным по сети. Активное устройство — пустая строка = этот телефон.
+ * Remote control: the app can work not only with the local server in proot
+ * but with any `opencode serve` reachable over the network. Active device: an empty string means this phone.
  */
 class Devices(private val prefs: Prefs) {
     private val json = Json { ignoreUnknownKeys = true }
@@ -40,10 +40,10 @@ class Devices(private val prefs: Prefs) {
         save(list.value.filterNot { it.id == id })
     }
 
-    /** "" — вернуться на локальный сервер. */
+    /** "" returns to the local server. */
     fun select(id: String) {
         if (id == activeId.value) return
-        // у каждого устройства свой «текущий проект»: пути на компьютере и на телефоне не совпадают
+        // each device has its own "current project": paths on the computer and on the phone differ
         prefs.setDir(activeId.value, prefs.currentDir)
         prefs.currentDir = prefs.getDir(id) ?: if (id.isEmpty()) "/root/work" else ""
         prefs.activeDevice = id
@@ -54,7 +54,7 @@ class Devices(private val prefs: Prefs) {
         fun normalize(raw: String): String {
             var u = raw.trim().trimEnd('/')
             if (!u.startsWith("http://") && !u.startsWith("https://")) u = "http://$u"
-            // адрес без порта — порт по умолчанию у opencode serve
+            // address without a port: the default opencode serve port
             val hostPart = u.substringAfter("://").substringBefore('/')
             if (!hostPart.contains(':') && u.startsWith("http://")) u = u.replaceFirst(hostPart, "$hostPart:4096")
             return u

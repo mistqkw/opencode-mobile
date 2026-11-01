@@ -28,11 +28,13 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,7 +73,7 @@ import kotlinx.serialization.json.contentOrNull
 
 fun hhmm(ms: Long): String = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(ms))
 
-/** Пузырь с хвостиком, как в мессенджерах: скругления 16dp, у нижнего угла — маленький загнутый хвост. */
+/** A bubble with a tail, like in messengers: 16dp corners, a small curled tail at the bottom corner. */
 class TailShape(private val right: Boolean) : androidx.compose.ui.graphics.Shape {
     override fun createOutline(size: androidx.compose.ui.geometry.Size, layoutDirection: androidx.compose.ui.unit.LayoutDirection, density: androidx.compose.ui.unit.Density): androidx.compose.ui.graphics.Outline {
         val r = with(density) { 16.dp.toPx() }; val t = with(density) { 7.dp.toPx() }
@@ -126,20 +128,20 @@ fun UserBubble(m: ChatMessage, onImage: (String) -> Unit, onSelect: () -> Unit, 
         }
         if (text.isNotBlank()) {
             if (Oc.terminal) {
-                // как в TUI: тёмный блок на всю ширину с синей полосой слева
+                // like in the TUI: a full-width dark block with a blue bar on the left
                 Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min).background(c.userBubble).longPress(onLong)) {
                     Box(Modifier.width(3.dp).fillMaxHeight().background(c.link))
                     Text(text, color = c.text, fontSize = 15.sp, lineHeight = 22.sp, fontFamily = Oc.body, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
                 }
             } else when (Oc.look.user) {
-                // Messenger: пузырь с хвостиком и временем внутри
+                // Messenger: a bubble with a tail and the time inside
                 "tail" -> Box(Modifier.widthIn85().clip(TailShape(right = true)).background(c.userBubble).longPress(onLong).padding(start = 14.dp, end = 20.dp, top = 8.dp, bottom = 8.dp)) {
                     Column(horizontalAlignment = Alignment.End) {
                         Text(text, color = c.text, fontSize = 16.sp, lineHeight = 22.sp, fontFamily = Oc.body)
                         Txt(hhmm(m.info.time.created), size = 11.sp, color = c.text.copy(alpha = 0.55f))
                     }
                 }
-                // Notebook: без пузыря — подпись и текст с полосой слева
+                // Notebook: no bubble, a label and text with a bar on the left
                 "plain" -> Column(Modifier.fillMaxWidth().longPress(onLong)) {
                     Txt("YOU · " + hhmm(m.info.time.created), size = 11.sp, color = c.textDim, family = Oc.label)
                     Row(Modifier.padding(top = 4.dp).height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
@@ -147,7 +149,7 @@ fun UserBubble(m: ChatMessage, onImage: (String) -> Unit, onSelect: () -> Unit, 
                         Text(text, color = c.text, fontSize = 17.sp, lineHeight = 25.sp, fontFamily = Oc.body, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                     }
                 }
-                // Cards: карточка с шапкой
+                // Cards: a card with a header
                 "card" -> Column(Modifier.widthIn85().clip(Oc.round(18.dp)).background(c.surface).border(1.dp, c.border, Oc.round(18.dp)).longPress(onLong).padding(14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(6.dp).clip(CircleShape).background(c.accent)); Spacer(Modifier.width(8.dp))
@@ -155,7 +157,7 @@ fun UserBubble(m: ChatMessage, onImage: (String) -> Unit, onSelect: () -> Unit, 
                     }
                     Text(text, color = c.text, fontSize = 16.sp, lineHeight = 23.sp, fontFamily = Oc.body, modifier = Modifier.padding(top = 6.dp))
                 }
-                // Hairline: рамка в 1px, без заливки
+                // Hairline: a 1px frame, no fill
                 "line" -> Box(Modifier.widthIn85().clip(Oc.round(10.dp)).border(1.dp, c.border, Oc.round(10.dp)).longPress(onLong).padding(horizontal = 16.dp, vertical = 11.dp)) {
                     Text(text, color = c.text, fontSize = 16.sp, lineHeight = 23.sp, fontFamily = Oc.body)
                 }
@@ -186,7 +188,7 @@ private fun Modifier.widthIn85(): Modifier {
 }
 
 @Composable
-fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onLong: () -> Unit, onRetry: (() -> Unit)?, first: Boolean = true) {
+fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onLong: () -> Unit, onRetry: (() -> Unit)?, first: Boolean = true, parts: List<Part> = m.parts) {
     val c = Oc.c
     val clip = LocalClipboardManager.current
     val info = m.info
@@ -196,10 +198,15 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
         "card" -> Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(Oc.round(18.dp)).background(c.surface).border(1.dp, c.border, Oc.round(18.dp)).padding(14.dp)
         else -> Modifier.fillMaxWidth().padding(horizontal = 20.dp)
     }
-    val textAll = m.parts.filter { it.type == "text" }.joinToString("\n\n") { it.text }
+    val textAll = parts.filter { it.type == "text" }.joinToString("\n\n") { it.text }
     val boxed = look.reply != "plain"
     @Composable fun Actions() {
-        if (info.time.completed != null && info.errorMessage == null && (textAll.isNotBlank() || last)) {
+        // the buttons under a reply slide out smoothly instead of jerking the chat when the reply ends
+        AnimatedVisibility(
+            info.time.completed != null && info.errorMessage == null && (textAll.isNotBlank() || last),
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) + androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(140)),
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(80)) + androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(120)),
+        ) { Column {
             val ctx = androidx.compose.ui.platform.LocalContext.current
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (textAll.isNotBlank()) {
@@ -218,13 +225,13 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
                 }
                 if (bits.isNotEmpty()) Txt(bits.joinToString(" · "), size = 13.sp, color = c.textDim)
             }
-            if (last) Txt("OpenCode can make mistakes. Check important changes.", size = 13.sp, color = c.textDim, modifier = Modifier.padding(top = 2.dp))
-        }
+            if (last) Txt((if (app.ocmobile.data.Persona.on) "cl0udly" else "OpenCode") + " can make mistakes. Check important changes.", size = 13.sp, color = c.textDim, modifier = Modifier.padding(top = 2.dp))
+        } }
     }
     Column(Modifier.fillMaxWidth()) {
     Column(frame, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // Hairline: моно-подпись с синим квадратом
-        // подпись — только над первым сообщением ответа, а не над каждым шагом
+        // Hairline: mono label with a blue square
+        // the label goes only above the first message of a reply, not above every step
         if (!first && look.reply == "plain") Unit
         else if (look.id == "hairline") Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(6.dp).background(c.accent)); Spacer(Modifier.width(10.dp))
@@ -234,16 +241,18 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
             Txt(if (look.user == "plain") "OPENCODE · " + hhmm(info.time.created) else "OpenCode", size = if (look.user == "plain") 11.sp else 13.sp, color = c.textDim, family = Oc.label, weight = if (look.reply == "card") FontWeight.Medium else null)
             if (look.reply == "card") { Spacer(Modifier.width(6.dp)); Txt(hhmm(info.time.created), size = 12.sp, color = c.textDim) }
         }
-        // Как в Claude: подряд идущие шаги (мысли, команды, чтение) — одной строкой «Thought, ran 2 commands ›»
-        val segments = remember(m.parts.size, m.parts.lastOrNull()?.raw) { segment(m.parts) }
-        // сессия уже не работает (сервер остановили посреди шага) — не крутить значок вечно
+        // Like in Claude: consecutive steps (thoughts, commands, reads) as one line "Thought, ran 2 commands ›"
+        val segments = remember(parts.size, parts.fold(0) { a, p -> a * 31 + System.identityHashCode(p.raw) }) { segment(parts) }
+        // the session isn't running anymore (the server stopped mid-step): don't spin the icon forever
         val busyNow = Graph.chats.statuses.collectAsState().value.containsKey(info.sessionID)
         val running = last && info.time.completed == null && busyNow
         segments.forEachIndexed { si, seg ->
-            if (seg.size > 1 || (seg.size == 1 && isStep(seg[0]))) { StepsGroup(seg, running && si == segments.lastIndex, onImage); return@forEachIndexed }
+            if (seg.size > 1 || (seg.size == 1 && isStep(seg[0]))) { StepsTimeline(seg, running && si == segments.lastIndex, onImage); return@forEachIndexed }
             val p = seg[0]
             when (p.type) {
-                "text" -> if (p.text.isNotBlank()) androidx.compose.foundation.text.selection.SelectionContainer { Markdown(p.text) }
+                "text" -> if (p.text.isNotBlank()) androidx.compose.runtime.key(p.id) {
+                    androidx.compose.foundation.text.selection.SelectionContainer { Markdown(smoothText(p.text, running)) }
+                }
                 "reasoning" -> if (p.text.isNotBlank()) ReasoningBlock(p)
                 "tool" -> ToolCard(p, onImage)
                 "file" -> if (isImagePart(p)) p.raw.str("url")?.let { u -> ImageThumb(u, 220.dp, { onImage(u) }) }
@@ -253,8 +262,8 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
                 "retry" -> InfoLine(Ic.Refresh, "Retrying…")
             }
         }
-        val outFiles = remember(m.parts.size, m.parts.lastOrNull()?.text?.length, info.time.completed) {
-            app.ocmobile.ui.components.OutFiles.find(m.parts.filter { it.type == "text" }.joinToString("\n") { it.text })
+        val outFiles = remember(parts.size, parts.lastOrNull()?.text?.length, info.time.completed) {
+            app.ocmobile.ui.components.OutFiles.find(parts.filter { it.type == "text" }.joinToString("\n") { it.text })
         }
         if (outFiles.isNotEmpty()) app.ocmobile.ui.components.FileCards(outFiles)
         info.errorMessage?.let { ErrorCard(info.errorName, it) }
@@ -263,12 +272,12 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
                 Txt(hhmm(info.time.created), Modifier.align(Alignment.End).offset(y = (-4).dp), size = 12.sp, color = c.textDim)
         } else Actions()
     }
-    // в пузыре/карточке кнопки и подпись — под рамкой, как реакции в мессенджере
+    // in a bubble/card the buttons and label go under the frame, like reactions in a messenger
     if (boxed) Column(Modifier.padding(start = if (look.reply == "bubble") 14.dp else 16.dp, end = 16.dp, top = 2.dp)) { Actions() }
     }
 }
 
-/** Озвучка ответа системным TextToSpeech: повторное нажатие останавливает чтение. */
+/** Reads the reply aloud with the system TextToSpeech: tapping again stops reading. */
 object Speaker {
     private var tts: android.speech.tts.TextToSpeech? = null
     private var ready = false
@@ -321,7 +330,8 @@ private fun ReasoningBlock(p: Part) {
     var open by remember { mutableStateOf(false) }
     Column {
         Row(Modifier.clip(Oc.round(10.dp)).clickable { open = !open }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Ico(Ic.Sparkle, tint = c.textDim, size = 16.dp); Spacer(Modifier.width(8.dp))
+            if (Oc.look.id == "cloud") app.ocmobile.ui.components.MiniCloudIcon(16.dp) else Ico(Ic.Cloud, tint = c.textDim, size = 16.dp)
+            Spacer(Modifier.width(8.dp))
             Txt("Thinking", size = 14.sp, color = c.textDim)
             Spacer(Modifier.width(4.dp))
             Ico(if (open) Ic.ChevronDown else Ic.ChevronRight, tint = c.textDim, size = 16.dp)
@@ -335,20 +345,22 @@ private fun ReasoningBlock(p: Part) {
     }
 }
 
-// ---------- шаги ----------
+// ---------- steps ----------
 
-/** Шаг — мысль или вызов инструмента (кроме вопроса и списка дел: они показываются отдельно). */
+/** A step is a thought or a tool call (except questions and todo lists: those are shown separately). */
 private fun isStep(p: Part): Boolean = when (p.type) {
     "reasoning" -> p.text.isNotBlank()
     "tool" -> p.raw.str("tool") !in setOf("question", "todowrite", "todoread")
     else -> false
 }
 
-/** Части ответа → группы: шаги подряд собираются вместе, остальное идёт по одному. */
+/** Reply parts → groups: consecutive steps are gathered together, the rest go one by one. */
 private fun segment(parts: List<Part>): List<List<Part>> {
     val out = ArrayList<List<Part>>()
     var cur = ArrayList<Part>()
     for (p in parts) {
+        // service parts (step start/end, snapshots, patch summary) are invisible and must not break a group
+        if (p.type in setOf("step-start", "step-finish", "snapshot", "patch") || (p.type == "text" && p.text.isBlank())) continue
         if (isStep(p)) cur.add(p)
         else {
             if (cur.isNotEmpty()) { out.add(cur); cur = ArrayList() }
@@ -360,16 +372,19 @@ private fun segment(parts: List<Part>): List<List<Part>> {
     return out
 }
 
-private fun stepsSummary(parts: List<Part>): String {
-    var thought = false; var cmd = 0; var read = 0; var edit = 0; var search = 0; var web = 0; var other = 0; var failed = 0
+internal fun stepsSummary(parts: List<Part>): String {
+    var thought = false; var team = 0; var cmd = 0; var search = 0; var web = 0; var other = 0; var failed = 0
+    // count distinct files: two edits of one file are "edited a file"
+    val reads = HashSet<String>(); val edits = HashSet<String>()
     parts.forEach { p ->
         if (p.type == "reasoning") { thought = true; return@forEach }
         val t = p.raw.str("tool").orEmpty()
         if (p.raw.obj("state")?.str("status") == "error") failed++
         when {
             t == "bash" -> cmd++
-            t == "read" -> read++
-            t in setOf("edit", "write", "patch", "multiedit", "apply_patch") -> edit++
+            t == "task" -> team++
+            t == "read" -> reads += p.raw.obj("state")?.obj("input")?.firstStr("filePath", "path") ?: p.id
+            t in setOf("edit", "write", "patch", "multiedit", "apply_patch") -> edits += p.raw.obj("state")?.obj("input")?.firstStr("filePath", "path") ?: p.id
             t in setOf("grep", "glob", "list", "codesearch") -> search++
             t.startsWith("web") -> web++
             else -> other++
@@ -378,9 +393,10 @@ private fun stepsSummary(parts: List<Part>): String {
     fun n(k: Int, one: String, many: String) = if (k == 1) one else "$k $many"
     val bits = buildList {
         if (thought) add("thought")
+        if (team > 0) add("asked " + n(team, "a helper", "helpers"))
         if (cmd > 0) add("ran " + n(cmd, "a command", "commands"))
-        if (read > 0) add("read " + n(read, "a file", "files"))
-        if (edit > 0) add("edited " + n(edit, "a file", "files"))
+        if (reads.isNotEmpty()) add("read " + n(reads.size, "a file", "files"))
+        if (edits.isNotEmpty()) add("edited " + n(edits.size, "a file", "files"))
         if (search > 0) add("searched " + n(search, "once", "times"))
         if (web > 0) add("browsed " + n(web, "a page", "pages"))
         if (other > 0) add("used " + n(other, "a tool", "tools"))
@@ -388,35 +404,9 @@ private fun stepsSummary(parts: List<Part>): String {
     return bits.joinToString(", ").replaceFirstChar { it.uppercase() } + if (failed > 0) " · $failed failed" else ""
 }
 
-@Composable
-private fun StepsGroup(parts: List<Part>, running: Boolean, onImage: (String) -> Unit) {
-    val c = Oc.c
-    var open by remember { mutableStateOf(false) }
-    val rot by androidx.compose.animation.core.animateFloatAsState(if (open) 90f else 0f, androidx.compose.animation.core.tween(150), label = "steps")
-    Column {
-        Row(Modifier.clip(Oc.round(10.dp)).clickable { open = !open }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.animation.AnimatedContent(stepsSummary(parts), label = "sum", transitionSpec = {
-                (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(140)) + androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(160)) { it / 2 }) togetherWith
-                    (androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) + androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(120)) { -it / 2 })
-            }) { t -> Txt(t, size = 15.sp, color = c.textDim, maxLines = 1) }
-            Spacer(Modifier.width(4.dp))
-            Ico(Ic.ChevronRight, tint = c.textDim, size = 16.dp, modifier = Modifier.rotate(rot))
-            if (running) { Spacer(Modifier.width(8.dp)); app.ocmobile.ui.components.Spinner(12.dp, color = c.textDim, stroke = 1.5.dp) }
-        }
-        AnimatedVisibility(open, enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) + androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(180)), exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(80)) + androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(150))) {
-            Row(Modifier.padding(top = 8.dp).height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
-                Box(Modifier.width(1.dp).fillMaxHeight().background(c.border)); Spacer(Modifier.width(14.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    parts.forEach { p -> if (p.type == "reasoning") ReasoningBlock(p) else ToolCard(p, onImage) }
-                }
-            }
-        }
-    }
-}
+// ---------- tools ----------
 
-// ---------- инструменты ----------
-
-private fun toolIcon(name: String): ImageVector = when {
+internal fun toolIcon(name: String): ImageVector = when {
     name == "bash" -> Ic.Terminal
     name == "read" -> Ic.File
     name in setOf("edit", "write", "patch", "multiedit", "apply_patch") -> Ic.Edit
@@ -427,9 +417,9 @@ private fun toolIcon(name: String): ImageVector = when {
     else -> Ic.Wrench
 }
 
-private fun JsonObject.firstStr(vararg keys: String) = keys.firstNotNullOfOrNull { k -> str(k)?.takeIf { it.isNotBlank() } }
+internal fun JsonObject.firstStr(vararg keys: String) = keys.firstNotNullOfOrNull { k -> str(k)?.takeIf { it.isNotBlank() } }
 
-private fun toolSummary(input: JsonObject?): String {
+internal fun toolSummary(input: JsonObject?): String {
     if (input == null) return ""
     val path = input.firstStr("filePath", "path")?.substringAfterLast('/')
     return (path ?: input.firstStr("command", "pattern", "url", "query", "description", "prompt")).orEmpty().lineSequence().firstOrNull().orEmpty().take(120)
@@ -462,6 +452,11 @@ fun ToolCard(p: Part, onImage: (String) -> Unit) {
                 else -> Ico(Ic.Check, tint = c.ok, size = 18.dp)
             }
         }
+        // live terminal: while a command runs its output is visible right away, without expanding
+        val live = name == "bash" && (status == "running" || status == "pending") && !open
+        AnimatedVisibility(live, enter = androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(180)), exit = androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(220))) {
+            LiveTerminal(input?.firstStr("command").orEmpty(), state?.obj("metadata")?.str("output").orEmpty())
+        }
         AnimatedVisibility(open, enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) + androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(180)), exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(80)) + androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(150))) {
             Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (name == "todowrite") {
@@ -487,6 +482,26 @@ fun ToolCard(p: Part, onImage: (String) -> Unit) {
     }
 }
 
+/**
+ * Command output while it runs: a dark window with the last 10 lines, a prompt and a blinking cursor,
+ * new lines appear at the bottom. When it finishes the window collapses, the full output is in the card.
+ */
+@Composable
+private fun LiveTerminal(command: String, output: String, inset: Boolean = true) {
+    val c = Oc.c
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "cursor")
+    val blink by t.animateFloat(1f, 0f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(530, easing = androidx.compose.animation.core.LinearEasing), androidx.compose.animation.core.RepeatMode.Reverse), label = "blink")
+    val lines = remember(output) { output.trimEnd().lines().takeLast(10).map { it.take(400) } }
+    Column(
+        Modifier.fillMaxWidth().then(if (inset) Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp) else Modifier).clip(Oc.round(14.dp)).background(c.codeBg)
+            .horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Text("$ " + command.lineSequence().first().take(200), color = c.link, fontFamily = Oc.mono, fontSize = 12.sp, softWrap = false)
+        if (output.isNotBlank()) lines.forEach { Text(it.ifEmpty { " " }, color = c.text, fontFamily = Oc.mono, fontSize = 12.sp, softWrap = false) }
+        Box(Modifier.padding(top = 2.dp).size(width = 7.dp, height = 13.dp).background(c.text.copy(alpha = if (blink > 0.5f) 0.9f else 0f)))
+    }
+}
+
 @Composable
 fun DiffView(diff: String) {
     val c = Oc.c
@@ -501,7 +516,7 @@ fun DiffView(diff: String) {
     }
 }
 
-// ---------- запросы к пользователю ----------
+// ---------- requests to the user ----------
 
 @Composable
 fun PermissionCard(r: PermissionReq, directory: String?) {
@@ -527,8 +542,8 @@ fun PermissionCard(r: PermissionReq, directory: String?) {
 }
 
 /**
- * Вопрос агента — как в Claude: панель на месте поля ввода, пронумерованные варианты, «Something else» и «Skip».
- * Один вариант без множественного выбора отправляется сразу; несколько вопросов идут по очереди.
+ * The agent's question, like in Claude: a panel in place of the input, numbered options, "Something else" and "Skip".
+ * A single option without multiple choice is sent at once; several questions go one after another.
  */
 @Composable
 fun QuestionPanel(q: QuestionReq, directory: String?) {
@@ -603,7 +618,7 @@ fun QuestionPanel(q: QuestionReq, directory: String?) {
     }
 }
 
-/** Разрешение — той же панелью на месте поля ввода. */
+/** A permission request, with the same panel in place of the input. */
 @Composable
 fun PermissionPanel(r: PermissionReq, directory: String?) {
     val c = Oc.c
@@ -627,7 +642,7 @@ fun PermissionPanel(r: PermissionReq, directory: String?) {
     }
 }
 
-/** Отвеченный вопрос в ленте — как в Claude: «Question», сам вопрос и ответ. */
+/** An answered question in the feed, like in Claude: "Question", the question itself and the answer. */
 @Composable
 private fun QuestionResult(input: JsonObject?, state: JsonObject?) {
     val c = Oc.c
@@ -645,3 +660,33 @@ private fun QuestionResult(input: JsonObject?, state: JsonObject?) {
     }
 }
 
+
+/**
+ * Text that arrives in chunks is typed out evenly: the shown part catches up with what arrived
+ * within ~0.15 s, however much came at once. Finished text (history) is shown at once,
+ * a new reply ([live]) is typed from the first letter.
+ */
+@Composable
+private fun smoothText(target: String, live: Boolean): String {
+    val latest = androidx.compose.runtime.rememberUpdatedState(target)
+    var shown by remember { androidx.compose.runtime.mutableIntStateOf(if (live) 0 else target.length) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        var acc = 0f
+        var lastT = 0L
+        while (true) {
+            if (shown >= latest.value.length) {
+                if (shown > latest.value.length) shown = latest.value.length   // the text was replaced entirely
+                androidx.compose.runtime.snapshotFlow { latest.value.length }.first { it > shown }
+                lastT = 0L; acc = 0f
+            }
+            val t = androidx.compose.runtime.withFrameNanos { it }
+            val dt = if (lastT == 0L) 1f / 60 else ((t - lastT) / 1e9f).coerceAtMost(0.05f)
+            lastT = t
+            val back = latest.value.length - shown
+            acc += maxOf(260f, back / 0.15f) * dt
+            val n = acc.toInt()
+            if (n > 0) { acc -= n; shown = minOf(latest.value.length, shown + n) }
+        }
+    }
+    return if (shown >= target.length) target else target.substring(0, shown)
+}

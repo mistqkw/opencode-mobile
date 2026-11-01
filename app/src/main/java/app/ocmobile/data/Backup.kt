@@ -26,13 +26,13 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Перенос всего на другую сборку или телефон: домашняя папка Ubuntu (чаты, вход в провайдеры, память,
- * навыки, проекты, git и gh) плюс настройки приложения — одним архивом в «Загрузки/OpenCode».
+ * Moving everything to another build or phone: the Ubuntu home folder (chats, provider sign-ins, memory,
+ * skills, projects, git and gh) plus the app settings, as one archive in "Downloads/OpenCode".
  */
 object Backup {
     private const val PREFS_FILE = "/root/.ocmobile-prefs.json"
     private const val TMP = "/tmp/ocmobile-backup.tgz"
-    /** Тяжёлое и восстановимое не берём. */
+    /** Heavy and recoverable things are left out. */
     private val EXCLUDE = listOf("root/.cache", "root/.npm", "root/.bun/install/cache", "root/.local/share/opencode/log", "root/.local/share/opencode/bin", "root/outbox/opencode-backup-*", "*/node_modules")
 
     sealed interface State {
@@ -58,11 +58,11 @@ object Backup {
         }
     }.toString()
 
-    /** Сервер на время архива останавливаем: база чатов — SQLite, её нельзя копировать на ходу. */
+    /** The server is stopped while archiving: the chat database is SQLite and can't be copied live. */
     private suspend fun <T> withServerStopped(block: suspend () -> T): T {
         val rt = Graph.runtime
         rt.stopServer()
-        // старый цикл сервера должен целиком закончиться, иначе он допишет «остановлен» поверх нового запуска
+        // the old server loop must finish completely, otherwise it writes "stopped" over the new start
         kotlinx.coroutines.withTimeoutOrNull(20_000) { while (rt.serverAlive) delay(200) }
         delay(800)
         try { return block() } finally { rt.startServer() }
@@ -77,7 +77,7 @@ object Backup {
                 val ex = EXCLUDE.joinToString(" ") { "--exclude='$it'" }
                 val log = StringBuilder()
                 val rc = Graph.runtime.runGuest(listOf("/bin/bash", "-lc", "rm -f $TMP; tar -czf $TMP $ex -C / root"), timeoutSec = 1800) { log.appendLine(it) }
-                // tar отвечает 1, если файл поменялся на ходу, — архив при этом годный
+                // tar returns 1 if a file changed on the fly; the archive is still fine
                 if (rc != 0 && rc != 1) error("tar failed: " + log.lines().takeLast(3).joinToString(" "))
                 Graph.paths.host(TMP)
             }
@@ -104,7 +104,7 @@ object Backup {
         }
     }
 
-    /** Восстановление: нужен установленный Ubuntu. После — перезапуск приложения, чтобы подхватить настройки. */
+    /** Restore: needs Ubuntu installed. Afterwards the app restarts to pick up the settings. */
     suspend fun restore(ctx: Context, uri: Uri) = withContext(Dispatchers.IO) {
         try {
             require(Graph.paths.rootfsReady) { "Set up the environment first, then restore." }
@@ -148,7 +148,7 @@ object Backup {
         o["app_icon"]?.let { (it as? JsonPrimitive)?.content }?.let { runCatching { AppIcons.apply(ctx, it) } }
     }
 
-    /** Новый процесс с чистыми настройками: открываем приложение заново и завершаем этот. */
+    /** A new process with clean settings: reopen the app and end this one. */
     private suspend fun restart(ctx: Context) {
         Graph.runtime.stopServer()
         withContext(Dispatchers.Main) {

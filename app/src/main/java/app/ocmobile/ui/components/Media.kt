@@ -49,7 +49,7 @@ import app.ocmobile.ui.theme.Ic
 import coil3.compose.AsyncImage
 import java.io.File
 
-/** Что отдать Coil: файлы гостевого Linux лежат внутри rootfs на хосте. */
+/** What to give Coil: guest Linux files live inside the rootfs on the host. */
 fun imageModel(url: String): Any =
     if (url.startsWith("file://")) Graph.paths.host(Uri.parse(url).path ?: "") else url
 

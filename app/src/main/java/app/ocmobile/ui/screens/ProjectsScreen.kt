@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,10 +44,10 @@ import java.io.File
 
 const val WORK_ROOT = "/root/work"
 
-/** Каталоги проектов: всё, что лежит в /root/work, плюс каталоги, где уже есть сессии. */
+/** Project directories: everything in /root/work, plus directories that already have sessions. */
 fun knownProjects(): List<Pair<String, Int>> {
     val counts = Graph.chats.sessions.value.groupingBy { it.directory }.eachCount()
-    // На удалённом устройстве каталогов телефона нет: берём только то, что известно по сессиям.
+    // A remote device has no phone directories: take only what's known from sessions.
     if (Graph.devices.isRemote) return (counts.keys + listOf(Graph.prefs.currentDir)).filter { it.isNotBlank() }.distinct().map { it to (counts[it] ?: 0) }
     val onDisk = Graph.paths.host(WORK_ROOT).listFiles { f -> f.isDirectory && !f.name.startsWith(".") }?.map { "$WORK_ROOT/${it.name}" }.orEmpty()
     return (listOf(WORK_ROOT) + onDisk + counts.keys).distinct().map { it to (counts[it] ?: 0) }
@@ -60,7 +61,7 @@ fun ProjectsScreen(nav: Nav, onMenu: () -> Unit) {
     val sessions by Graph.chats.sessions.collectAsState()
     var newProject by remember { mutableStateOf(false) }
     val projects = remember(sessions, newProject) { knownProjects() }
-    Box(Modifier.fillMaxSize().background(c.bg)) {
+    Box(Modifier.fillMaxSize().screenBackdrop("ProjectsScreen1")) {
         Column(Modifier.fillMaxSize()) {
             TopBar("Projects", left = { IconBtn(Ic.Menu, onMenu) })
             if (projects.isEmpty()) EmptyState(Ic.Folder, "No projects yet", "Projects you create show up here.")
@@ -101,7 +102,7 @@ fun NewProjectDialog(onDone: () -> Unit) {
     }
 }
 
-/** Выбор рабочего каталога прямо с главного экрана. */
+/** Pick the working directory right from the home screen. */
 @Composable
 fun ProjectPicker(onDismiss: () -> Unit) {
     var create by remember { mutableStateOf(false) }

@@ -27,18 +27,18 @@ class ChatMessage(val id: String, info: MessageInfo) {
 
 data class Todo(val content: String, val status: String, val priority: String)
 
-/** Состояние открытого чата. Все изменения идут из главного потока (события SSE и загрузка). */
+/** State of an open chat. All changes come from the main thread (SSE events and loading). */
 class Chat(val id: String, private val api: OpenCodeApi) {
     var directory: String? = null
     val messages = mutableStateListOf<ChatMessage>()
     var loading by mutableStateOf(true)
     var loadError by mutableStateOf<String?>(null)
     var todos by mutableStateOf<List<Todo>>(emptyList())
-    /** Сообщения, пришедшие при загрузке: им не нужна анимация появления. */
+    /** Messages that came with the initial load: they need no appear animation. */
     val initialIds = HashSet<String>()
     var live = false
 
-    /** Мгновенно показывает отправленное сообщение, пока сервер его не подтвердил. */
+    /** Shows a sent message right away, before the server confirms it. */
     fun addLocalUser(text: String): String {
         val id = "zzzz-local-" + System.nanoTime()
         val raw = kotlinx.serialization.json.buildJsonObject {
@@ -62,7 +62,7 @@ class Chat(val id: String, private val api: OpenCodeApi) {
             val locals = messages.filter { it.id.startsWith("zzzz-local-") }
             messages.clear()
             messages.addAll(fresh)
-            // сообщение, которое мы показали сразу, а сервер ещё не вернул, не должно мигнуть и исчезнуть
+            // a message we showed right away and the server hasn't returned yet must not blink and vanish
             locals.forEach { l -> if (fresh.none { it.info.isUser && it.parts.firstOrNull()?.text == l.parts.firstOrNull()?.text && it.id > "" && (it.info.time.created >= l.info.time.created - 5000) }) messages.add(l) }
             initialIds.clear(); initialIds.addAll(fresh.map { it.id })
             live = true
@@ -91,14 +91,14 @@ class Chat(val id: String, private val api: OpenCodeApi) {
     }
 
     fun onEvent(type: String, props: JsonObject) {
-        // любое другое событие про части должно увидеть уже накопленный текст
+        // any other part event must see the text accumulated so far
         if (type != "message.part.delta") flushDeltas()
         when (type) {
             "message.updated" -> {
                 val info = props.obj("info")?.let { runCatching { OcJson.decodeFromJsonElement(MessageInfo.serializer(), it) }.getOrNull() } ?: return
                 val m = find(info.id)
                 if (m != null) m.info = info else {
-                    // настоящее сообщение пользователя заменяет «локальное» (то, что мы показали сразу)
+                    // the real user message replaces the "local" one (the one we showed right away)
                     if (info.role == "user") messages.removeAll { it.id.startsWith("zzzz-local-") }
                     insert(ChatMessage(info.id, info))
                 }
@@ -113,7 +113,7 @@ class Chat(val id: String, private val api: OpenCodeApi) {
                 if (props.str("field") != "text") return
                 val mid = props.str("messageID") ?: return
                 val pid = props.str("partID") ?: return
-                // Токены приходят десятками в секунду: копим и применяем не чаще одного раза за кадр.
+                // Tokens arrive dozens per second: buffer them and apply at most once per frame.
                 pending.getOrPut(mid to pid) { StringBuilder() }.append(props.str("delta") ?: "")
                 if (!flushQueued) { flushQueued = true; frameHandler.postDelayed(flusher, 24) }
             }
@@ -128,7 +128,7 @@ class Chat(val id: String, private val api: OpenCodeApi) {
 
     private fun find(mid: String) = messages.firstOrNull { it.id == mid }
 
-    /** Идентификаторы сообщений растут со временем, так что порядок — лексикографический. */
+    /** Message ids grow over time, so the order is lexicographic. */
     private fun insert(m: ChatMessage): ChatMessage {
         var i = messages.size
         while (i > 0 && messages[i - 1].id > m.id) i--

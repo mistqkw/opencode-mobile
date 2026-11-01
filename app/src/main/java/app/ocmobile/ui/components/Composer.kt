@@ -1,5 +1,6 @@
 package app.ocmobile.ui.components
 
+import app.ocmobile.ui.theme.kimiLike
 import android.content.Intent
 import android.net.Uri
 import android.speech.RecognizerIntent
@@ -69,7 +70,31 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 class ComposerState {
-    var text by mutableStateOf("")
+    /** Text together with the cursor: the "/" menu opens where the cursor is, not only at the start. */
+    var input by mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(""))
+    var text: String
+        get() = input.text
+        set(v) { input = androidx.compose.ui.text.input.TextFieldValue(v, androidx.compose.ui.text.TextRange(v.length)) }
+
+    /** The "/…" word being typed before the cursor: (start, query without "/"), otherwise null. */
+    val slashToken: Pair<Int, String>?
+        get() {
+            val t = input.text; val cur = input.selection.end.coerceIn(0, t.length)
+            val start = t.lastIndexOf('/', cur - 1).takeIf { it >= 0 } ?: return null
+            if (start > 0 && !t[start - 1].isWhitespace()) return null
+            val q = t.substring(start + 1, cur)
+            return if (q.any { it.isWhitespace() }) null else start to q
+        }
+
+    /** Puts "/name " in place of the word being typed, cursor after it. */
+    fun pickSlash(name: String) {
+        val (start, q) = slashToken ?: (input.text.length to "")
+        val t = input.text
+        val end = start + 1 + q.length
+        val ins = "/$name "
+        val nt = t.substring(0, start) + ins + t.substring(end.coerceAtMost(t.length)).trimStart(' ')
+        input = androidx.compose.ui.text.input.TextFieldValue(nt, androidx.compose.ui.text.TextRange(start + ins.length))
+    }
     val attachments = mutableStateListOf<Attachment>()
     var showAdd by mutableStateOf(false)
     var showModel by mutableStateOf(false)
@@ -80,7 +105,7 @@ class ComposerState {
 @Composable
 fun rememberComposerState() = remember { ComposerState() }
 
-/** Поле ввода как в Claude: плюс, выбор модели, отправка; под ним листы «Add» и «Select model». */
+/** The input like in Claude: plus, model picker, send; "Add" and "Select model" sheets under it. */
 @Composable
 fun ComposerHost(
     state: ComposerState,
@@ -124,28 +149,36 @@ fun ComposerHost(
     val model = providers.firstOrNull { it.id == prefs.providerId }?.models?.get(prefs.modelId)
     val modelName = model?.name?.takeIf { it.isNotBlank() } ?: prefs.modelId.ifBlank { "Select model" }
     val (dict, startDict) = rememberDictation()
+    // the mascot on home listens while dictation runs
+    androidx.compose.runtime.LaunchedEffect(dict.active) { MascotSignals.listening = dict.active }
+    androidx.compose.runtime.LaunchedEffect(dict.active) { while (dict.active) { MascotSignals.level = dict.levels.lastOrNull() ?: 0f; kotlinx.coroutines.delay(80) } }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { MascotSignals.listening = false } }
     fun takeDictation() { val t = dict.finish(); if (t.isNotBlank()) state.text = if (state.text.isBlank()) t else state.text.trimEnd() + " " + t }
-    // ChatGPT и Kimi: поле в одну строку, модель — в верхней панели
+    // ChatGPT and Kimi: a one-line input, the model in the top bar
     val compact = Oc.look.compact
     val look = Oc.look.id
     val sendCol = Oc.look.sendColor?.invoke(c)
-    // в Messenger/Hairline/Cards/Notebook отправка тоже цветная; в ChatGPT/Kimi — белая, как в оригиналах
+    // in Messenger/Hairline/Cards/Notebook the send button is colored too; in ChatGPT/Kimi it's white, like the originals
     val readyCol = if (Oc.look.compact) null else sendCol
 
     Column(modifier) {
     SlashMenu(state, nav)
+    // skills and commands in the text in the accent color (dim blue in cl0udly)
+    val known by Graph.catalog.commands.collectAsState()
+    val names = remember(known) { known.map { it.name }.toSet() }
+    val skillColors = remember(names, c.accent) { SkillHighlight(names, c.accent) }
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
             .animateContentSize(tween(140))
-            .clip(if (compact) RoundedCornerShape(if (look == "kimi") 34.dp else 28.dp) else Oc.round(30.dp))
+            .clip(if (compact) RoundedCornerShape(if (look.kimiLike) 34.dp else 28.dp) else Oc.round(30.dp))
             .background(when { compact -> c.surfaceHigh; look == "hairline" || look == "notebook" -> c.bg; else -> c.surface })
             .then(
                 when {
                     dashed -> Modifier.dashedBorder(c.textDim, 30.dp)
-                    // Hairline: пустая рамка 1px; Notebook: без рамки, только линейка сверху — как строка в тетради
+                    // Hairline: an empty 1px frame; Notebook: no frame, just a rule on top, like a line in a notebook
                     look == "hairline" -> Modifier.border(1.dp, c.border, Oc.round(30.dp))
                     look == "notebook" -> Modifier.drawBehind { drawRect(c.accent.copy(alpha = 0.55f), size = androidx.compose.ui.geometry.Size(size.width, 1.5.dp.toPx())) }
-                    compact -> Modifier.border(1.dp, c.border, RoundedCornerShape(if (look == "kimi") 34.dp else 28.dp))
+                    compact -> Modifier.border(1.dp, c.border, RoundedCornerShape(if (look.kimiLike) 34.dp else 28.dp))
                     Oc.terminal -> Modifier.drawBehind { drawRect(c.link, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
                     Oc.desktop -> Modifier.border(1.dp, c.border, Oc.round(30.dp))
                     else -> Modifier.border(1.5.dp, c.border, Oc.round(30.dp))
@@ -160,12 +193,12 @@ fun ComposerHost(
                 state.attachments.toList().forEach { a -> AttachmentChip(a) { state.attachments.remove(a) } }
             }
         }
-        if (compact && !dict.active) Row(Modifier.fillMaxWidth().padding(if (look == "kimi") 9.dp else 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconBtn(Ic.Plus, { haptic(); state.showAdd = true }, size = 44.dp, bg = if (look == "kimi") c.text.copy(alpha = 0.08f) else androidx.compose.ui.graphics.Color.Transparent)
+        if (compact && !dict.active) Row(Modifier.fillMaxWidth().padding(if (look.kimiLike) 9.dp else 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconBtn(Ic.Plus, { haptic(); state.showAdd = true }, size = 44.dp, bg = if (look.kimiLike) c.text.copy(alpha = 0.08f) else androidx.compose.ui.graphics.Color.Transparent)
             Box(Modifier.weight(1f).padding(horizontal = 8.dp).heightIn(min = 24.dp, max = 160.dp), contentAlignment = Alignment.CenterStart) {
                 if (state.text.isEmpty()) Txt(placeholder, size = 17.sp, color = c.textDim, maxLines = 1)
                 BasicTextField(
-                    value = state.text, onValueChange = { state.text = it },
+                    value = state.input, onValueChange = { state.input = it }, visualTransformation = skillColors,
                     textStyle = TextStyle(color = c.text, fontSize = 17.sp, fontFamily = Oc.body),
                     cursorBrush = SolidColor(c.text), maxLines = 6, modifier = Modifier.fillMaxWidth(),
                 )
@@ -185,7 +218,7 @@ fun ComposerHost(
         } else {
         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 2.dp).heightIn(min = 26.dp, max = 200.dp)) {
             if (dict.active) {
-                // что уже сказано — прямо в поле, как в Claude
+                // what's been said goes right into the input, like in Claude
                 Txt(listOf(state.text, dict.text).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "Listening…" }, size = 17.sp, color = if (dict.text.isBlank()) c.textDim else c.text, maxLines = 8)
             } else {
             if (state.text.isEmpty()) when (look) {
@@ -194,7 +227,7 @@ fun ComposerHost(
                 else -> Txt(placeholder, size = 17.sp, color = c.textDim)
             }
             BasicTextField(
-                value = state.text, onValueChange = { state.text = it },
+                value = state.input, onValueChange = { state.input = it }, visualTransformation = skillColors,
                 textStyle = TextStyle(color = c.text, fontSize = if (look == "notebook") 18.sp else 17.sp, fontFamily = if (look == "notebook") Oc.reply else Oc.body),
                 cursorBrush = SolidColor(c.text), maxLines = 8,
                 modifier = Modifier.fillMaxWidth(),
@@ -218,7 +251,7 @@ fun ComposerHost(
                 val providerName = providers.firstOrNull { it.id == prefs.providerId }?.name.orEmpty()
                 IconBtn(Ic.Plus, { haptic(); state.showAdd = true }, size = 36.dp)
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    // агент: переключается нажатием, как Tab в терминале
+                    // agent: switched with a tap, like Tab in the terminal
                     Row(
                         Modifier.clip(Oc.round(10.dp)).tap(scale = 0.96f) { haptic(); prefs.agent = if (prefs.agent == "plan") "build" else "plan" }.padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -246,11 +279,11 @@ fun ComposerHost(
                 }
             }
             if (Oc.claudeLike) Spacer(Modifier.weight(1f))
-            // микрофон всегда под рукой: дописать голосом к уже набранному и отправить даже во время работы агента
+            // the mic is always at hand: add by voice to what's typed and send even while the agent works
             IconBtn(Ic.Mic, { haptic(); startDict() }, size = 40.dp, bg = c.surfaceHigh, tint = c.textDim)
             Spacer(Modifier.width(8.dp))
             val ready = busy || state.canSend
-            // пусто и не занято — кнопка голосового режима, как в Claude
+            // empty and idle: the voice mode button, like in Claude
             val voice = !ready && onVoice != null
             val sendBg by animateColorAsState(if (voice && sendCol != null) sendCol else if (ready && readyCol != null) readyCol else if (ready || voice) c.text else c.surfaceHigh, tween(90), label = "sendBg")
             Box(
@@ -267,11 +300,11 @@ fun ComposerHost(
         }
     }
 
-    // цена сообщения до отправки
+    // message price before sending
     if (!dict.active) CostHint(sessionId?.let { Graph.chats.chat(it) }, state.text, state.attachments.size)
     }
 
-    if (state.showAdd && look == "kimi") {
+    if (state.showAdd && look.kimiLike) {
         KimiAddSheet(
             nav = nav,
             onDismiss = { state.showAdd = false },
@@ -302,7 +335,7 @@ fun ComposerHost(
         )
     }
     var allModels by remember { mutableStateOf(false) }
-    if (state.showModel && look == "kimi" && !allModels) KimiModelPanel(onDismiss = { state.showModel = false }, onMore = { allModels = true })
+    if (state.showModel && look.kimiLike && !allModels) KimiModelPanel(onDismiss = { state.showModel = false }, onMore = { allModels = true })
     else if (state.showModel) ModelSheet(onDismiss = { state.showModel = false; allModels = false }, start = if (allModels) "all" else "main")
 }
 
@@ -394,7 +427,7 @@ private fun AddSheet(
                         })
                     }
                 } else {
-                    // Terminal — список команд с подсказками справа; Desktop — компактное меню со значками
+                    // Terminal: a command list with hints on the right; Desktop: a compact menu with icons
                     val t = Oc.terminal
                     PickRow(if (t) "Attach photo" else "Camera", onCamera, icon = Ic.Camera, trailing = if (t) "camera" else null)
                     PickRow(if (t) "Attach image" else "Photos", onPhotos, icon = Ic.Image, trailing = if (t) "photos" else null)
@@ -505,13 +538,13 @@ internal fun pickModel(providerId: String, m: app.ocmobile.api.ModelInfo) {
     prefs.recentModels = (listOf(key) + prefs.recentModels.split(',').filter { it.isNotBlank() && it != key }).take(6).joinToString(",")
 }
 
-/** Главная страница выбора модели, как в Claude mobile: короткий список карточкой, подсказка, Effort и «More models». */
+/** The main model picker page, like Claude mobile: a short list as a card, a hint, Effort and "More models". */
 @Composable
 private fun ClaudeModelMain(current: app.ocmobile.api.ModelInfo?, onDismiss: () -> Unit, onEffort: () -> Unit, onMore: () -> Unit) {
     val c = Oc.c
     val prefs = Graph.prefs
     val providers by Graph.catalog.providers.collectAsState()
-    // сначала недавние и выбранная, потом самые свежие модели того же провайдера — всего четыре
+    // recent and selected first, then the newest models of the same provider: four in total
     val featured = remember(providers, prefs.recentModels, prefs.providerId, prefs.modelId) {
         val out = LinkedHashMap<String, Pair<String, app.ocmobile.api.ModelInfo>>()
         fun add(pid: String, m: app.ocmobile.api.ModelInfo?) { if (m != null) out.putIfAbsent("$pid/${m.id}", pid to m) }
@@ -569,11 +602,11 @@ private fun ClaudeModelMain(current: app.ocmobile.api.ModelInfo?, onDismiss: () 
     }
 }
 
-/** ChatGPT и Kimi: модель — «пилюлей» в верхней панели рядом с меню (поле ввода у них в одну строку). */
+/** ChatGPT and Kimi: the model as a "pill" in the top bar next to the menu (their input is one line). */
 @Composable
 fun TopModelPill(state: ComposerState) {
     if (!Oc.look.compact) return
-    if (Oc.look.id == "kimi") return KimiModelPill { state.showModel = true }
+    if (Oc.look.id.kimiLike) return KimiModelPill { state.showModel = true }
     val c = Oc.c
     val providers by Graph.catalog.providers.collectAsState()
     val prefs = Graph.prefs
@@ -587,3 +620,21 @@ fun TopModelPill(state: ComposerState) {
         Spacer(Modifier.width(4.dp)); Ico(Ic.ChevronDown, tint = c.textDim, size = 14.dp)
     }
 }
+
+/** Colors "/name" of known skills and commands; the text length doesn't change. */
+class SkillHighlight(private val names: Set<String>, private val color: androidx.compose.ui.graphics.Color) : androidx.compose.ui.text.input.VisualTransformation {
+    override fun filter(text: androidx.compose.ui.text.AnnotatedString): androidx.compose.ui.text.input.TransformedText {
+        if (names.isEmpty() || '/' !in text) return androidx.compose.ui.text.input.TransformedText(text, androidx.compose.ui.text.input.OffsetMapping.Identity)
+        val b = androidx.compose.ui.text.AnnotatedString.Builder(text)
+        SLASH_TOKEN.findAll(text.text).forEach { m ->
+            if (m.groupValues[2] in names) {
+                val s = m.range.first + m.groupValues[1].length
+                b.addStyle(androidx.compose.ui.text.SpanStyle(color = color, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), s, m.range.last + 1)
+            }
+        }
+        return androidx.compose.ui.text.input.TransformedText(b.toAnnotatedString(), androidx.compose.ui.text.input.OffsetMapping.Identity)
+    }
+}
+
+/** "/name" at the start of the text or after a space. */
+val SLASH_TOKEN = Regex("""(^|\s)/([\w.:-]+)""")

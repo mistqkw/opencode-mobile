@@ -1,5 +1,6 @@
 package app.ocmobile.ui.components
 
+import app.ocmobile.ui.theme.kimiLike
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -69,9 +70,9 @@ import app.ocmobile.ui.theme.Oc
 import app.ocmobile.ui.theme.lookBackdrop
 
 /*
- * Кружок расхода в верхней панели, как в Claude Code: заполняется по 5-часовому лимиту.
- * По нажатию — меню: лимиты 5 ч / неделя / месяц, чем занят контекст чата и сколько потрачено.
- * У каждого вида своё оформление: терминал — текстом, Hairline — линиями, Notebook — пером, Kimi — кольцами.
+ * Usage ring in the top bar, like in Claude Code: fills by the 5-hour limit.
+ * Tap for a menu: 5 h / week / month limits, what fills the chat context and how much was spent.
+ * Each look has its own styling: terminal as text, Hairline with lines, Notebook with a pen, Kimi with rings.
  */
 
 @Composable
@@ -87,7 +88,7 @@ fun UsageRing(chat: Chat?, nav: Nav) {
         "terminal" -> Box(Modifier.height(44.dp).clip(RoundedCornerShape(6.dp)).tap(onClick = onClick).padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
             Txt("[${(f * 100).toInt()}%]", size = 14.sp, family = Oc.mono, color = col)
         }
-        "kimi" -> Box(
+        "kimi", "cloud" -> Box(
             Modifier.size(48.dp).clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.7f)).border(1.dp, c.border, CircleShape).tap(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) { Ring(f, col, Modifier.size(22.dp), 3.dp) }
@@ -113,7 +114,7 @@ private fun levelColor(f: Float, normal: Color) = when {
     else -> normal
 }
 
-/** Кольцо прогресса. В Hairline — квадратная рамка, которая обводится по часовой. */
+/** Progress ring. In Hairline, a square frame traced clockwise. */
 @Composable
 private fun Ring(f: Float, color: Color, modifier: Modifier, stroke: Dp, square: Boolean = false) {
     val track = Oc.c.text.copy(alpha = 0.12f)
@@ -121,7 +122,7 @@ private fun Ring(f: Float, color: Color, modifier: Modifier, stroke: Dp, square:
         val w = stroke.toPx()
         if (square) {
             drawRect(track, Offset(w / 2, w / 2), Size(size.width - w, size.height - w), style = Stroke(w))
-            // обводка периметра: верх → право → низ → лево
+            // perimeter trace: top → right → bottom → left
             val side = size.width - w; var left = f * 4 * side
             val pts = listOf(Offset(w / 2, w / 2), Offset(size.width - w / 2, w / 2), Offset(size.width - w / 2, size.height - w / 2), Offset(w / 2, size.height - w / 2), Offset(w / 2, w / 2))
             for (i in 0 until 4) {
@@ -137,7 +138,7 @@ private fun Ring(f: Float, color: Color, modifier: Modifier, stroke: Dp, square:
     }
 }
 
-// ---------- меню ----------
+// ---------- menu ----------
 
 private fun k(n: Long) = when {
     n >= 1_000_000 -> "%.1fM".format(java.util.Locale.US, n / 1_000_000.0)
@@ -155,7 +156,7 @@ private fun resets(w: UsageWindow): String {
     return "Resets " + java.text.SimpleDateFormat(if (soon) "'at' h:mm a" else "EEE h:mm a", java.util.Locale.ENGLISH).format(java.util.Date(at))
 }
 
-/** Цвета долей контекста — плоские, без свечения. */
+/** Colors of the context slices: flat, no glow. */
 @Composable
 private fun partColor(key: String): Color {
     val c = Oc.c
@@ -171,7 +172,7 @@ private fun partColor(key: String): Color {
     }
 }
 
-/** Типографика меню под вид. */
+/** Menu typography for the look. */
 private class PanelFonts(val title: FontFamily?, val label: FontFamily?, val upper: Boolean, val italic: Boolean)
 
 @Composable
@@ -218,10 +219,10 @@ private fun UsagePanel(chat: Chat?, nav: Nav, onDismiss: () -> Unit) {
         "desktop" -> RoundedCornerShape(12.dp)
         "messenger" -> RoundedCornerShape(14.dp)
         "chatgpt" -> RoundedCornerShape(24.dp)
-        "kimi" -> RoundedCornerShape(32.dp)
+        "kimi", "cloud" -> RoundedCornerShape(32.dp)
         else -> RoundedCornerShape(20.dp)
     }
-    val bg = when (look) { "terminal", "hairline", "notebook" -> c.bg; "chatgpt", "kimi" -> c.surfaceHigh; "cards" -> Color.Transparent; else -> c.surface }
+    val bg = when (look) { "terminal", "hairline", "notebook" -> c.bg; "chatgpt", "kimi", "cloud" -> c.surfaceHigh; "cards" -> Color.Transparent; else -> c.surface }
     val border = look !in setOf("chatgpt", "messenger", "cards")
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -238,20 +239,20 @@ private fun UsagePanel(chat: Chat?, nav: Nav, onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(if (look == "cards") 8.dp else 0.dp),
             ) {
                 Section(look) {
-                    // шапка
+                    // header
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         when (look) {
                             "terminal" -> Txt("$ usage --limits", Modifier.weight(1f), size = 13.sp, family = Oc.mono, color = c.textDim)
-                            "kimi" -> Txt("Usage", Modifier.weight(1f), size = 20.sp, weight = FontWeight.SemiBold)
+                            "kimi", "cloud" -> Txt("Usage", Modifier.weight(1f), size = 20.sp, weight = FontWeight.SemiBold)
                             "notebook" -> androidx.compose.material3.Text("Usage so far", Modifier.weight(1f), fontSize = 20.sp, fontFamily = Oc.reply, fontStyle = FontStyle.Italic, color = c.text)
                             "claude" -> Heading("Usage", Modifier.weight(1f), size = 20.sp)
                             else -> Label("Plan usage limits · $plan", Modifier.weight(1f), size = 14.sp, color = c.textDim)
                         }
                         Label(if (look == "terminal") "all →" else "See all →", Modifier.clip(CircleShape).tap { onDismiss(); nav.push(Route.Usage) }.padding(6.dp), size = 14.sp)
                     }
-                    if (look == "kimi" || look == "claude" || look == "notebook") Label(plan, size = 13.sp, color = c.textDim)
+                    if (look.kimiLike || look == "claude" || look == "notebook") Label(plan, size = 13.sp, color = c.textDim)
                     Spacer(Modifier.height(14.dp))
-                    if (look == "kimi") Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    if (look.kimiLike) Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                         windows.forEach { (label, w) -> KimiLimit(label.substringBefore(" ·").removeSuffix(" limit"), w, Modifier.weight(1f)) }
                     } else windows.forEachIndexed { i, (label, w) ->
                         if (i > 0) Spacer(Modifier.height(14.dp))
@@ -282,7 +283,7 @@ private fun Divider(look: String) {
     when (look) {
         "terminal" -> Txt("─".repeat(60), Modifier.padding(vertical = 10.dp), size = 12.sp, family = Oc.mono, color = c.border, maxLines = 1)
         "notebook" -> Canvas(Modifier.padding(vertical = 14.dp).fillMaxWidth().height(6.dp)) {
-            // волнистая черта пером
+            // a wavy pen stroke
             val p = androidx.compose.ui.graphics.Path(); var x = 0f; p.moveTo(0f, size.height / 2)
             while (x < size.width) { p.quadraticTo(x + 6.dp.toPx(), 0f, x + 12.dp.toPx(), size.height / 2); p.quadraticTo(x + 18.dp.toPx(), size.height, x + 24.dp.toPx(), size.height / 2); x += 24.dp.toPx() }
             clipRect { drawPath(p, c.accent.copy(alpha = 0.5f), style = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round)) }
@@ -291,7 +292,7 @@ private fun Divider(look: String) {
     }
 }
 
-/** Строка лимита: название, когда отпустит, процент и полоса. */
+/** Limit row: name, when it lets go, percent and bar. */
 @Composable
 private fun LimitRow(label: String, w: UsageWindow) {
     val c = Oc.c
@@ -320,7 +321,7 @@ private fun LimitRow(label: String, w: UsageWindow) {
     Label("${money(w.used)} of ${money(w.limit)}", size = 12.sp, color = c.textDim)
 }
 
-/** Kimi: три кольца рядом — 5 ч, неделя, месяц. */
+/** Kimi: three rings side by side: 5 h, week, month. */
 @Composable
 private fun KimiLimit(label: String, w: UsageWindow, modifier: Modifier) {
     val c = Oc.c
@@ -336,7 +337,7 @@ private fun KimiLimit(label: String, w: UsageWindow, modifier: Modifier) {
     }
 }
 
-/** Контекст: сетка 20×5 (клетка — 1 % окна) и легенда по долям. */
+/** Context: a 20×5 grid (one cell is 1 % of the window) and a legend by slice. */
 @Composable
 private fun ContextBlock(chat: Chat?, ctx: ContextInfo?) {
     val c = Oc.c
@@ -345,7 +346,7 @@ private fun ContextBlock(chat: Chat?, ctx: ContextInfo?) {
         when (look) {
             "terminal" -> Txt("$ context", Modifier.weight(1f), size = 13.sp, family = Oc.mono, color = c.textDim)
             "claude" -> Heading("Context", Modifier.weight(1f), size = 18.sp)
-            "kimi" -> Txt("Context", Modifier.weight(1f), size = 18.sp, weight = FontWeight.SemiBold)
+            "kimi", "cloud" -> Txt("Context", Modifier.weight(1f), size = 18.sp, weight = FontWeight.SemiBold)
             else -> Label("Context window", Modifier.weight(1f), size = 14.sp, color = c.textDim)
         }
         if (ctx != null && ctx.window > 0) Label("${k(ctx.used)} / ${k(ctx.window)} · ${(ctx.fraction * 100).toInt()}%", size = 13.sp, color = c.textDim)
@@ -357,7 +358,7 @@ private fun ContextBlock(chat: Chat?, ctx: ContextInfo?) {
         ctx.window <= 0 -> { Label("This model doesn't report its window size.", size = 14.sp, color = c.textDim); return }
     }
     ctx!!
-    // доли по порядку: занятое, свободное, запас под автосжатие (в конце, как в Claude Code)
+    // slices in order: used, free, auto-compaction headroom (at the end, like in Claude Code)
     val shares = ctx.parts.filter { it.tokens > 0 }.map { it.key to it.tokens } + listOf("free" to ctx.free, "buffer" to ctx.buffer)
     val cells = ArrayList<String>(100)
     var acc = 0.0
@@ -383,12 +384,12 @@ private fun ContextBlock(chat: Chat?, ctx: ContextInfo?) {
     if (!ctx.measured) { Spacer(Modifier.height(6.dp)); Label("Estimated until the first reply comes in.", size = 12.sp, color = c.textDim) }
 }
 
-/** Значок доли в легенде: форма — как клетка сетки этого вида. */
+/** Slice icon in the legend: shaped like this look's grid cell. */
 @Composable
 private fun Marker(color: Color, free: Boolean) {
     val look = Oc.look.id
     if (look == "terminal") { Txt(if (free) "□" else "■", size = 14.sp, family = Oc.mono, color = if (free) Oc.c.textDim else color); return }
-    val round = look in setOf("kimi", "chatgpt", "notebook", "messenger")
+    val round = look in setOf("kimi", "cloud", "chatgpt", "notebook", "messenger")
     Canvas(Modifier.size(12.dp)) {
         if (free) {
             if (round) drawCircle(color, size.minDimension / 2 - 1.dp.toPx(), style = Stroke(1.dp.toPx()))
@@ -402,7 +403,7 @@ private fun ContextGrid(cells: List<String>, colors: Map<String, Color>) {
     val look = Oc.look.id
     val c = Oc.c
     if (look == "terminal") {
-        // как /context в Claude Code: строки символов
+        // like /context in Claude Code: rows of characters
         Column {
             cells.chunked(20).forEach { row ->
                 Row { row.forEach { key -> Txt(if (key == "free") "□" else if (key == "buffer") "▨" else "■", size = 16.sp, family = Oc.mono, color = if (key == "free") c.textDim.copy(alpha = 0.6f) else colors.getValue(key)) } }
@@ -410,9 +411,9 @@ private fun ContextGrid(cells: List<String>, colors: Map<String, Color>) {
         }
         return
     }
-    val round = look in setOf("kimi", "chatgpt", "notebook", "messenger")
+    val round = look in setOf("kimi", "cloud", "chatgpt", "notebook", "messenger")
     Canvas(Modifier.fillMaxWidth().aspectRatio(3.9f)) {
-        // 20 × 5: клетка — 1 % окна
+        // 20 × 5: one cell is 1 % of the window
         val gap = (if (look == "hairline") 3 else 4).dp.toPx()
         val cell = minOf((size.width - gap * 19) / 20, (size.height - gap * 4) / 5)
         val left = (size.width - (cell * 20 + gap * 19)) / 2
@@ -431,7 +432,7 @@ private fun ContextGrid(cells: List<String>, colors: Map<String, Color>) {
     }
 }
 
-/** Этот чат: сообщения, потраченное и токены. */
+/** This chat: messages, spending and tokens. */
 @Composable
 private fun ChatStats(ctx: ContextInfo?) {
     val c = Oc.c
@@ -452,8 +453,8 @@ private fun ChatStats(ctx: ContextInfo?) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 stats.forEach { (l, v) ->
                     Column(
-                        Modifier.weight(1f).clip(RoundedCornerShape(if (look == "kimi") 20.dp else 12.dp))
-                            .background(if (look == "chatgpt" || look == "kimi") c.text.copy(alpha = 0.06f) else c.surfaceHigh).padding(vertical = 10.dp, horizontal = 6.dp),
+                        Modifier.weight(1f).clip(RoundedCornerShape(if (look.kimiLike) 20.dp else 12.dp))
+                            .background(if (look == "chatgpt" || look.kimiLike) c.text.copy(alpha = 0.06f) else c.surfaceHigh).padding(vertical = 10.dp, horizontal = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Label(v, size = 16.sp, weight = FontWeight.SemiBold)

@@ -5,9 +5,9 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * Запасная копия того, что нельзя терять: вход в аккаунт (auth.json), память и правила.
- * Лежит рядом с rootfs, но вне него: переустановка окружения или «Reset runtime» её не трогают,
- * а Android Auto Backup возвращает её после переустановки приложения.
+ * A backup of what must not be lost: the account sign-in (auth.json), memory and rules.
+ * Lives next to the rootfs but outside it: reinstalling the environment or "Reset runtime" doesn't touch it,
+ * and Android Auto Backup brings it back after the app is reinstalled.
  */
 object Vault {
     private val root get() = File(Graph.paths.rootfs.parentFile, "vault")
@@ -24,7 +24,7 @@ object Vault {
         to.setLastModified(from.lastModified())
     }
 
-    /** Из rootfs в хранилище. Пустой или повреждённый auth.json не затирает хорошую копию. */
+    /** From the rootfs to the vault. An empty or broken auth.json doesn't overwrite a good copy. */
     fun save() {
         runCatching {
             val rf = Graph.paths.rootfs
@@ -36,7 +36,7 @@ object Vault {
         }
     }
 
-    /** Из хранилища в rootfs — только то, чего там нет (после переустановки окружения). */
+    /** From the vault to the rootfs: only what's missing there (after reinstalling the environment). */
     fun restore() {
         runCatching {
             val rf = Graph.paths.rootfs
@@ -46,10 +46,10 @@ object Vault {
         }
     }
 
-    /** Явный выход: стираем и копию, иначе вход вернулся бы после сброса окружения. */
+    /** Explicit sign-out: wipe the copy too, otherwise the sign-in would come back after a runtime reset. */
     fun forgetAccount() { runCatching { File(root, AUTH).delete() } }
 
-    /** Флаг «вошли» в настройках берём из того, что реально сохранено на сервере; сам он никогда не сбрасывается. */
+    /** The "signed in" flag in settings comes from what's actually saved on the server; the flag itself is never reset. */
     fun reconcileAccount() {
         runCatching {
             if (Graph.prefs.signedIn.isNotBlank()) return

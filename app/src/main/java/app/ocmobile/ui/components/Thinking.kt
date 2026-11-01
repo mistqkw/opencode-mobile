@@ -40,15 +40,15 @@ import app.ocmobile.ui.theme.Oc
 import kotlin.math.PI
 import kotlin.math.sin
 
-/** Что делает агент: от этого зависит вид и подпись индикатора. */
+/** What the agent is doing: the indicator's look and label depend on it. */
 enum class Work(val label: String) {
     Think("Thinking"), Read("Reading files"), Write("Writing"), Edit("Editing code"),
     Run("Running a command"), Search("Searching"), Web("Browsing the web"), Plan("Planning"), Wait("Waiting for the provider"), Other("Working"),
 }
 
 /**
- * Индикатор «агент работает»: маленький значок, свой для каждого вида работы, и подпись с бликом.
- * Значки плавно двигаются (без мигания) и чуть-чуть: они не должны отвлекать от текста.
+ * The "agent is working" indicator: a small icon, different for each kind of work, and a label with a shimmer.
+ * The icons move smoothly (no blinking) and only slightly: they shouldn't distract from the text.
  */
 @Composable
 fun ThinkingIndicator(work: Work, modifier: Modifier = Modifier) {
@@ -65,7 +65,7 @@ fun ThinkingIndicator(work: Work, modifier: Modifier = Modifier) {
 
 @Composable
 fun WorkGlyph(work: Work, size: Dp) {
-    // «Думаю» каждый раз разное: шар, спираль, тор или созвездие
+    // "Thinking" is different every time: a sphere, a helix, a torus or a constellation
     val think = remember { kotlin.random.Random.nextInt(4) }
     when (work) {
         Work.Think, Work.Other -> when (think) { 0 -> OrbGlyph(size); 1 -> HelixGlyph(size); 2 -> TorusGlyph(size); else -> ConstellationGlyph(size) }
@@ -80,11 +80,11 @@ fun WorkGlyph(work: Work, size: Dp) {
     }
 }
 
-// ---------- общие помощники 3D ----------
+// ---------- shared 3D helpers ----------
 
 private class P3(val x: Float, val y: Float, val z: Float)
 
-/** Поворот вокруг Y на [ay], затем вокруг X на [ax]. */
+/** Rotate around Y by [ay], then around X by [ax]. */
 private fun P3.rot(ay: Float, ax: Float): P3 {
     val x1 = x * kotlin.math.cos(ay) + z * sin(ay)
     val z1 = -x * sin(ay) + z * kotlin.math.cos(ay)
@@ -102,7 +102,7 @@ private fun phase(ms: Int, label: String): Float {
 
 private val TAU = (2 * PI).toFloat()
 
-/** Точки в 3D: ближние крупнее и ярче. */
+/** Points in 3D: nearer ones are bigger and brighter. */
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.dots3d(pts: List<P3>, color: Color, scale: Float, dot: Float) {
     val cx = size.width / 2; val cy = size.height / 2
     pts.sortedBy { it.z }.forEach { p ->
@@ -111,7 +111,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.dots3d(pts: List<P3
     }
 }
 
-/** Спираль ДНК: две нити точек крутятся вокруг вертикальной оси. */
+/** DNA helix: two strands of dots spin around a vertical axis. */
 @Composable
 private fun HelixGlyph(size: Dp) {
     val c = Oc.c; val ph = phase(2600, "helix")
@@ -128,7 +128,7 @@ private fun HelixGlyph(size: Dp) {
     }
 }
 
-/** Тор: кольцо точек наклонено и вращается, по нему бежит волна толщины. */
+/** Torus: a tilted ring of dots spins, a thickness wave runs along it. */
 @Composable
 private fun TorusGlyph(size: Dp) {
     val c = Oc.c; val ph = phase(3000, "torus")
@@ -144,7 +144,7 @@ private fun TorusGlyph(size: Dp) {
     }
 }
 
-/** Созвездие: точки дрейфуют, ближайшие соединяются тонкими линиями. */
+/** Constellation: dots drift, the nearest ones are joined by thin lines. */
 @Composable
 private fun ConstellationGlyph(size: Dp) {
     val c = Oc.c; val ph = phase(4200, "stars")
@@ -160,21 +160,21 @@ private fun ConstellationGlyph(size: Dp) {
     }
 }
 
-/** Книга: страница переворачивается слева направо (сжатие по ширине), строки на страницах. */
+/** Book: a page turns from left to right (squeezed in width), lines on the pages. */
 @Composable
 private fun BookGlyph(size: Dp) {
     val c = Oc.c; val ph = phase(1500, "book")
     Canvas(Modifier.size(size)) {
         val w = this.size.width; val h = this.size.height; val sw = w * 0.07f
         val cx = w / 2; val top = h * 0.22f; val bot = h * 0.8f
-        // корешок и две страницы
+        // spine and two pages
         drawLine(c.textDim, Offset(cx, top), Offset(cx, bot), sw * 0.8f, StrokeCap.Round)
         for (i in 0 until 3) {
             val y = top + (bot - top) * (0.25f + 0.25f * i)
             drawLine(c.textDim.copy(alpha = 0.6f), Offset(w * 0.1f, y), Offset(cx - w * 0.08f, y), sw * 0.7f, StrokeCap.Round)
             drawLine(c.textDim.copy(alpha = 0.6f), Offset(cx + w * 0.08f, y), Offset(w * 0.9f, y), sw * 0.7f, StrokeCap.Round)
         }
-        // переворачиваемый лист: ширина = cos угла
+        // the turning page: width = cos of the angle
         val k = kotlin.math.cos(ease(ph) * PI.toFloat())
         val edge = cx + (w * 0.42f) * k
         drawLine(c.accent, Offset(cx, top), Offset(edge, top + (bot - top) * 0.04f * (1 - kotlin.math.abs(k))), sw, StrokeCap.Round)
@@ -183,7 +183,7 @@ private fun BookGlyph(size: Dp) {
     }
 }
 
-/** Правка: карточка с кодом переворачивается в 3D, на обороте строки уже другие. */
+/** Edit: a card with code flips in 3D, the back has different lines. */
 @Composable
 private fun FlipCardGlyph(size: Dp) {
     val c = Oc.c; val ph = phase(1800, "flip")
@@ -205,7 +205,7 @@ private fun FlipCardGlyph(size: Dp) {
     }
 }
 
-/** Команда: каркасный куб вращается, в вершинах — точки. */
+/** Command: a wireframe cube spins, with dots at the corners. */
 @Composable
 private fun CubeGlyph(size: Dp) {
     val c = Oc.c; val ph = phase(2800, "cube")
@@ -224,7 +224,7 @@ private fun CubeGlyph(size: Dp) {
     }
 }
 
-/** Поиск: линза скользит по сетке точек, точки под ней растут. */
+/** Search: a lens slides over a dot grid, the dots under it grow. */
 @Composable
 private fun LensGlyph(size: Dp) {
     val c = Oc.c; val ph = phase(2200, "lens")
@@ -241,7 +241,7 @@ private fun LensGlyph(size: Dp) {
     }
 }
 
-/** Интернет: глобус из меридианов вращается, по экватору бежит точка. */
+/** Web: a globe of meridians spins, a dot runs along the equator. */
 @Composable
 private fun GlobeGlyph(size: Dp) {
     val c = Oc.c; val ph = phase(3600, "globe")
@@ -260,7 +260,7 @@ private fun GlobeGlyph(size: Dp) {
     }
 }
 
-/** План: точки по очереди падают в столбик, за каждой вырастает строка. */
+/** Plan: dots drop into a column one by one, a line grows after each. */
 @Composable
 private fun ChecklistGlyph(size: Dp) {
     val c = Oc.c; val ph = phase(2100, "plan")
@@ -276,7 +276,7 @@ private fun ChecklistGlyph(size: Dp) {
     }
 }
 
-/** Ожидание: песочные часы из точек, песок пересыпается, часы переворачиваются. */
+/** Waiting: an hourglass of dots, the sand pours, the hourglass flips. */
 @Composable
 private fun HourglassGlyph(size: Dp) {
     val c = Oc.c; val ph = phase(3200, "glass")
@@ -307,7 +307,7 @@ fun PixelWave(size: Dp, color: Color) {
         val gap = this.size.minDimension * 0.1f
         val cell = (this.size.minDimension - gap * (n - 1)) / n
         for (y in 0 until n) for (x in 0 until n) {
-            // волна идёт по диагонали; масштаб и яркость плавно меняются
+            // the wave goes diagonally; scale and brightness change smoothly
             val k = (sin((phase - (x + y) / 6f) * 2 * PI).toFloat() + 1f) / 2f
             val s = 0.45f + 0.55f * k
             val d = cell * s
@@ -327,7 +327,7 @@ private fun ShimmerText(text: String) {
     Text(
         text,
         style = TextStyle(
-            // как в Claude: подпись работы — с засечками (в своих редакциях — их шрифт)
+            // like in Claude: the work label is serif (in their own editions, their font)
             fontSize = 15.sp, fontFamily = Oc.reply,
             brush = Brush.linearGradient(
                 0f to c.textDim, 0.5f to c.text, 1f to c.textDim,
@@ -339,8 +339,8 @@ private fun ShimmerText(text: String) {
 
 
 /**
- * «Думаю»: шар из точек вращается в 3D, затем стягивается в четыре точки, они расходятся
- * и кружат по наклонной орбите, потом снова собираются в шар. Плоский цвет, без свечения.
+ * "Thinking": a sphere of dots spins in 3D, then shrinks into four dots that spread out
+ * and circle on a tilted orbit, then gather into a sphere again. Flat color, no glow.
  */
 @Composable
 fun OrbGlyph(size: Dp) {
@@ -349,7 +349,7 @@ fun OrbGlyph(size: Dp) {
     val time by t.animateFloat(0f, 1f, infiniteRepeatable(tween(6400, easing = LinearEasing)), label = "time")
     val accent = c.accent
     val pts = remember {
-        // точки по сфере (спираль Фибоначчи)
+        // dots on a sphere (Fibonacci spiral)
         val n = 34
         List(n) { i ->
             val y = 1f - 2f * (i + 0.5f) / n
@@ -362,7 +362,7 @@ fun OrbGlyph(size: Dp) {
         val w = this.size.minDimension
         val cx = this.size.width / 2; val cy = this.size.height / 2
         val R = w * 0.4f
-        // 0..0.4 шар, 0.4..0.5 сжатие, 0.5..0.9 четыре точки, 0.9..1 обратно в шар
+        // 0..0.4 sphere, 0.4..0.5 squeeze, 0.5..0.9 four dots, 0.9..1 back into the sphere
         val m = when {
             time < 0.4f -> 0f
             time < 0.5f -> ease((time - 0.4f) / 0.1f)
@@ -373,12 +373,12 @@ fun OrbGlyph(size: Dp) {
         val tilt = 0.45f
         val orbit = time * 2 * PI.toFloat() * 4f
         val items = pts.mapIndexed { i, p ->
-            // поворот шара вокруг Y и наклон по X
+            // rotate the sphere around Y and tilt it on X
             val x1 = p[0] * kotlin.math.cos(spin) + p[2] * sin(spin)
             val z1 = -p[0] * sin(spin) + p[2] * kotlin.math.cos(spin)
             val y1 = p[1] * kotlin.math.cos(tilt) - z1 * sin(tilt)
             val z2 = p[1] * sin(tilt) + z1 * kotlin.math.cos(tilt)
-            // цель: одна из четырёх точек на наклонной орбите
+            // target: one of the four dots on the tilted orbit
             val k = i % 4
             val oa = orbit + k * PI.toFloat() / 2
             val ox = kotlin.math.cos(oa) * 0.85f
@@ -399,7 +399,7 @@ fun OrbGlyph(size: Dp) {
 
 private fun ease(x: Float): Float { val k = x.coerceIn(0f, 1f); return k * k * (3 - 2 * k) }
 
-/** «Пишу»: перо выводит волнистую строку, строка растёт за ним, потом исчезает и всё сначала. */
+/** "Writing": a pen draws a wavy line, the line grows behind it, then disappears and starts over. */
 @Composable
 fun PenGlyph(size: Dp) {
     val c = Oc.c
@@ -413,14 +413,14 @@ fun PenGlyph(size: Dp) {
         val prog = (ph / 0.8f).coerceAtMost(1f)
         val fade = if (ph > 0.8f) 1f - (ph - 0.8f) / 0.2f else 1f
         fun py(x: Float) = h * 0.78f + sin((x / w) * 4.5f * PI.toFloat()) * h * 0.07f
-        // чернильный след
+        // ink trail
         val path = androidx.compose.ui.graphics.Path()
         val x0 = w * 0.04f; val x1 = x0 + (w * 0.52f) * prog
         path.moveTo(x0, py(x0))
         var x = x0
         while (x < x1) { x += w * 0.02f; path.lineTo(x.coerceAtMost(x1), py(x.coerceAtMost(x1))) }
         drawPath(path, ink.copy(alpha = 0.55f * fade), style = Stroke(sw * 0.8f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        // перо: наклонный корпус и кончик в конце следа
+        // pen: a tilted body and a tip at the end of the trail
         val tipX = x1; val tipY = py(x1) - h * 0.02f
         val ang = -0.8f
         val len = h * 0.62f

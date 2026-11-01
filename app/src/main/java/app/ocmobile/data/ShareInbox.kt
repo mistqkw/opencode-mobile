@@ -12,8 +12,8 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * «Поделиться → Ask OpenCode» из любого приложения. Текст и файлы попадают в поле ввода нового чата.
- * Файлы сразу копируем к себе: разрешение на чужой content:// живёт недолго.
+ * "Share → Ask OpenCode" from any app. Text and files go into the input of a new chat.
+ * Files are copied right away: access to someone else's content:// doesn't last long.
  */
 object ShareInbox {
     class Shared(val text: String, val uris: List<Uri>)

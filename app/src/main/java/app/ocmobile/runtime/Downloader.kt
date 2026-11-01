@@ -6,7 +6,7 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
-/** Скачивание с прогрессом и проверкой sha256. Пишет в .part и переименовывает по готовности. */
+/** Download with progress and a sha256 check. Writes to .part and renames when done. */
 object Downloader {
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)

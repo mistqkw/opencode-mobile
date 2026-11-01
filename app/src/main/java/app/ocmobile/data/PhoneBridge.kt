@@ -58,15 +58,16 @@ import kotlin.concurrent.thread
 import kotlin.coroutines.resume
 
 /**
- * Мост между агентом и телефоном. Сервер OpenCode живёт в окружении на этом же телефоне,
- * поэтому приложение поднимает на 127.0.0.1 маленький HTTP-сервер:
- *  - /mcp — MCP-сервер «phone» (Streamable HTTP, только JSON-ответы): уведомления, напоминания, будильник,
- *    буфер обмена, геолокация, камера, «Загрузки», ссылки, превью, состояние телефона;
- *  - /preview/<токен>/<путь> — отдаёт файлы проекта для превью сайта во встроенном браузере.
- * Другие приложения тоже видят localhost, поэтому всё закрыто случайным токеном.
+ * Bridge between the agent and the phone. The OpenCode server lives in the environment on this same phone,
+ * so the app runs a small HTTP server on 127.0.0.1:
+ *  - /mcp: the "phone" MCP server (Streamable HTTP, JSON responses only): notifications, reminders, alarm,
+ *    clipboard, location, camera, "Downloads", links, previews, phone status;
+ *  - /preview/<token>/<path>: serves project files for the site preview in the built-in browser.
+ * Other apps can see localhost too, so everything is locked with a random token.
  */
 object PhoneBridge {
-    const val PORT = 4097
+    // the debug build sits next to the release one, so it has its own ports
+    val PORT = if (app.ocmobile.BuildConfig.DEBUG) 4197 else 4097
     const val NAME = "phone"
 
     @Volatile private var server: ServerSocket? = null
@@ -91,9 +92,9 @@ object PhoneBridge {
         }
     }
 
-    // ---------- регистрация в OpenCode ----------
+    // ---------- registration in OpenCode ----------
 
-    /** Приводит запись mcp.phone в глобальном конфиге в соответствие с настройкой. Пишет, только если что-то поменялось. */
+    /** Syncs the mcp.phone entry in the global config with the setting. Writes only if something changed. */
     suspend fun register() {
         if (Graph.devices.isRemote) return
         val on = Graph.prefs.phoneTools
@@ -184,7 +185,7 @@ object PhoneBridge {
     }
 
     private fun one(req: JsonObject): JsonObject? {
-        val id = req["id"] ?: return null // уведомление: ответа не нужно
+        val id = req["id"] ?: return null // notification: no response needed
         val params = req["params"] as? JsonObject ?: JsonObject(emptyMap())
         return when (req["method"]?.jsonPrimitive?.content) {
             "initialize" -> rpcResult(id, buildJsonObject {
@@ -213,7 +214,7 @@ object PhoneBridge {
         }
     }
 
-    // ---------- инструменты ----------
+    // ---------- tools ----------
 
     class Tool(val name: String, val title: String, val desc: String, val schema: JsonObject, val run: suspend (JsonObject) -> String)
 
@@ -310,7 +311,7 @@ object PhoneBridge {
         return all.filter { it.name !in off }
     }
 
-    // ---------- реализации ----------
+    // ---------- implementations ----------
 
     fun notify(title: String, text: String, id: Int) {
         val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -344,7 +345,7 @@ object PhoneBridge {
         return "%.6f, %.6f (±%.0f m)".format(Locale.US, l.latitude, l.longitude, l.accuracy) + (addr?.let { "\n$it" } ?: "")
     }
 
-    /** Ждёт снимок от [PhotoActivity]. */
+    /** Waits for a photo from [PhotoActivity]. */
     @Volatile var photo: CompletableDeferred<File?>? = null
 
     private suspend fun takePhoto(dir: String): String {

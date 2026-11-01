@@ -33,7 +33,7 @@ import kotlin.coroutines.resumeWithException
 
 class ApiException(val code: Int, message: String) : IOException(message)
 
-/** Клиент REST-API локального `opencode serve` (OpenCode 1.x). */
+/** REST API client for the local `opencode serve` (OpenCode 1.x). */
 class OpenCodeApi(private val prefs: Prefs) {
     val baseUrl get() = Graph.devices.active()?.url ?: "http://127.0.0.1:${prefs.serverPort}"
     private val password get() = Graph.devices.active()?.password ?: prefs.serverPassword
@@ -45,7 +45,7 @@ class OpenCodeApi(private val prefs: Prefs) {
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    /** Клиент для SSE: сервер шлёт heartbeat каждые 10 с, поэтому 30 с тишины — оборванное соединение, переподключаемся. */
+    /** SSE client: the server sends a heartbeat every 10 s, so 30 s of silence means a dropped connection and we reconnect. */
     val streamHttp: OkHttpClient = http.newBuilder().readTimeout(30, TimeUnit.SECONDS).pingInterval(20, TimeUnit.SECONDS).build()
 
     fun request(path: String, query: Map<String, String?> = emptyMap()): Request.Builder {
@@ -87,9 +87,9 @@ class OpenCodeApi(private val prefs: Prefs) {
 
     private fun dir(d: String?) = mapOf("directory" to d)
 
-    // ---------- сервер ----------
+    // ---------- server ----------
 
-    /** Для опроса готовности: короткий таймаут, чтобы подвисший запрос не задерживал следующую попытку. */
+    /** For readiness polling: a short timeout so a stuck request doesn't delay the next try. */
     private val healthHttp by lazy { http.newBuilder().callTimeout(2, TimeUnit.SECONDS).build() }
 
     suspend fun healthVersionOrThrow(): String? = healthHttp.newCall(request("/global/health").build()).await().use { r ->
@@ -98,7 +98,7 @@ class OpenCodeApi(private val prefs: Prefs) {
         (runCatching { OcJson.parseToJsonElement(text) as? JsonObject }.getOrNull())?.takeIf { it.bool("healthy") == true }?.str("version")
     }
 
-    /** Проверка чужого сервера до переключения на него: отвечает ли и подходит ли пароль. null — всё хорошо, иначе причина. */
+    /** Checks another server before switching to it: does it answer and does the password fit. null means fine, otherwise the reason. */
     suspend fun reachable(url: String, password: String): String? = try {
         val req = Request.Builder().url("$url/global/health").header("Authorization", Credentials.basic("opencode", password)).build()
         healthHttp.newBuilder().connectTimeout(4, TimeUnit.SECONDS).readTimeout(4, TimeUnit.SECONDS).build().newCall(req).await().use { r ->
@@ -114,7 +114,7 @@ class OpenCodeApi(private val prefs: Prefs) {
         (call("GET", "/global/health") as? JsonObject)?.takeIf { it.bool("healthy") == true }?.str("version")
     } catch (_: Exception) { null }
 
-    /** Проверка адреса и пароля удалённого сервера до сохранения; возвращает версию OpenCode или бросает ошибку с причиной. */
+    /** Checks a remote server's address and password before saving; returns the OpenCode version or throws with the reason. */
     suspend fun probe(url: String, password: String): String {
         val req = Request.Builder().url(url.trimEnd('/') + "/global/health").header("Authorization", Credentials.basic("opencode", password)).build()
         return http.newCall(req).await().use { r ->
@@ -127,7 +127,7 @@ class OpenCodeApi(private val prefs: Prefs) {
         }
     }
 
-    // ---------- сессии ----------
+    // ---------- sessions ----------
 
     suspend fun listSessions(directory: String? = null, limit: Int = 300, search: String? = null): List<Session> =
         OcJson.decodeFromJsonElement(
@@ -192,7 +192,7 @@ class OpenCodeApi(private val prefs: Prefs) {
     suspend fun diff(id: String, directory: String?): JsonArray =
         call("GET", "/session/$id/diff", dir(directory)) as? JsonArray ?: JsonArray(emptyList())
 
-    /** [parts] — готовые части: текст и файлы (картинки — data: URL). */
+    /** [parts] are ready-made parts: text and files (images as data: URLs). */
     suspend fun promptAsync(
         id: String,
         directory: String?,
@@ -201,6 +201,7 @@ class OpenCodeApi(private val prefs: Prefs) {
         modelID: String?,
         agent: String?,
         variant: String?,
+        system: String? = null,
     ) {
         val body = buildJsonObject {
             if (!providerID.isNullOrBlank() && !modelID.isNullOrBlank()) {
@@ -208,12 +209,13 @@ class OpenCodeApi(private val prefs: Prefs) {
             }
             if (!agent.isNullOrBlank()) put("agent", agent)
             if (!variant.isNullOrBlank()) put("variant", variant)
+            if (!system.isNullOrBlank()) put("system", system)
             put("parts", parts)
         }
         call("POST", "/session/$id/prompt_async", dir(directory), body)
     }
 
-    // ---------- разрешения и вопросы ----------
+    // ---------- permissions and questions ----------
 
     suspend fun permissions(directory: String?): List<PermissionReq> =
         (call("GET", "/permission", dir(directory)) as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::parsePermission) }
@@ -233,7 +235,7 @@ class OpenCodeApi(private val prefs: Prefs) {
 
     suspend fun rejectQuestion(requestId: String, directory: String?) { call("POST", "/question/$requestId/reject", dir(directory)) }
 
-    // ---------- провайдеры и модели ----------
+    // ---------- providers and models ----------
 
     suspend fun connectedProviders(): ProvidersResponse =
         OcJson.decodeFromJsonElement(ProvidersResponse.serializer(), call("GET", "/config/providers")!!)
@@ -253,14 +255,14 @@ class OpenCodeApi(private val prefs: Prefs) {
 
     suspend fun removeAuth(providerId: String) { call("DELETE", "/auth/$providerId") }
 
-    /** Возвращает ссылку для входа и подсказку; method — индекс из [providerAuthMethods]. */
+    /** Returns the sign-in link and a hint; method is an index from [providerAuthMethods]. */
     suspend fun oauthAuthorize(providerId: String, method: Int, inputs: Map<String, String> = emptyMap()): JsonObject =
         call("POST", "/provider/$providerId/oauth/authorize", body = buildJsonObject {
             put("method", method)
             if (inputs.isNotEmpty()) putJsonObject("inputs") { inputs.forEach { (k, v) -> put(k, v) } }
         }) as? JsonObject ?: JsonObject(emptyMap())
 
-    /** Вход по коду устройства ждёт, пока пользователь подтвердит его в браузере, — отсюда долгий таймаут. */
+    /** Device-code sign-in waits for the user to confirm in the browser, hence the long timeout. */
     private val longHttp by lazy { http.newBuilder().readTimeout(10, TimeUnit.MINUTES).callTimeout(0, TimeUnit.MILLISECONDS).build() }
 
     suspend fun oauthCallback(providerId: String, method: Int, code: String?) {
@@ -272,14 +274,14 @@ class OpenCodeApi(private val prefs: Prefs) {
         }
     }
 
-    /** После смены ключей инстансы надо пересоздать, чтобы они увидели новые провайдеры. */
+    /** After keys change, instances must be recreated to see the new providers. */
     suspend fun disposeAll() { call("POST", "/global/dispose") }
 
-    // ---------- конфиг, агенты, MCP ----------
+    // ---------- config, agents, MCP ----------
 
     suspend fun config(): JsonObject = call("GET", "/config") as? JsonObject ?: JsonObject(emptyMap())
 
-    /** Глобальный конфиг (~/.config/opencode): сервер сам пишет файл и применяет изменения без перезапуска. */
+    /** Global config (~/.config/opencode): the server writes the file itself and applies changes without a restart. */
     suspend fun patchGlobalConfig(patch: JsonObject): JsonObject = call("PATCH", "/global/config", body = patch) as? JsonObject ?: JsonObject(emptyMap())
 
     suspend fun patchConfig(patch: JsonObject): JsonObject = call("PATCH", "/config", body = patch) as? JsonObject ?: JsonObject(emptyMap())
@@ -293,7 +295,7 @@ class OpenCodeApi(private val prefs: Prefs) {
     suspend fun skills(): List<NamedItem> =
         OcJson.decodeFromJsonElement(ListSerializer(NamedItem.serializer()), call("GET", "/skill") ?: JsonArray(emptyList()))
 
-    /** Инструменты, которые сервер отдаёт модели (встроенные и MCP), с описаниями и схемами параметров. */
+    /** Tools the server gives the model (built-in and MCP), with descriptions and parameter schemas. */
     suspend fun tools(providerId: String, modelId: String, directory: String?): JsonArray =
         call("GET", "/experimental/tool", mapOf("provider" to providerId, "model" to modelId, "directory" to directory)) as? JsonArray ?: JsonArray(emptyList())
 
@@ -306,7 +308,7 @@ class OpenCodeApi(private val prefs: Prefs) {
         call("POST", "/mcp", body = buildJsonObject { put("name", name); put("config", config) })
     }
 
-    /** Рабочий каталог сервера по умолчанию (для удалённого устройства, где своих проектов у приложения нет). */
+    /** The server's default working directory (for a remote device, where the app has no projects of its own). */
     suspend fun serverDirectory(): String? = (call("GET", "/path") as? JsonObject)?.str("directory")
 
     suspend fun projects(): JsonArray = call("GET", "/project") as? JsonArray ?: JsonArray(emptyList())

@@ -18,10 +18,10 @@ import app.ocmobile.api.str
 import kotlinx.coroutines.launch
 
 /**
- * Агент на экране блокировки: пока приложение свёрнуто, а сессия работает, висит уведомление
- * с текущим шагом («Editing Composer.kt») и счётчиком шагов и файлов. На Android 16 оно становится
- * Live Update (чип в строке состояния). Когда агент просит разрешение — отдельное уведомление
- * с кнопками Allow / Always / Deny, отвечать можно прямо с экрана блокировки.
+ * The agent on the lock screen: while the app is in the background and a session runs, a notification shows
+ * the current step ("Editing Composer.kt") and a count of steps and files. On Android 16 it becomes
+ * a Live Update (a chip in the status bar). When the agent asks for permission, a separate notification
+ * with Allow / Always / Deny buttons lets you answer right from the lock screen.
  */
 object LiveNotify {
     private const val CH_LIVE = "live"
@@ -39,10 +39,10 @@ object LiveNotify {
         Graph.scope.launch { Graph.events.events.collect { runCatching { handle(it) } } }
     }
 
-    /** Приложение снова на экране — уведомления о ходе работы больше не нужны. */
+    /** The app is on screen again: progress notifications are no longer needed. */
     fun onForeground() = runs.keys.forEach { nm.cancel(liveId(it)) }
 
-    /** Приложение свернули — показать то, что сейчас работает. */
+    /** The app went to the background: show what's running now. */
     fun onBackground() = runs.keys.toList().forEach(::show)
 
     private fun liveId(sid: String) = 0x4000 + (sid.hashCode() and 0xfff)
@@ -134,7 +134,7 @@ object LiveNotify {
             .setPublicVersion(Notification.Builder(ctx, CH_LIVE).setSmallIcon(R.drawable.ic_stat).setContentTitle("OpenCode is working").setContentText(counts).build())
             .setProgress(0, 0, true)
         if (Build.VERSION.SDK_INT >= 36) {
-            // Android 16: Live Update — чип в строке состояния и место наверху шторки
+            // Android 16: Live Update, a chip in the status bar and a spot at the top of the shade
             b.setStyle(Notification.ProgressStyle().setProgressIndeterminate(true))
             b.setShortCriticalText(if (r.files.isNotEmpty()) "${r.files.size} files" else "Working")
             runCatching { b.javaClass.getMethod("setRequestPromotedOngoing", Boolean::class.javaPrimitiveType).invoke(b, true) }
@@ -173,7 +173,7 @@ object LiveNotify {
             .setContentIntent(openChat(q.sessionID)).setAutoCancel(true).build())
     }
 
-    /** Кнопки уведомлений: ответ на разрешение или остановка сессии. */
+    /** Notification buttons: a permission answer or stopping the session. */
     class Action : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             val kind = i.getStringExtra("kind") ?: return

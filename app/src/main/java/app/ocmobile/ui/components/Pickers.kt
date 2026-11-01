@@ -32,9 +32,9 @@ import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
 
 /**
- * Окна выбора («Select model», «Add to session») в стиле выбранной редакции:
- * Claude — нижняя шторка; Terminal — прямоугольное окно как диалог TUI (заголовок и «esc»);
- * Desktop — всплывающая панель со скруглением, как меню в приложении.
+ * Picker windows ("Select model", "Add to session") in the style of the chosen edition:
+ * Claude: a bottom sheet; Terminal: a rectangular window like a TUI dialog (title and "esc");
+ * Desktop: a rounded popup panel, like a menu in the app.
  */
 @Composable
 fun PickerFrame(
@@ -101,7 +101,7 @@ fun PickSearch(value: String, onChange: (String) -> Unit, placeholder: String) {
     }
 }
 
-/** Строка выбора: у Claude — крупная, у Terminal — одна строка моно, выбранная закрашена акцентом, у Desktop — компактная со значком выбора. */
+/** Picker row: large in Claude, one mono line in Terminal with the selected one filled with the accent, compact with a check in Desktop. */
 @Composable
 fun PickRow(
     label: String,

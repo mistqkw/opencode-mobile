@@ -3,7 +3,7 @@ package app.ocmobile.runtime
 import app.ocmobile.data.Prefs
 import java.io.File
 
-/** Сборка командной строки proot: гостевой Ubuntu с поддельным root и «правильным» /proc. */
+/** Builds the proot command line: a guest Ubuntu with fake root and a "proper" /proc. */
 class ProotCommand(private val paths: RuntimePaths, private val prefs: Prefs) {
 
     fun env(): Map<String, String> = buildMap {
@@ -13,7 +13,7 @@ class ProotCommand(private val paths: RuntimePaths, private val prefs: Prefs) {
         if (prefs.noSeccomp) put("PROOT_NO_SECCOMP", "1")
     }
 
-    /** [guestArgv] выполняется внутри rootfs под `env -i` с чистым окружением. */
+    /** [guestArgv] runs inside the rootfs under `env -i` with a clean environment. */
     fun build(guestArgv: List<String>, cwd: String = "/root", extraEnv: Map<String, String> = emptyMap()): List<String> {
         prepareFakeProc()
         val cmd = mutableListOf(
@@ -58,7 +58,7 @@ class ProotCommand(private val paths: RuntimePaths, private val prefs: Prefs) {
         return cmd
     }
 
-    /** Android закрывает приложениям /proc/stat и др.; Bun/Node их читают, поэтому подсовываем свои. */
+    /** Android hides /proc/stat and others from apps; Bun/Node read them, so we provide our own. */
     private fun prepareFakeProc() {
         paths.fake.mkdirs()
         paths.tmp.mkdirs()

@@ -44,14 +44,14 @@ import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.delay
 
 /**
- * Диктовка прямо в поле ввода — как в Claude: вместо системного окна полоса записи с живой волной,
- * текст появляется по ходу речи. Распознаватель сам останавливается после паузы — перезапускаем его,
- * пока пользователь не нажмёт «готово» или «отправить».
+ * Dictation right into the input, like in Claude: instead of the system window, a recording bar with a live wave;
+ * the text appears as you speak. The recognizer stops by itself after a pause, so we restart it
+ * until the user taps "done" or "send".
  */
 class Dictation(private val ctx: Context) {
     var active by mutableStateOf(false)
         private set
-    /** Уже распознанное и текущий кусок. */
+    /** Already recognized text and the current chunk. */
     var done by mutableStateOf("")
         private set
     var partial by mutableStateOf("")
@@ -75,7 +75,7 @@ class Dictation(private val ctx: Context) {
 
     private fun listen() { if (active) runCatching { rec?.startListening(Speech.recognizerIntent()) } }
 
-    /** Остановить и вернуть всё распознанное. */
+    /** Stop and return everything recognized. */
     fun finish(): String { val t = text; stop(); return t }
 
     fun stop() {
@@ -135,7 +135,7 @@ fun rememberDictation(): Pair<Dictation, () -> Unit> {
     return d to start
 }
 
-/** Полоса записи: отмена, волна, время, «вставить» и «отправить». */
+/** Recording bar: cancel, wave, time, "insert" and "send". */
 @Composable
 fun DictationBar(d: Dictation, onCancel: () -> Unit, onDone: () -> Unit, onSend: () -> Unit) {
     val c = Oc.c

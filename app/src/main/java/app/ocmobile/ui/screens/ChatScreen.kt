@@ -2,6 +2,7 @@ package app.ocmobile.ui.screens
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -66,7 +67,9 @@ import app.ocmobile.ui.components.rememberComposerState
 import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
 import app.ocmobile.ui.theme.lookBackdrop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.scrollBy
 import kotlinx.serialization.json.JsonObject
 
 @Composable
@@ -105,22 +108,42 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
         chat.load()
     }
 
-    // Сессия «инкогнито» исчезает, когда экран закрывается.
+    // An incognito session disappears when the screen closes.
     DisposableEffect(id) {
         onDispose { if (hub.isIncognito(id)) Graph.scope.launch { hub.dropIncognito(id) } }
     }
 
-    // «Прилипание» к низу: пока пользователь не отлистал вверх, держим конец чата на экране.
+    // "Sticking" to the bottom: drag the list and it unsticks; reach the end (yourself or with the button) and it sticks again.
     LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress to listState.canScrollForward }.collect { (moving, forward) ->
-            if (moving) stick = !forward else if (!forward) stick = true
+        listState.interactionSource.interactions.collect {
+            when (it) {
+                is androidx.compose.foundation.interaction.DragInteraction.Start -> stick = false
+                is androidx.compose.foundation.interaction.DragInteraction.Stop, is androidx.compose.foundation.interaction.DragInteraction.Cancel ->
+                    if (!listState.canScrollForward) stick = true
+            }
         }
     }
-    val last = chat.messages.lastOrNull()
-    val stamp = chat.messages.size * 1_000_000 + (last?.parts?.size ?: 0) * 10_000 +
-        (last?.parts?.lastOrNull()?.let { p -> p.text.length + System.identityHashCode(p.raw) % 97 } ?: 0)
-    LaunchedEffect(stamp, busy, retries[id]) {
-        if (stick && chat.messages.isNotEmpty()) listState.scrollToItem(chat.messages.size)
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.canScrollForward }.collect { if (!it) stick = true }
+    }
+    // While stuck, the bottom is caught up smoothly frame by frame, not with a jump on every incoming chunk.
+    LaunchedEffect(listState) {
+        while (true) {
+            snapshotFlow { stick && listState.canScrollForward }.first { it }
+            androidx.compose.runtime.withFrameNanos { }
+            val info = listState.layoutInfo
+            val seen = info.visibleItemsInfo.lastOrNull() ?: continue
+            // the end is far away (opened an old chat, tapped "down"): go straight there
+            if (seen.index < info.totalItemsCount - 2) { listState.scrollToItem(info.totalItemsCount - 1); continue }
+            // the last chunk is still past the screen edge: catch up smoothly, not with a jump
+            val gap = if (seen.index < info.totalItemsCount - 1) info.mainAxisItemSpacing + 1 else 0
+            val rest = (seen.offset + seen.size + gap - (info.viewportEndOffset - info.afterContentPadding)).toFloat()
+            if (rest > 0.5f) listState.scrollBy(maxOf(2f, rest * 0.4f))
+        }
+    }
+    // first time the chat is shown: straight to the end, without scrolling through the whole history
+    LaunchedEffect(chat.messages.isNotEmpty()) {
+        if (chat.messages.isNotEmpty()) listState.scrollToItem(chat.messages.size)
     }
 
     fun imageList(): List<String> = chat.messages.flatMap { m ->
@@ -140,7 +163,7 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
         scope.launch { runCatching { hub.edit(ctx, id, parent, userText(parent), emptyList()) }.onFailure { hub.toasts.tryEmit(it.message ?: "Retry failed") } }
     }
 
-    // ссылки на файлы окружения (/root/…) открываем как файлы, остальные — как обычно
+    // links to environment files (/root/…) open as files, the rest as usual
     val sysUri = androidx.compose.ui.platform.LocalUriHandler.current
     val uris = remember(sysUri) {
         object : androidx.compose.ui.platform.UriHandler {
@@ -163,8 +186,8 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
                 Modifier.clip(CircleShape).clickable(enabled = !incognito) { menu = true }.padding(horizontal = 14.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (incognito) { Ico(Ic.Ghost, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(6.dp)) }
-                Txt(if (incognito) "Incognito session" else session?.displayTitle.orEmpty(), size = 15.sp, color = c.textDim, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                if (incognito) { if (Oc.look.id == "cloud") app.ocmobile.ui.components.GhostCloud(22.dp, blinks = false) else Ico(Ic.Ghost, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(8.dp)) }
+                Txt(if (incognito) (if (Oc.look.id == "cloud") "Anonymous chat" else "Incognito session") else session?.displayTitle.orEmpty(), size = 15.sp, color = c.textDim, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
                 if (!incognito) { Spacer(Modifier.width(4.dp)); Ico(Ic.ChevronDown, tint = c.textDim, size = 16.dp) }
             }
             DropdownMenu(menu, { menu = false }, containerColor = c.surface) {
@@ -188,23 +211,39 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
             } else {
                 androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalTextToolbar provides selBar) {
                 LazyColumn(Modifier.fillMaxSize(), state = listState, verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)) {
-                    itemsIndexed(chat.messages, key = { _, it -> it.id }) { i, m ->
+                    // one reply's steps arrive as separate messages: merge them into one turn, like Claude Code
+                    val turns = ArrayList<List<ChatMessage>>().apply {
+                        chat.messages.forEach { m ->
+                            val prev = lastOrNull()
+                            if (prev != null && !m.info.isUser && !prev.last().info.isUser) set(lastIndex, prev + m) else add(listOf(m))
+                        }
+                    }
+                    items(turns, key = { it.first().id }) { turn ->
+                        val m = turn.last()
+                        val head = turn.first()
                         val open = { u: String -> val l = imageList(); viewer = l to l.indexOf(u).coerceAtLeast(0) }
-                        Appear(animate = chat.live && m.id !in chat.initialIds, modifier = Modifier.animateItem(fadeOutSpec = null)) {
+                        // our own bubble already appeared as a draft (zzzz-local-…); the real one from the server replaces it without appearing twice
+                        Appear(animate = chat.live && head.id !in chat.initialIds && !(m.info.isUser && !m.id.startsWith("zzzz-local")), modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)) {
                             if (m.info.isUser) UserBubble(m, open, onSelect = { selectText = userText(m) }, onEdit = { beginEdit(m) })
                             else AssistantBlock(
                                 m, m === chat.messages.lastOrNull(), open, onLong = { actionsFor = m },
-                                first = i == 0 || chat.messages[i - 1].info.isUser,
+                                parts = if (turn.size == 1) m.parts else turn.flatMap { it.parts },
                                 onRetry = if (m === chat.messages.lastOrNull() && !busy && m.info.time.completed != null) ({ retry(m) }) else null,
                             )
                         }
                     }
                     item(key = "tail") {
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                        // "Thinking…" fades in and out: without it the chat tail jumped in height
+                        Column(Modifier.fillMaxWidth().animateContentSize(tween(140)).padding(horizontal = 20.dp)) {
                             chat.loadError?.let { Txt(it, size = 14.sp, color = c.danger) }
                             if (busy) app.ocmobile.ui.components.ThinkingIndicator(
                                 if (statuses[id] == "retry") app.ocmobile.ui.components.Work.Wait else workKind(chat.messages.lastOrNull()),
                                 Modifier.padding(vertical = 4.dp),
+                            )
+                            // while the agent works you can go play with the mascot
+                            if (busy && Oc.look.id == "cloud") Txt(
+                                "Play with cl0udly while you wait ›", size = 13.sp, color = c.textDim,
+                                modifier = Modifier.clip(Oc.round(8.dp)).clickable { nav.push(app.ocmobile.ui.Route.Mascot) }.padding(vertical = 4.dp),
                             )
                             retries[id]?.let { RetryCard(it, nav, onStop = { scope.launch { runCatching { Graph.api.abort(id, chat.directory) } } }) }
                         }
@@ -234,6 +273,7 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
         }
         app.ocmobile.ui.components.InterruptedCard(id)
         if (myQuestion == null && myPerm == null) app.ocmobile.ui.components.PreviewChips(chat, id, nav)
+        if (myQuestion == null && myPerm == null) app.ocmobile.ui.components.TeamStrip(id, nav)
         if (myQuestion != null || myPerm != null) Box(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
             androidx.compose.animation.AnimatedContent(myQuestion?.id ?: myPerm?.id, label = "ask", transitionSpec = {
                 (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(140)) + androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(160)) { it / 4 }) togetherWith
@@ -244,7 +284,7 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
         } else Box(Modifier.navigationBarsPadding()) {
             ComposerHost(
                 state = state, nav = nav, busy = busy || sendingNow, sessionId = id,
-                placeholder = if (sendingNow) "Sending…" else if (editing != null) "Edit your message" else "Reply to OpenCode…",
+                placeholder = if (sendingNow) "Sending…" else if (editing != null) "Edit your message" else "Reply to ${if (app.ocmobile.data.Persona.on) "cl0udly" else "OpenCode"}…",
                 dashed = incognito,
                 onSend = {
                     val text = state.text.trim()
@@ -301,11 +341,11 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
     if (showDiff) DiffSheet(id, chat.directory) { showDiff = false }
 }
 
-/** Мягкое появление нового сообщения: прозрачность и сдвиг снизу. */
+/** Soft appearance of a new message: opacity and a slide from below. */
 @Composable
 private fun Appear(animate: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val p = remember { Animatable(if (animate) 0f else 1f) }
-    LaunchedEffect(Unit) { if (animate) p.animateTo(1f, tween(200, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
+    LaunchedEffect(Unit) { if (animate) p.animateTo(1f, tween(130, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
     Box(modifier.graphicsLayer { alpha = p.value; translationY = (1f - p.value) * 36f }) { content() }
 }
 
@@ -314,6 +354,9 @@ private fun DiffSheet(id: String, directory: String?, onDismiss: () -> Unit) {
     val c = Oc.c
     var files by remember { mutableStateOf<List<JsonObject>?>(null) }
     LaunchedEffect(id) { files = runCatching { Graph.api.diff(id, directory).mapNotNull { it as? JsonObject } }.getOrDefault(emptyList()) }
+    val scope = rememberCoroutineScope()
+    val kept = remember { androidx.compose.runtime.mutableStateMapOf<String, String>() }   // file → keep | undone
+    var confirm by remember { mutableStateOf<JsonObject?>(null) }
     OcSheet(onDismiss, "Changes", skipHalf = false) {
         val list = files
         if (list == null) Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { Spinner(28.dp) }
@@ -329,8 +372,31 @@ private fun DiffSheet(id: String, directory: String?, onDismiss: () -> Unit) {
                         Txt("−${f.long("deletions") ?: 0}", size = 14.sp, color = c.danger)
                     }
                     if (open) f.str("patch")?.let { Box(Modifier.padding(top = 8.dp)) { DiffView(it) } }
+                    // review: keep or revert (only for the server on the phone, the files are here)
+                    val name = f.str("file") ?: ""
+                    when (kept[name]) {
+                        "keep" -> Txt("Kept", size = 13.sp, color = c.ok, modifier = Modifier.padding(top = 6.dp, start = 6.dp))
+                        "undone" -> Txt("Undone — the file is back as it was", size = 13.sp, color = c.textDim, modifier = Modifier.padding(top = 6.dp, start = 6.dp))
+                        else -> if (!Graph.devices.isRemote) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            app.ocmobile.ui.components.SmallButton("Keep", { kept[name] = "keep" }, filled = true)
+                            app.ocmobile.ui.components.SmallButton("Undo", { confirm = f })
+                        }
+                    }
                 }
             }
+        }
+    }
+    confirm?.let { f ->
+        val name = f.str("file") ?: ""
+        OcDialog("Undo changes to ${name.substringAfterLast('/')}?", { confirm = null }, "Undo", {
+            confirm = null
+            scope.launch {
+                app.ocmobile.data.Review.undo(directory, name, f.str("before"), f.str("patch"))
+                    .onSuccess { kept[name] = "undone" }
+                    .onFailure { Graph.chats.toasts.tryEmit(it.message ?: "Couldn't undo") }
+            }
+        }, danger = true) {
+            Txt("The file goes back to how it was before the agent changed it in this chat. The agent won't know unless you tell it.", size = 15.sp, color = c.textDim, lineHeight = 21.sp)
         }
     }
 }
@@ -372,7 +438,7 @@ private fun RetryCard(r: app.ocmobile.data.RetryInfo, nav: Nav, onStop: () -> Un
     }
 }
 
-/** Что агент делает прямо сейчас — по последней части последнего ответа. */
+/** What the agent is doing right now, from the last part of the last reply. */
 private fun workKind(m: app.ocmobile.data.ChatMessage?): app.ocmobile.ui.components.Work {
     if (m == null || m.info.isUser) return app.ocmobile.ui.components.Work.Think
     val p = m.parts.lastOrNull() ?: return app.ocmobile.ui.components.Work.Think

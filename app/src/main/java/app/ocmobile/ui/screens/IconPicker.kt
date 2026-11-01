@@ -31,7 +31,7 @@ import app.ocmobile.ui.theme.AppIcon
 import app.ocmobile.ui.theme.AppIcons
 import app.ocmobile.ui.theme.Oc
 
-/** Выбор иконки приложения: превью повторяют маску адаптивной иконки (видна центральная часть 72/108). */
+/** App icon picker: previews follow the adaptive icon mask (the central 72/108 part is visible). */
 @Composable
 fun IconPickerSheet(onDismiss: () -> Unit) {
     val ctx = LocalContext.current

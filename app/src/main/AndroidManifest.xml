@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- инструменты «phone» для агента: будильник, геолокация; Live Update на Android 16 -->
+    <!-- "phone" tools for the agent: alarm, location; Live Update on Android 16 -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -21,25 +21,34 @@
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:extractNativeLibs="true"
-        android:icon="@mipmap/ic_look_desktop"
-        android:roundIcon="@mipmap/ic_look_desktop"
+        android:icon="@mipmap/ic_look_cloud"
+        android:roundIcon="@mipmap/ic_look_cloud"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.OpenCode">
+        <!-- the QR scanner module is downloaded with the app, not on the first scan -->
+        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="barcode_ui" />
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode|smallestScreenSize|screenLayout"
             android:windowSoftInputMode="adjustResize">
-            <!-- «Поделиться» из любого приложения: текст, ссылки, картинки и файлы становятся задачей -->
-            <intent-filter android:label="Ask OpenCode">
+            <!-- "Share" from any app: text, links, images and files become a task -->
+            <!-- QR code for connecting to a computer: cl0udly://connect?n=…&u=…&p=… -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="cl0udly" android:host="connect" />
+            </intent-filter>
+            <intent-filter android:label="Ask cl0udly">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
-            <intent-filter android:label="Ask OpenCode">
+            <intent-filter android:label="Ask cl0udly">
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
@@ -236,7 +245,7 @@
 
         <activity-alias
             android:name=".IconLookDesktop"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_look_desktop"
             android:roundIcon="@mipmap/ic_look_desktop"
@@ -268,6 +277,35 @@
             android:exported="true"
             android:icon="@mipmap/ic_look_chatgpt"
             android:roundIcon="@mipmap/ic_look_chatgpt"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- the official icon: the cl0udly cloud -->
+        <activity-alias
+            android:name=".IconLookCloud"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_look_cloud"
+            android:roundIcon="@mipmap/ic_look_cloud"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconCloudLight"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_cloud_light"
+            android:roundIcon="@mipmap/ic_cloud_light"
             android:label="@string/app_name"
             android:targetActivity=".MainActivity">
             <intent-filter>

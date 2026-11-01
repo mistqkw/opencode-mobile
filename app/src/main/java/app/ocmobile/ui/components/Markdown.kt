@@ -173,7 +173,7 @@ fun Markdown(text: String, modifier: Modifier = Modifier, serif: Boolean = Graph
     val c = Oc.c
     val mono = Oc.mono
     val blocks = remember(text) { parseBlocks(text) }
-    // Claude: с засечками (если не выключено); Terminal и Desktop — свой шрифт редакции
+    // Claude: serif (unless turned off); Terminal and Desktop use their edition's font
     val family = Oc.reply
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         blocks.forEach { b ->

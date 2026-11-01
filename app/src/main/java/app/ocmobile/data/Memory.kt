@@ -3,13 +3,13 @@ package app.ocmobile.data
 import app.ocmobile.Graph
 import java.io.File
 
-/** Каталоги «обычных» чатов и памяти внутри окружения (proot). Всё, что вне CHAT_DIR, — вкладка Code. */
+/** Directories for "regular" chats and memory inside the environment (proot). Everything outside CHAT_DIR is the Code tab. */
 const val CHAT_DIR = "/root/chats"
 const val MEMORY_DIR = "/root/memory"
 
 /**
- * Память: обычные markdown-файлы в /root/memory — «полки» по темам и индекс MEMORY.md.
- * Агенту про неё рассказывает блок в глобальном AGENTS.md, который приложение ведёт само.
+ * Memory: plain markdown files in /root/memory, topic "shelves" and a MEMORY.md index.
+ * The agent learns about it from a block in the global AGENTS.md that the app maintains itself.
  */
 object Memory {
     private const val START = "<!-- ocm-memory:start -->"
@@ -30,13 +30,13 @@ You have a persistent memory: plain markdown files in $MEMORY_DIR. It survives b
 - When asked to forget something, delete it. After changing memory, say in one short line what you saved or removed.
 """.trim()
 
-    /** Сколько текста памяти вкладывать в инструкции целиком; длиннее — только индекс и начала полок. */
+    /** How much memory text to put into the instructions in full; beyond that, only the index and the start of each shelf. */
     private const val INLINE_LIMIT = 24_000
     private const val SHELF_LIMIT = 4_000
 
     /**
-     * Содержимое памяти прямо в инструкциях: без этого агент в начале каждого чата тратит
-     * два лишних круга (ls/cat индекса, потом cat полок), а это ~4 с на бесплатной модели.
+     * Memory contents right in the instructions: without this the agent spends two extra rounds
+     * at the start of every chat (ls/cat the index, then cat the shelves), about 4 s on a free model.
      */
     fun snapshot(): String {
         val index = runCatching { File(dir(), "MEMORY.md").readText().trim() }.getOrDefault("")
@@ -54,7 +54,7 @@ You have a persistent memory: plain markdown files in $MEMORY_DIR. It survives b
         }.trim()
     }
 
-    /** Всегда в AGENTS.md: как отдать пользователю файл и где лежат его вложения. */
+    /** Always in AGENTS.md: how to hand the user a file and where their attachments are. */
     val filesPrompt = """
 # Files and the user
 
@@ -65,14 +65,14 @@ The user talks to you from a phone app. It cannot see your terminal or your disk
 
     fun dir(): File = Graph.paths.host(MEMORY_DIR)
 
-    /** Подробные заметки по проектам: в инструкции не вкладываются, агент открывает их по ссылке с полки Projects. */
+    /** Detailed project notes: not put into the instructions, the agent opens them via a link on the Projects shelf. */
     fun projectNotes(): List<File> =
         File(dir(), "projects").listFiles { f -> f.isFile && f.extension == "md" }?.sortedBy { it.name }.orEmpty()
 
     fun shelves(): List<File> =
         dir().listFiles { f -> f.isFile && f.extension == "md" && f.name != "MEMORY.md" }?.sortedBy { it.name }.orEmpty()
 
-    /** Темы полок, которые можно выбрать в настройках: файл, название, что на ней. */
+    /** Shelf topics that can be picked in settings: file, title, what goes on it. */
     val topics = listOf(
         Triple("about-me", "About me", "name, city, language, how to talk to me"),
         Triple("work", "Work", "job, schedule, tools, colleagues"),
@@ -96,7 +96,7 @@ The user talks to you from a phone app. It cannot see your terminal or your disk
         return if (custom.isEmpty()) base else base + "\n\n## The user's own instructions for memory\n" + custom
     }
 
-    /** Факты на полке — строки списка «- …». */
+    /** Facts on a shelf: list lines "- …". */
     fun facts(f: File): List<String> = runCatching { f.readLines() }.getOrDefault(emptyList())
         .filter { it.trimStart().startsWith("- ") }.map { it.trimStart().removePrefix("- ").trim() }
 
@@ -123,13 +123,13 @@ The user talks to you from a phone app. It cannot see your terminal or your disk
         }
     }
 
-    /** Весь текст памяти одним файлом — чтобы поделиться или сохранить. */
+    /** All memory text as one file, to share or save. */
     fun exportText(): String = buildString {
         append(runCatching { File(dir(), "MEMORY.md").readText().trim() }.getOrDefault("")).append("\n\n")
         (shelves() + projectNotes()).forEach { append("---\n\n").append(runCatching { it.readText().trim() }.getOrDefault("")).append("\n\n") }
     }.trim()
 
-    /** Создаёт каталоги и приводит блок памяти в AGENTS.md в соответствие с настройками и файлами памяти. Пишет, только если что-то изменилось. */
+    /** Creates the directories and syncs the memory block in AGENTS.md with the settings and memory files. Writes only if something changed. */
     fun sync() {
         runCatching {
             Graph.paths.host(CHAT_DIR).mkdirs()
@@ -150,7 +150,7 @@ The user talks to you from a phone app. It cannot see your terminal or your disk
         }
     }
 
-    /** Правила пользователя — AGENTS.md без служебного блока памяти (его ведёт приложение). */
+    /** The user's rules: AGENTS.md without the memory service block (the app maintains that). */
     fun userRules(): String {
         val f = Graph.paths.globalAgentsMd
         val old = runCatching { if (f.exists()) f.readText() else "" }.getOrDefault("")

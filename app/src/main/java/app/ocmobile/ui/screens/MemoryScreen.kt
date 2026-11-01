@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -67,8 +68,8 @@ private fun shelfIcon(name: String): ImageVector = when (name.removeSuffix(".md"
 private fun kb(b: Long) = if (b < 1024) "$b B" else "%.1f KB".format(b / 1024f)
 
 /**
- * Память: сводка, что и как запоминать, полки с отдельными фактами, свои правила.
- * Всё, что здесь меняется, сразу попадает в инструкции агента (Memory.sync).
+ * Memory: a summary, what and how to remember, shelves with separate facts, your own rules.
+ * Everything changed here goes straight into the agent's instructions (Memory.sync).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -92,7 +93,7 @@ fun MemoryScreen(nav: Nav) {
     val bytes = remember(rev) { shelves.sumOf { it.length() } + File(Memory.dir(), "MEMORY.md").length() }
     fun changed() { Memory.sync(); rev++ }
 
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("MemoryScreen1")) {
         TopBar("Memory", left = { IconBtn(Ic.Back, { nav.pop() }) }, right = {
             IconBtn(Ic.Share, {
                 val i = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, Memory.exportText())
@@ -100,7 +101,7 @@ fun MemoryScreen(nav: Nav) {
             })
         })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding().padding(bottom = 32.dp)) {
-            // Сводка
+            // Summary
             Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)).background(c.surface).border(1.dp, c.border, Oc.round(24.dp)).padding(20.dp)) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Txt("$total", size = 40.sp, family = Oc.heading, weight = FontWeight.SemiBold, lineHeight = 44.sp)
@@ -234,7 +235,7 @@ fun MemoryScreen(nav: Nav) {
     }
 }
 
-/** Полка: факты по одному (удалить — крестик), добавить факт, править текстом. */
+/** A shelf: facts one by one (delete with the cross), add a fact, edit as text. */
 @Composable
 private fun ShelfSheet(f: File, onClose: () -> Unit, onChanged: () -> Unit) {
     val c = Oc.c

@@ -17,8 +17,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import app.ocmobile.Graph
 
 /**
- * Нажатие как в Claude: без ряби, с лёгким «проседанием» и затемнением; долгое нажатие даёт вибро.
- * [scale] = 1f отключает сжатие (для широких строк оставляем только затемнение).
+ * A press like in Claude: no ripple, a slight "sink" and dimming; a long press vibrates.
+ * [scale] = 1f turns off shrinking (for wide rows only the dimming stays).
  */
 @OptIn(ExperimentalFoundationApi::class)
 fun Modifier.tap(
@@ -41,7 +41,7 @@ fun Modifier.tap(
         )
 }
 
-/** Долгое нажатие без визуального отклика (для сообщений в списке: иначе при прокрутке мигает затемнение). */
+/** A long press with no visual feedback (for messages in a list: otherwise the dimming flickers while scrolling). */
 @OptIn(ExperimentalFoundationApi::class)
 fun Modifier.longPress(onLong: () -> Unit): Modifier = composed {
     val haptic = LocalHapticFeedback.current

@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -40,7 +41,7 @@ import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.launch
 
-/** Резервная копия и перенос на другую сборку или телефон. */
+/** Backup and moving to another build or phone. */
 @Composable
 fun BackupScreen(nav: Nav) {
     val c = Oc.c
@@ -51,7 +52,7 @@ fun BackupScreen(nav: Nav) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { pending = it }
     val busy = st is Backup.State.Working
 
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("BackupScreen1")) {
         TopBar("Backup & move", left = { IconBtn(Ic.Back, { if (!busy) nav.pop() }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             Txt(

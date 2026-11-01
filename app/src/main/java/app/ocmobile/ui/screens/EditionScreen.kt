@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -53,10 +54,10 @@ import app.ocmobile.ui.theme.UnboundedFamily
 @Composable
 fun EditionScreen(nav: Nav) {
     val c = Oc.c
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("EditionScreen1")) {
         TopBar("Interface", left = { IconBtn(Ic.Back, { nav.pop() }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // два столбца: сразу видно несколько видов рядом
+            // two columns: several looks side by side at once
             Looks.all.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { l ->
@@ -79,7 +80,7 @@ fun EditionScreen(nav: Nav) {
                 }
             }
             Txt("Colors, fonts and corners switch right away. Light and dark mode work in every interface.", Modifier.padding(horizontal = 6.dp, vertical = 6.dp), size = 13.sp, color = c.textDim, lineHeight = 19.sp)
-            // анимация входа и иконка под выбранный вид
+            // intro animation and icon for the chosen look
             val ctx = androidx.compose.ui.platform.LocalContext.current
             var intro by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(Graph.prefs.introEnabled) }
             val match = app.ocmobile.ui.theme.AppIcons.all.firstOrNull { it.id == "look_" + Graph.prefs.edition }
@@ -98,7 +99,7 @@ fun EditionScreen(nav: Nav) {
     }
 }
 
-/** Маленький макет экрана в палитре, шрифтах и стиле самого вида — не зависит от текущей темы. */
+/** A small screen mockup in the look's own palette, fonts and style, independent of the current theme. */
 @Composable
 internal fun LookPreview(l: Look) {
     val p: OcColors = l.dark

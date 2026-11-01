@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import android.annotation.SuppressLint
 import android.content.ClipboardManager
 import android.content.Context
@@ -87,9 +88,9 @@ private const val CONSOLE = "https://opencode.ai/console"
 private val KEY_RE = Regex("sk-[A-Za-z0-9_-]{20,}")
 
 /*
- * Подключение аккаунта OpenCode: один ключ API работает и для Zen (оплата по факту), и для Go (подписка).
- * Вместо голой страницы консоли — выбор способа, встроенная консоль, по которой приложение ведёт само
- * (после входа открывает API Keys, создаёт ключ «OpenCode mobile» и забирает его), и экран «Готово».
+ * Connecting an OpenCode account: one API key works for both Zen (pay as you go) and Go (subscription).
+ * Instead of a bare console page: a choice of method, a built-in console the app drives by itself
+ * (after sign-in it opens API Keys, creates an "OpenCode mobile" key and takes it), and a "Done" screen.
  */
 
 private const val INJECT = """
@@ -117,7 +118,7 @@ private const val INJECT = """
       return;
     }
     if (p.indexOf('/console') !== 0) return;
-    // ключ уже на странице — забираем
+    // the key is already on the page: take it
     var t = (document.body ? document.body.innerText : '') + ' ' + Array.prototype.map.call(document.querySelectorAll('input,textarea,code'), function(e){ return (e.value||'') + ' ' + (e.textContent||''); }).join(' ');
     var m = t.match(/sk-[A-Za-z0-9_-]{20,}/);
     if (m) { found(m[0]); return; }
@@ -128,7 +129,7 @@ private const val INJECT = """
       return;
     }
     say('keys');
-    // диалог создания открыт: имя и подтверждение
+    // the create dialog is open: name and confirm
     var input = Array.prototype.slice.call(document.querySelectorAll('input[type=text],input:not([type])')).filter(function(e){ return e.offsetParent !== null && !e.value; })[0];
     if (input && tries.confirm < 3) {
       var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -166,7 +167,7 @@ fun ConsoleLoginScreen(method: String, nav: Nav) {
     }
     fun openBrowser() = ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(CONSOLE_LOGIN)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 
-    // Google не пускает встроенные окна: браузер, а ключ ловим в буфере обмена, когда человек вернётся
+    // Google doesn't allow embedded windows: use the browser, and catch the key from the clipboard when the person comes back
     if (stage == "browser") {
         val owner = LocalLifecycleOwner.current
         DisposableEffect(owner) {
@@ -182,7 +183,7 @@ fun ConsoleLoginScreen(method: String, nav: Nav) {
     }
     BackHandler(stage in setOf("web", "browser", "paste", "error") && method.isBlank()) { stage = "choose"; handled = false }
 
-    Column(Modifier.fillMaxSize().background(c.bg).statusBarsPadding().imePadding()) {
+    Column(Modifier.fillMaxSize().screenBackdrop("OpenCodeAccount1").statusBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconBtn(if (stage == "choose" || stage == "done" || method.isNotBlank()) Ic.Close else Ic.Back, {
                 if (stage == "choose" || stage == "done" || method.isNotBlank()) { if (!nav.pop()) nav.root(Route.Home) } else { stage = "choose"; handled = false }
@@ -218,7 +219,7 @@ fun ConsoleLoginScreen(method: String, nav: Nav) {
                             }
                         },
                     )
-                    // подсказка снизу: что сейчас происходит
+                    // hint at the bottom: what's happening now
                     Row(
                         Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(14.dp).fillMaxWidth().clip(Oc.round(22.dp)).background(c.surfaceHigh)
                             .border(1.dp, c.border, Oc.round(22.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
@@ -269,7 +270,7 @@ fun ConsoleLoginScreen(method: String, nav: Nav) {
     }
 }
 
-/** Шаги наверху встроенной консоли: вход → ключ → готово. */
+/** Steps at the top of the built-in console: sign in → key → done. */
 @Composable
 private fun Steps(at: Int) {
     val c = Oc.c
@@ -391,7 +392,7 @@ private fun PasteKey(onKey: (String) -> Unit) {
     }
 }
 
-/** Готово: галочка «вырастает», ниже — что теперь доступно. */
+/** Done: the checkmark "grows", below it what's available now. */
 @Composable
 private fun Done(onStart: () -> Unit) {
     val c = Oc.c

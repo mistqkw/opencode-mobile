@@ -25,24 +25,24 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** Список сессий, статусы, запросы разрешений и открытые чаты — всё, что приходит по SSE. */
+/** Session list, statuses, permission requests and open chats: everything that comes over SSE. */
 class ChatHub(private val api: OpenCodeApi, private val events: EventHub, private val prefs: Prefs) {
     private val all = MutableStateFlow<Map<String, Session>>(emptyMap())
     val sessions = MutableStateFlow<List<Session>>(emptyList())
     val statuses = MutableStateFlow<Map<String, String>>(emptyMap())
-    /** Текст, который положить в поле ввода при открытии чата (например, «/навык »). */
+    /** Text to put in the input when the chat opens (for example "/skill "). */
     val drafts = mutableMapOf<String, String>()
     fun draft(id: String, text: String) { drafts[id] = text }
     val permissions = MutableStateFlow<List<PermissionReq>>(emptyList())
     val questions = MutableStateFlow<List<QuestionReq>>(emptyList())
     val loaded = MutableStateFlow(false)
-    /** Причина повторных попыток по сессиям: лимит бесплатного тарифа, ошибка провайдера и т. п. */
+    /** Why sessions are retrying: free-tier limit, provider error and so on. */
     val retries = MutableStateFlow<Map<String, RetryInfo>>(emptyMap())
     val toasts = MutableSharedFlow<String>(extraBufferCapacity = 8)
 
     private val chats = HashMap<String, Chat>()
 
-    /** Задачи, которые оборвались, когда сервер остановился: в чате предлагаем продолжить или отменить. */
+    /** Tasks cut off when the server stopped: the chat offers to continue or cancel. */
     val interrupted = MutableStateFlow(prefs.interruptedIds.split(',').filter { it.isNotBlank() }.toSet())
 
     private fun saveBusy() { prefs.busyIds = statuses.value.filterValues { it != "idle" }.keys.joinToString(",") }
@@ -57,7 +57,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
         send(ctx, id, "The server was stopped in the middle of your last task. Check what is already done and continue from where you stopped.", emptyList())
     }
 
-    /** Была занята до остановки, а теперь стоит: если последний ответ не дописан или оборван — значит, прервали. */
+    /** Was busy before the stop and is idle now: if the last reply is unfinished or cut off, it was interrupted. */
     private suspend fun findInterrupted(nowBusy: Set<String>) {
         val was = prefs.busyIds.split(',').filter { it.isNotBlank() }.toSet()
         val found = was.filter { it !in nowBusy && it in all.value && !isIncognito(it) }.filter { id ->
@@ -71,12 +71,12 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     }
 
     fun start() {
-        // Сессии «инкогнито» не переживают перезапуск: остатки удаляем при старте.
+        // Incognito sessions don't survive a restart: leftovers are deleted on start.
         Graph.scope.launch {
             delay(4000)
             incognitoSet().forEach { id -> runCatching { dropIncognito(id) } }
         }
-        // Смена устройства (Remote control): всё, что относилось к прежнему серверу, сбрасываем.
+        // Device switch (Remote control): everything tied to the previous server is reset.
         Graph.scope.launch {
             Graph.devices.activeId.drop(1).collect {
                 chats.clear(); all.value = emptyMap(); sessions.value = emptyList(); statuses.value = emptyMap()
@@ -96,6 +96,12 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
 
     fun session(id: String): Session? = all.value[id]
 
+    /** All known sessions, including child ones (team helpers). */
+    val allSessions: kotlinx.coroutines.flow.StateFlow<Map<String, Session>> get() = all
+
+    /** Child sessions of [id]: helpers the main agent started with the task tool. */
+    fun children(id: String): List<Session> = all.value.values.filter { it.parentID == id }.sortedBy { it.time.created }
+
     fun chat(id: String): Chat = chats.getOrPut(id) {
         Chat(id, api).also { it.directory = session(id)?.directory }
     }
@@ -108,7 +114,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             all.value = list.associateBy { it.id }
             publish()
             loaded.value = true
-            // подтягиваем то, что ждёт ответа, в каждом проекте, где есть сессии
+            // fetch what's waiting for an answer in every project that has sessions
             val dirs = list.map { it.directory }.distinct().take(12)
             val perms = ArrayList<PermissionReq>()
             val qs = ArrayList<QuestionReq>()
@@ -132,7 +138,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     fun markIncognito(id: String) { prefs.incognitoIds = (incognitoSet() + id).joinToString(",") }
     fun isIncognito(id: String) = id in incognitoSet()
 
-    /** Удаляет сессию «инкогнито» и забывает о ней. */
+    /** Deletes an incognito session and forgets it. */
     suspend fun dropIncognito(id: String) {
         val dir = session(id)?.directory
         runCatching { api.deleteSession(id, dir) }
@@ -180,7 +186,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             "session.idle" -> p.str("sessionID")?.let { id -> val was = statuses.value[id]; statuses.update { it - id }; saveBusy(); if (was != null) finished(id) }
             "permission.asked" -> {
                 val r = parsePermission(p)
-                // режим уже разрешает это — отвечаем сами, пользователя не дёргаем (старые сессии, правила агента)
+                // the mode already allows this: answer ourselves, don't bother the user (old sessions, agent rules)
                 if (autoAllows(r.permission)) {
                     val dir = e.directory ?: session(r.sessionID)?.directory
                     Graph.scope.launch { runCatching { api.replyPermission(r.id, dir, "once") }.onFailure { permissions.update { l -> l.filterNot { it.id == r.id } + r } } }
@@ -203,23 +209,23 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
         }
     }
 
-    // ---------- отправка ----------
+    // ---------- sending ----------
 
-    /** Что текущий режим разрешает без вопроса. */
+    /** What the current mode allows without asking. */
     fun autoAllows(permission: String, mode: String = prefs.permissionMode) = when (mode) {
         "auto" -> true
         "edits" -> permission in setOf("edit", "write", "patch", "multiedit", "read", "list", "glob", "grep", "todowrite", "todoread")
         else -> false
     }
 
-    /** Правила разрешений для сессии по выбранному режиму. «Auto» — явное «разрешить всё»: без него OpenCode спрашивает про bash. */
+    /** Permission rules for a session by the selected mode. "Auto" is an explicit "allow all": without it OpenCode asks about bash. */
     fun permissionRules(mode: String = prefs.permissionMode): JsonArray? {
         val base = when (mode) {
             "ask" -> listOf(rule("*", "ask"))
             "edits" -> listOf(rule("*", "allow"), rule("bash", "ask"), rule("webfetch", "ask"))
             else -> listOf(rule("*", "allow"))
         }
-        // память лежит вне проекта: к ней агент ходит без вопросов (правила в конце — они главнее)
+        // memory lives outside the project: the agent reaches it without asking (rules at the end win)
         val mem = if (prefs.memoryEnabled) listOf("external_directory", "read", "edit").flatMap { perm ->
             listOf("$MEMORY_DIR/*", "$MEMORY_DIR/**").map { rule(perm, "allow", it) }
         } else emptyList()
@@ -228,15 +234,21 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     }
 
     fun isChat(s: Session) = s.directory.trimEnd('/') == CHAT_DIR
-    /** Обычные чаты — в меню и «Recents»; проектные — во вкладке Code. На удалённом устройстве такого деления нет. */
+    /** Regular chats go to the menu and "Recents"; project ones to the Code tab. A remote device has no such split. */
     fun chatsOnly(l: List<Session>) = if (Graph.devices.isRemote) l else l.filter { isChat(it) }
-    fun codeOnly(l: List<Session>) = if (Graph.devices.isRemote) l else l.filterNot { isChat(it) }
+    /**
+     * Sessions for "Remote devices": on a computer, all of them; on this phone, projects and the chats
+     * that are really about code (the same <> icon in the drawer, see ChatKind). Team helpers
+     * and anonymous chats are left out.
+     */
+    fun codeOnly(l: List<Session>) = if (Graph.devices.isRemote) l
+        else l.filter { s -> s.parentID.isNullOrBlank() && !isIncognito(s.id) && (!isChat(s) || ChatKind.of(s) == ChatKind.Code) }
 
     private fun rule(permission: String, action: String, pattern: String = "*") = buildJsonObject {
         put("permission", permission); put("pattern", pattern); put("action", action)
     }
 
-    /** Сессии, которым правила уже выставлены под текущий режим (режим меняется — выставляем заново). */
+    /** Sessions whose rules are already set for the current mode (when the mode changes, we set them again). */
     private val ruled = HashMap<String, String>()
 
     suspend fun send(ctx: Context, sessionId: String, text: String, atts: List<Attachment>, keepParts: List<JsonObject> = emptyList()) {
@@ -247,7 +259,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
         }
         val localId = if (keepParts.isEmpty()) chat(sessionId).addLocalUser(text) else null
         val text = expandSlash(text)
-        // свежая память — в инструкции до запроса (агент мог поменять её в прошлом ответе)
+        // fresh memory goes into the instructions before the request (the agent may have changed it in the last reply)
         if (prefs.memoryEnabled && !Graph.devices.isRemote) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Memory.sync() }
         try {
             val attParts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { atts.map { Attachments.toPart(ctx, it) } }
@@ -256,7 +268,12 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
                 keepParts.forEach { add(it) }
                 attParts.forEach { add(it) }
             }
-            api.promptAsync(sessionId, dir, parts, prefs.providerId, prefs.modelId, prefs.agent, prefs.variant)
+            // agent team: helpers in the config and a note to the main agent on how to use them
+            val team = if (Team.on) { Team.sync(); Team.instruction() } else null
+            // in the cl0udly look the agent is the cl0udly cloud (Persona), unless turned off
+            // anonymous chat: tell the agent not to remember anything from it
+            val anon = if (isIncognito(sessionId)) "This is an anonymous chat. Do not save anything from it to memory, notes or files outside the task." else null
+            api.promptAsync(sessionId, dir, parts, prefs.providerId, prefs.modelId, prefs.agent, prefs.variant, listOfNotNull(Persona.instruction(), team, anon).joinToString("\n\n").ifBlank { null })
         } catch (e: Exception) {
             localId?.let { chat(sessionId).dropLocal(it) }
             throw e
@@ -264,11 +281,17 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     }
 
     /**
-     * «/имя аргументы»: навык — просим агента загрузить его (инструмент skill), команда — подставляем её шаблон.
-     * Неизвестное «/…» уходит как есть.
+     * "/name args": for a skill, ask the agent to load it (the skill tool); for a command, use its template.
+     * An unknown "/…" is sent as is.
      */
     fun expandSlash(text: String): String {
-        if (!text.startsWith("/")) return text
+        // skills in the middle of the text: ask the agent to load each one, the text stays as is
+        if (!text.startsWith("/")) {
+            val cmds = Graph.catalog.commands.value
+            val skills = app.ocmobile.ui.components.SLASH_TOKEN.findAll(text).map { it.groupValues[2] }
+                .filter { n -> cmds.any { it.name == n && it.source == "skill" } }.distinct().toList()
+            return if (skills.isEmpty()) text else skills.joinToString("\n") { "Use the \"$it\" skill." } + "\n\n" + text
+        }
         val name = text.drop(1).substringBefore(' ').substringBefore('\n')
         val args = text.drop(1 + name.length).trim()
         val c = Graph.catalog.commands.value.firstOrNull { it.name == name } ?: return text
@@ -277,8 +300,8 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     }
 
     /**
-     * Правка сообщения (и «повторить»): откатываем сессию до этого сообщения — вместе с файловыми
-     * изменениями агента — и отправляем новый текст; прикреплённые файлы оригинала сохраняются.
+     * Editing a message (and "retry"): revert the session to that message, together with the agent's
+     * file changes, and send the new text; the original's attachments are kept.
      */
     suspend fun edit(ctx: Context, sessionId: String, m: ChatMessage, text: String, atts: List<Attachment>) {
         val dir = session(sessionId)?.directory
@@ -298,12 +321,12 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
         send(ctx, sessionId, text, atts, keep)
     }
 
-    /** Приложение на экране — его ставит MainActivity. */
+    /** The app is on screen: set by MainActivity. */
     @Volatile var foreground = false
-    /** Открыть чат по нажатию на уведомление. */
+    /** Open a chat from a notification tap. */
     val openRequest = MutableStateFlow<String?>(null)
 
-    /** Агент закончил: в приложении — лёгкая вибрация, в фоне — уведомление с началом ответа. */
+    /** The agent finished: a light vibration in the app, a notification with the start of the reply in the background. */
     private fun finished(id: String) {
         if (isIncognito(id)) return
         val ctx = Graph.app
@@ -337,7 +360,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
 
     private var switching = false
 
-    /** Zen ответил лимитом: переключаемся на Pollinations (без аккаунта) и заново отправляем последнее сообщение. */
+    /** Zen answered with a limit: switch to Pollinations (no account) and resend the last message. */
     private fun fallToPollinations(id: String) {
         if (switching) return
         switching = true

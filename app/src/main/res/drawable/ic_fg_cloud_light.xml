@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- the cl0udly cloud (drawn by the app's author) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#232428" android:pathData="M31.05,46.1H40.5V39.07H70.55V46.1H77.57V65.69H31.05Z" />
+    <path android:fillColor="#7A7A80" android:pathData="M66.19,39.07H70.55V46.1H66.19ZM70.55,46.1H74.84V51.08H70.55ZM31.05,52.32H34.9V65.69H31.05ZM34.9,59.78H38.95V65.69H34.9Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M46.29,45.91H50.52V58.23H46.29ZM57.79,45.91H61.96V58.23H57.79Z" />
+</vector>

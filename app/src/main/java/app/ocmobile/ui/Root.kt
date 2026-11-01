@@ -25,6 +25,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -98,7 +101,10 @@ fun OcRoot() {
     Box(Modifier.fillMaxSize().background(c.bg)) {
         if (rt is RuntimeState.NotInstalled || rt is RuntimeState.Installing || rt is RuntimeState.InstallFailed) SetupScreen(rt)
         else { Shell(rt); app.ocmobile.ui.components.UpdateHost() }
-        if (!Graph.prefs.onboarded) app.ocmobile.ui.screens.Onboarding()
+        // the welcome tour sits on top of the app and takes all touches: nothing underneath can be pressed
+        if (!Graph.prefs.onboarded) Box(Modifier.fillMaxSize().pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }) {
+            app.ocmobile.ui.screens.Onboarding()
+        }
         app.ocmobile.ui.components.IntroHost()
         ToastHost()
     }
@@ -107,7 +113,7 @@ fun OcRoot() {
 @Composable
 private fun Shell(rt: RuntimeState) {
     val c = Oc.c
-    val nav = remember { Nav() }
+    val nav = remember { app.ocmobile.ui.NavMemory.nav }
     val openReq by Graph.chats.openRequest.collectAsState()
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -136,7 +142,7 @@ private fun Shell(rt: RuntimeState) {
     }
     val open = { scope.launch { drawer.open() }; Unit }
 
-    // Сервер поднимается сам при открытии приложения.
+    // The server starts by itself when the app opens.
     var autostarted by remember { mutableStateOf(false) }
     LaunchedEffect(rt) {
         if (!autostarted && rt is RuntimeState.Stopped && Graph.prefs.autoStartServer) { autostarted = true; Graph.runtime.startServer() }
@@ -144,7 +150,7 @@ private fun Shell(rt: RuntimeState) {
     LaunchedEffect(rt is RuntimeState.Running) {
         if (rt is RuntimeState.Running) { Graph.catalog.refresh(); Graph.chats.refreshSessions() }
     }
-    // Первый запуск после установки окружения: предлагаем войти (можно пропустить).
+    // First launch after the environment is installed: offer to sign in (can be skipped).
     LaunchedEffect(Unit) {
         if (Graph.prefs.onboarded && !Graph.prefs.loginSeen && Graph.prefs.signedIn.isBlank()) { kotlinx.coroutines.delay(500); nav.push(Route.Login) }
     }
@@ -155,6 +161,8 @@ private fun Shell(rt: RuntimeState) {
 
     ModalNavigationDrawer(
         drawerState = drawer,
+        // while a finger is on the mascot, the drawer doesn't open by swipe: it's being petted and pulled
+        gesturesEnabled = drawer.isOpen || !app.ocmobile.ui.components.MascotGrab.held,
         drawerContent = {
             ModalDrawerSheet(drawerContainerColor = c.bg, drawerShape = RectangleShape, windowInsets = WindowInsets(0), modifier = Modifier.fillMaxWidth(0.94f)) {
                 DrawerContent(nav) { scope.launch { drawer.close() } }
@@ -167,7 +175,7 @@ private fun Shell(rt: RuntimeState) {
                 transitionSpec = {
                     when {
                         nav.direction == 2 -> fadeIn(tween(120)) togetherWith fadeOut(tween(120))
-                        // быстро, как в Claude: экран въезжает за ~200 мс с резким стартом и мягкой остановкой
+                        // fast, like in Claude: the screen slides in within ~200 ms with a sharp start and a soft stop
                         nav.direction > 0 -> (slideInHorizontally(tween(210, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) { it / 5 } + fadeIn(tween(150))) togetherWith
                             (slideOutHorizontally(tween(210)) { -it / 12 } + fadeOut(tween(110)))
                         nav.direction < 0 -> (slideInHorizontally(tween(200, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) { -it / 12 } + fadeIn(tween(150))) togetherWith
@@ -211,12 +219,51 @@ private fun Shell(rt: RuntimeState) {
                         Route.PhoneTools -> app.ocmobile.ui.screens.PhoneToolsScreen(nav)
                         Route.GitHub -> app.ocmobile.ui.screens.GitHubScreen(nav)
                         Route.Backup -> app.ocmobile.ui.screens.BackupScreen(nav)
+                        Route.Team -> app.ocmobile.ui.screens.TeamScreen(nav)
+                        Route.Mascot -> app.ocmobile.ui.screens.MascotRoom(nav)
+                        Route.MascotSettings -> app.ocmobile.ui.screens.MascotSettings(nav)
                         is Route.Preview -> app.ocmobile.ui.screens.PreviewScreen(r.url, r.sessionId, nav)
                     }
                 }
             }
             val cur = nav.current
             if (cur == Route.Home || cur == Route.NewCode || cur == Route.Code || cur is Route.Chat) ServerBanner(rt)
+        }
+    }
+    ConnectPrompt(nav)
+}
+
+/** A QR code or a cl0udly://connect link: ask whether to connect, then connect. */
+@Composable
+private fun ConnectPrompt(nav: Nav) {
+    val c = Oc.c
+    val o = app.ocmobile.data.ConnectLink.pending ?: return
+    val scope = rememberCoroutineScope()
+    var busy by remember(o) { mutableStateOf(false) }
+    var error by remember(o) { mutableStateOf<String?>(null) }
+    app.ocmobile.ui.components.OcDialog(
+        "Connect to ${o.name.ifBlank { "this computer" }}?",
+        onDismiss = { if (!busy) app.ocmobile.data.ConnectLink.pending = null },
+        confirmText = if (busy) "Connecting…" else "Connect",
+        onConfirm = {
+            if (busy) return@OcDialog
+            busy = true; error = null
+            scope.launch {
+                try {
+                    app.ocmobile.data.ConnectLink.accept(o)
+                    app.ocmobile.data.ConnectLink.pending = null
+                    nav.root(Route.Code)
+                    Graph.chats.toasts.tryEmit("Connected to ${o.name.ifBlank { "your computer" }}")
+                } catch (e: Exception) {
+                    error = e.message?.takeIf { it.isNotBlank() } ?: "Can't reach the computer"
+                } finally { busy = false }
+            }
+        },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Txt("OpenCode on it will work from this phone: chats, code and files.", size = 15.sp, color = c.textDim, lineHeight = 21.sp)
+            Txt(o.url, size = 13.sp, family = Oc.mono, color = c.textDim)
+            error?.let { Txt(it, size = 14.sp, color = c.danger) }
         }
     }
 }
@@ -226,7 +273,7 @@ private fun ServerBanner(rt: RuntimeState) {
     val c = Oc.c
     val remoteId by Graph.devices.activeId.collectAsState()
     val connected by Graph.events.connected.collectAsState()
-    // Для удалённого устройства состояние локального сервера не важно; важно, дотягиваемся ли мы до него.
+    // For a remote device the local server's state doesn't matter; what matters is whether we can reach it.
     val show = if (remoteId.isNotEmpty()) !connected else rt is RuntimeState.Starting || rt is RuntimeState.Crashed || rt is RuntimeState.Stopped
     Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = 60.dp), contentAlignment = Alignment.TopCenter) {
         AnimatedVisibility(show) {
@@ -260,3 +307,4 @@ private fun ToastHost() {
         }
     }
 }
+

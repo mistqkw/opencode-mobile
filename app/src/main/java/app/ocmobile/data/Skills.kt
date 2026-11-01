@@ -11,9 +11,9 @@ import java.io.File
 import java.util.zip.ZipInputStream
 
 /**
- * Навыки — папки с SKILL.md в ~/.config/opencode/skills, тот же формат, что у Claude, ChatGPT и Codex:
- * наверху YAML с name и description, ниже инструкции. Агент сам подгружает навык, когда описание подходит,
- * или когда пользователь пишет «/имя».
+ * Skills are folders with SKILL.md in ~/.config/opencode/skills, the same format as Claude, ChatGPT and Codex:
+ * YAML with name and description at the top, instructions below. The agent loads a skill itself when the description fits,
+ * or when the user types "/name".
  */
 object Skills {
     const val DIR = "/root/.config/opencode/skills"
@@ -22,7 +22,7 @@ object Skills {
 
     fun dir(): File = Graph.paths.host(DIR)
 
-    /** Для AGENTS.md: чтобы навык можно было попросить сделать прямо в чате. */
+    /** For AGENTS.md: so a skill can be asked for right in the chat. */
     val prompt = """
 # Skills
 
@@ -45,7 +45,7 @@ Skills are folders in $DIR, one per skill, each with a SKILL.md:
         Skill(name ?: d.name, desc.orEmpty(), body, d.walkTopDown().count { it.isFile }, d)
     }?.sortedBy { it.name }.orEmpty()
 
-    /** name, description и тело из SKILL.md. Без шапки — всё тело. */
+    /** name, description and body from SKILL.md. Without a header, everything is the body. */
     fun parse(text: String): Triple<String?, String?, String> {
         val t = text.replace("\r\n", "\n").trimStart('﻿')
         if (!t.startsWith("---\n")) return Triple(null, null, t.trim())
@@ -56,7 +56,7 @@ Skills are folders in $DIR, one per skill, each with a SKILL.md:
             val lines = head.lines()
             val i = lines.indexOfFirst { it.startsWith("$k:") }.takeIf { it >= 0 } ?: return null
             var v = lines[i].substringAfter(':').trim()
-            // «description: >» и многострочные значения
+            // "description: >" and multi-line values
             if (v == ">" || v == "|" || v == ">-" || v == "|-") v = lines.drop(i + 1).takeWhile { it.startsWith(" ") }.joinToString(" ") { it.trim() }
             return v.removeSurrounding("\"").removeSurrounding("'").replace("\\\"", "\"").takeIf { it.isNotBlank() }
         }
@@ -64,8 +64,8 @@ Skills are folders in $DIR, one per skill, each with a SKILL.md:
     }
 
     /**
-     * Claude прощает в шапке «description: текст: с двоеточием», а OpenCode такой навык молча пропускает.
-     * Переписываем name и description в кавычках, остальные поля шапки и текст не трогаем.
+     * Claude tolerates "description: text: with a colon" in the header, but OpenCode silently skips such a skill.
+     * Rewrite name and description in quotes, leave the other header fields and the text alone.
      */
     fun normalize(md: File) {
         val t = runCatching { md.readText() }.getOrNull()?.replace("\r\n", "\n")?.trimStart('\uFEFF') ?: return
@@ -90,7 +90,7 @@ Skills are folders in $DIR, one per skill, each with a SKILL.md:
         if (fixed != t) md.writeText(fixed)
     }
 
-    /** Починить шапки уже лежащих навыков (импортированных раньше или скопированных руками). */
+    /** Fix the headers of skills already on disk (imported earlier or copied by hand). */
     fun repairAll(): Boolean {
         var any = false
         dir().listFiles { f -> f.isDirectory }?.forEach { d ->
@@ -107,7 +107,7 @@ Skills are folders in $DIR, one per skill, each with a SKILL.md:
     fun render(name: String, description: String, body: String): String =
         "---\nname: $name\ndescription: \"" + description.replace("\n", " ").replace("\"", "\\\"").trim() + "\"\n---\n\n" + body.trim() + "\n"
 
-    /** Сохранить навык; при переименовании папка переезжает вместе с остальными файлами. */
+    /** Save a skill; on rename the folder moves along with the other files. */
     fun save(name: String, description: String, body: String, oldName: String? = null): String {
         val n = slug(name)
         val target = File(dir(), n)
@@ -125,8 +125,8 @@ Skills are folders in $DIR, one per skill, each with a SKILL.md:
     fun delete(name: String) { File(dir(), name).takeIf { it.parentFile == dir() }?.deleteRecursively(); changed() }
 
     /**
-     * Импорт из файла: .zip / .skill (архив Claude или ChatGPT с одной или несколькими папками со SKILL.md)
-     * или отдельный .md. Возвращает имена добавленных навыков.
+     * Import from a file: .zip / .skill (a Claude or ChatGPT archive with one or more folders with SKILL.md)
+     * or a single .md. Returns the names of the added skills.
      */
     suspend fun import(ctx: Context, uri: Uri): List<String> = withContext(Dispatchers.IO) {
         val fileName = runCatching {
@@ -172,7 +172,7 @@ Skills are folders in $DIR, one per skill, each with a SKILL.md:
             target.deleteRecursively()
             entries.filterKeys { it.startsWith(prefix) }.forEach { (p, data) ->
                 val rel = p.removePrefix(prefix)
-                // вложенные навыки разложатся по своим папкам сами
+                // nested skills land in their own folders by themselves
                 if (roots.any { r -> r != root && r.startsWith(prefix) && p.startsWith("$r/") }) return@forEach
                 val out = File(target, if (rel.equals("SKILL.md", true)) "SKILL.md" else rel)
                 if (!out.canonicalPath.startsWith(target.canonicalPath + File.separator)) return@forEach
@@ -184,15 +184,15 @@ Skills are folders in $DIR, one per skill, each with a SKILL.md:
     }
 
     /**
-     * Инструкции из ChatGPT (свой GPT, «Custom instructions», проект) или из проекта Claude — в навык.
+     * Instructions from ChatGPT (a custom GPT, "Custom instructions", a project) or from a Claude project, as a skill.
      */
     fun fromInstructions(name: String, description: String, instructions: String): String =
         save(name, description.ifBlank { "Use when the user asks for ${name.replace('-', ' ')}." }, instructions)
 
-    /** Сервер читает навыки при старте экземпляра: перечитать список и меню «/». */
+    /** The server reads skills when an instance starts: reload the list and the "/" menu. */
     private fun changed() {
         Graph.scope.launch {
-            // занятый агент не трогаем — навыки подхватятся при следующем старте сервера
+            // leave a busy agent alone: skills are picked up on the next server start
             if (Graph.chats.statuses.value.values.none { it == "busy" }) runCatching { Graph.api.disposeAll() }
             runCatching { Graph.catalog.refresh() }
         }

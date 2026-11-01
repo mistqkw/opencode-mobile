@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
@@ -52,8 +53,8 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 /**
- * Живое превью того, что собирает агент: dev-сервер из окружения (localhost общий с приложением)
- * или .html-файл проекта через мост. Когда агент правит файлы — страница перезагружается сама.
+ * Live preview of what the agent builds: a dev server from the environment (localhost is shared with the app)
+ * or the project's .html file through the bridge. When the agent edits files, the page reloads by itself.
  */
 @OptIn(FlowPreview::class)
 @SuppressLint("SetJavaScriptEnabled")
@@ -68,7 +69,7 @@ fun PreviewScreen(url: String, sessionId: String?, nav: Nav) {
     var failed by remember { mutableStateOf<String?>(null) }
     var reloads by remember { mutableStateOf(0) }
 
-    // агент поправил файл — перезагрузить (с паузой, чтобы серия правок дала одну перезагрузку)
+    // the agent edited a file: reload (with a pause, so a series of edits gives one reload)
     LaunchedEffect(Unit) {
         Graph.events.events.filter { e ->
             e.type == "file.edited" || (e.type == "message.part.updated" && e.props.obj("part")?.let { p ->
@@ -79,7 +80,7 @@ fun PreviewScreen(url: String, sessionId: String?, nav: Nav) {
     BackHandler(web?.canGoBack() == true) { web?.goBack() }
     DisposableEffect(Unit) { onDispose { web?.destroy() } }
 
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("PreviewScreen1")) {
         TopBar(title, left = { IconBtn(Ic.Back, { nav.pop() }) }, right = {
             IconBtn(Ic.Refresh, { failed = null; web?.reload() })
             IconBtn(Ic.External, { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(web?.url ?: url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) })
@@ -99,7 +100,7 @@ fun PreviewScreen(url: String, sessionId: String?, nav: Nav) {
                             override fun shouldOverrideUrlLoading(view: WebView, req: WebResourceRequest): Boolean {
                                 val h = req.url.host ?: return false
                                 if (h == "127.0.0.1" || h == "localhost") return false
-                                // чужие ссылки — во внешний браузер, превью остаётся на проекте
+                                // other links go to the external browser, the preview stays on the project
                                 runCatching { cx.startActivity(Intent(Intent.ACTION_VIEW, req.url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                                 return true
                             }
@@ -115,7 +116,7 @@ fun PreviewScreen(url: String, sessionId: String?, nav: Nav) {
                 },
             )
             failed?.let { msg ->
-                Column(Modifier.fillMaxSize().background(c.bg).padding(28.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.fillMaxSize().screenBackdrop("PreviewScreen2").padding(28.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                     Txt("The page didn't open", size = 20.sp)
                     Spacer(Modifier.height(8.dp))
                     Txt(if (url.contains(":${PhoneBridge.PORT}/")) msg else "$msg\n\nIs the dev server still running? Ask OpenCode to start it again.", size = 15.sp, color = c.textDim, lineHeight = 21.sp, align = androidx.compose.ui.text.style.TextAlign.Center)
@@ -128,7 +129,7 @@ fun PreviewScreen(url: String, sessionId: String?, nav: Nav) {
             Box(Modifier.size(8.dp).clip(CircleShape).background(if (reloads > 0) c.ok else c.textDim))
             Spacer(Modifier.size(8.dp))
             Txt(if (reloads > 0) "Live · reloaded $reloads×" else "Live · reloads when OpenCode edits files", Modifier.weight(1f), size = 13.sp, color = c.textDim, maxLines = 1)
-            // одна кнопка: попросить агента выложить сайт и прислать ссылку
+            // one button: ask the agent to publish the site and send the link
             Pill("Publish", {
                 scope.launch { runCatching { Graph.chats.send(ctx, sessionId, "Publish this site to GitHub Pages (create the repo if needed) and send me the link.", emptyList()) } }
                 nav.pop()
@@ -143,7 +144,7 @@ private fun label(u: String): String {
     else "${uri.host}:${uri.port}${uri.path.orEmpty().takeIf { it != "/" }.orEmpty()}"
 }
 
-/** Что из чата можно открыть в превью: адреса dev-серверов из вывода и записанные .html-файлы. */
+/** What from the chat can be opened in the preview: dev server addresses from output and written .html files. */
 fun previewTargets(chat: app.ocmobile.data.Chat): List<Pair<String, String>> {
     val out = LinkedHashMap<String, String>()
     val re = Regex("""https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d{2,5})(/[^\s"'`)\]<>]*)?""")

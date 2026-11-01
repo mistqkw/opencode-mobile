@@ -11,8 +11,8 @@ import androidx.compose.ui.text.font.FontWeight
 import app.ocmobile.R
 
 /**
- * Вид интерфейса («редакция»). Claude, Terminal и Desktop — исходные три; остальные строятся
- * на каркасе Claude и отличаются палитрой, шрифтами, скруглениями и тем, как выглядят сообщения.
+ * Interface look ("edition"). Claude, Terminal and Desktop are the original three; the rest are built
+ * on the Claude frame and differ in palette, fonts, corner radius and how messages look.
  */
 class Look(
     val id: String,
@@ -20,28 +20,28 @@ class Look(
     val sub: String,
     val dark: OcColors,
     val light: OcColors,
-    /** Каркас экранов: claude | terminal | desktop. */
+    /** Screen frame: claude | terminal | desktop. */
     val frame: String = "claude",
-    /** Поле ввода в одну строку, модель — в верхней панели (ChatGPT, Kimi). */
+    /** One-line input, model in the top bar (ChatGPT, Kimi). */
     val compact: Boolean = false,
-    /** Сообщение пользователя: bubble | tail (как в мессенджере) | plain (подпись и текст) | card | line (рамка 1px). */
+    /** User message: bubble | tail (like a messenger) | plain (label and text) | card | line (1px border). */
     val user: String = "bubble",
-    /** Ответ: plain | bubble | card. */
+    /** Reply: plain | bubble | card. */
     val reply: String = "plain",
-    /** Множитель скругления и предел (null — без предела). */
+    /** Corner radius multiplier and cap (null means no cap). */
     val radius: Float = 1f,
     val radiusMax: Float? = null,
-    /** Скругление «таблеток»; null — круг. */
+    /** Pill radius; null means a circle. */
     val pill: Float? = null,
-    /** Цвет круглой кнопки отправки/голоса; null — цвет текста. */
+    /** Color of the round send/voice button; null means the text color. */
     val sendColor: ((OcColors) -> Color)? = null,
 )
 
 private fun v(res: Int, w: Int) = Font(res, FontWeight(w), variationSettings = FontVariation.Settings(FontVariation.weight(w)))
 
-/** Unbounded — широкий гротеск для заголовков Hairline (OFL). */
+/** Unbounded: a wide grotesque for Hairline headings (OFL). */
 val UnboundedFamily = FontFamily(v(R.font.unbounded, 400), v(R.font.unbounded, 500), v(R.font.unbounded, 600), v(R.font.unbounded, 700))
-/** JetBrains Mono — моно-подписи Hairline (OFL). */
+/** JetBrains Mono: Hairline's mono labels (OFL). */
 val JetBrainsMono = FontFamily(v(R.font.jetbrains_mono, 400), v(R.font.jetbrains_mono, 500), v(R.font.jetbrains_mono, 600), v(R.font.jetbrains_mono, 700))
 
 private fun pal(
@@ -59,7 +59,7 @@ object Looks {
     val terminal = Look("terminal", "OpenCode · Terminal", "Monospace, square corners, like the TUI", TerminalDark, TerminalLight, frame = "terminal")
     val desktop = Look("desktop", "OpenCode · Desktop", "Flat panels and Inter, like the desktop app", DesktopDark, DesktopLight, frame = "desktop")
 
-    // TexFi v4: чёрный, линии 1px, Unbounded в заголовках, один акцент #4a7dfb
+    // TexFi v4: black, 1px lines, Unbounded in headings, a single #4a7dfb accent
     val hairline = Look(
         "hairline", "Hairline", "Black, 1px lines, wide headings, one blue accent",
         pal(true, 0xFF000000, 0xFF0A0A0A, 0xFF151515, 0xFFF2F2F2, 0xFF8C8C8C, 0xFF262626, 0xFF4A7DFB, 0xFF4A7DFB, 0xFF000000, 0xFF0A0A0A, 0xFF0E1A33),
@@ -67,7 +67,7 @@ object Looks {
         user = "line", radius = 0.35f, radiusMax = 10f, pill = 8f, sendColor = { it.accent },
     )
 
-    // Записная книжка: бумага, засечки, без пузырей
+    // Notebook: paper, serifs, no bubbles
     val notebook = Look(
         "notebook", "Notebook", "Paper, serif text, no bubbles — reads like a journal",
         pal(true, 0xFF1C1A16, 0xFF25221D, 0xFF2F2B25, 0xFFEDE6D6, 0xFF9C927F, 0xFF3A352C, 0xFFD0794A, 0xFF7FA7D9, 0xFF25221D, 0xFF211E19, 0xFF2A2620),
@@ -75,7 +75,7 @@ object Looks {
         user = "plain", radius = 0.3f, radiusMax = 8f, pill = 6f, sendColor = { it.accent },
     )
 
-    // Мессенджер: пузыри с хвостиками у обеих сторон, время в пузыре
+    // Messenger: bubbles with tails on both sides, time inside the bubble
     val messenger = Look(
         "messenger", "Messenger", "Bubbles on both sides with tails, like Telegram",
         pal(true, 0xFF0E1621, 0xFF182533, 0xFF1F2B38, 0xFFF5F5F5, 0xFF7F91A4, 0xFF22303F, 0xFF5288C1, 0xFF6AB3F3, 0xFF2B5278, 0xFF0B121A, 0xFF13283F),
@@ -83,7 +83,7 @@ object Looks {
         user = "tail", reply = "bubble", sendColor = { it.accent },
     )
 
-    // Карточки: каждый ответ — отдельная карточка
+    // Cards: every reply is its own card
     val cards = Look(
         "cards", "Cards", "Every message is a card — tidy for long tasks",
         pal(true, 0xFF0F1012, 0xFF18191C, 0xFF222327, 0xFFECEDEE, 0xFF8B8D93, 0xFF2A2C31, 0xFF8B7CF6, 0xFF9D90FF, 0xFF18191C, 0xFF121316, 0xFF211C3D),
@@ -91,7 +91,7 @@ object Looks {
         user = "card", reply = "card", radius = 0.75f, sendColor = { it.accent },
     )
 
-    // ChatGPT (снято с телефона): чистый чёрный, кнопки #303030, синяя кнопка голоса, поле в одну строку
+    // ChatGPT (taken from the phone): pure black, #303030 buttons, blue voice button, one-line input
     val chatgpt = Look(
         "chatgpt", "ChatGPT", "Pure black, one-line input, blue voice button",
         pal(true, 0xFF000000, 0xFF1F1F1F, 0xFF303030, 0xFFECECEC, 0xFFAFAFAF, 0xFF3A3A3A, 0xFF3B6FF5, 0xFF5E9BFF, 0xFF303030, 0xFF171717, 0xFF132447),
@@ -99,7 +99,7 @@ object Looks {
         compact = true, sendColor = { it.accent },
     )
 
-    // Kimi (снято с телефона): графит #111, круглые кнопки #292929, голубой маскот
+    // Kimi (taken from the phone): graphite #111, round #292929 buttons, light blue mascot
     val kimi = Look(
         "kimi", "Kimi", "Graphite, round buttons, a little blue mascot",
         pal(true, 0xFF111111, 0xFF1C1C1C, 0xFF292929, 0xFFEDEDED, 0xFF9A9A9A, 0xFF2A2A2A, 0xFF3D8BFF, 0xFF5AA0FF, 0xFF292929, 0xFF181818, 0xFF102540),
@@ -107,17 +107,42 @@ object Looks {
         compact = true,
     )
 
-    val all = listOf(claude, terminal, desktop, hairline, notebook, messenger, cards, chatgpt, kimi)
-    fun of(id: String): Look = all.firstOrNull { it.id == id } ?: claude
+    // cl0udly: the Kimi frame, a pixel cloud instead of the ball, a strip of pixel clouds on top.
+    // Only black, white and a very dim blue.
+    val cloud = Look(
+        "cloud", "cl0udly", "Graphite, pixel clouds, a little cloud mascot",
+        pal(true, 0xFF0B0C0E, 0xFF141619, 0xFF1D2024, 0xFFE4E7EB, 0xFF8B9199, 0xFF25292E, 0xFF7C93AF, 0xFF97AAC2, 0xFF1D2024, 0xFF111316, 0xFF1A222C),
+        pal(false, 0xFFF7F8FA, 0xFFEEF0F3, 0xFFE4E7EB, 0xFF15171A, 0xFF7B828B, 0xFFDDE1E6, 0xFF5A7393, 0xFF5A7393, 0xFFE9ECF0, 0xFFEEF0F3, 0xFFDCE3EC),
+        compact = true,
+    )
+
+    val all = listOf(cloud, claude, terminal, desktop, hairline, notebook, messenger, cards, chatgpt, kimi)
+    fun of(id: String): Look = all.firstOrNull { it.id == id } ?: cloud
+}
+
+/** Looks on the Kimi frame: round buttons, model pill on top, mascot on the home screen. */
+val String.kimiLike: Boolean get() = this == "kimi" || this == "cloud"
+
+/**
+ * Background of a regular screen (settings, menu, lists): dim clouds for cl0udly, the background color for the rest.
+ * [variant] is the screen name: each has its own cloud layout.
+ */
+@androidx.compose.runtime.Composable
+fun androidx.compose.ui.Modifier.screenBackdrop(variant: String): androidx.compose.ui.Modifier {
+    val c = Oc.c
+    if (Oc.look.id == "cloud") return with(app.ocmobile.ui.components.CloudBackdrop) { backdrop(c.bg, c.isDark, variant, topOnly = false) }
+    return this.background(c.bg)
 }
 
 /**
- * Фон под вид. Notebook — тетрадный лист: бледные линейки и поле слева акцентной линией.
- * Остальным — просто цвет фона.
+ * Background for the look. Notebook is a notebook page: pale rules and a margin as an accent line on the left.
+ * The rest get just the background color.
  */
 @androidx.compose.runtime.Composable
-fun androidx.compose.ui.Modifier.lookBackdrop(): androidx.compose.ui.Modifier {
+fun androidx.compose.ui.Modifier.lookBackdrop(home: Boolean = false): androidx.compose.ui.Modifier {
     val c = Oc.c
+    // cl0udly: on home and in chat the clouds are only at the top, the input area stays clean
+    if (Oc.look.id == "cloud") return with(app.ocmobile.ui.components.CloudBackdrop) { backdrop(c.bg, c.isDark, if (home) "home" else "chat", topOnly = true) }
     if (Oc.look.id != "notebook") return this.background(c.bg)
     return this.background(c.bg).drawBehind {
         val step = 34.dp.toPx()

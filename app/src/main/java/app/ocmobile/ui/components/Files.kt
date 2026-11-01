@@ -63,9 +63,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Файлы, которые агент отдаёт пользователю. Агент пишет в ответе абсолютный путь (обычно ссылкой
- * `[name](/root/outbox/name.mp3)`), приложение находит такие пути внутри окружения и показывает карточки:
- * звук играет прямо в чате, видео и картинки — с превью, остальное открывается, сохраняется или отправляется.
+ * Files the agent hands to the user. The agent writes an absolute path in the reply (usually as a link
+ * `[name](/root/outbox/name.mp3)`), the app finds such paths inside the environment and shows cards:
+ * audio plays right in the chat, video and images get a preview, the rest can be opened, saved or shared.
  */
 object OutFiles {
     const val OUTBOX = "/root/outbox"
@@ -73,7 +73,7 @@ object OutFiles {
     private val tickRe = Regex("""`(/[^`\s]+)`""")
     private val lineRe = Regex("""(?m)^\s*(?:📎\s*)?(/[^\s`*]+)\s*$""")
 
-    /** Абсолютные пути из текста, которые указывают на существующие файлы в окружении. */
+    /** Absolute paths from the text that point to existing files in the environment. */
     fun find(text: String): List<File> {
         if (Graph.devices.isRemote || '/' !in text) return emptyList()
         val paths = LinkedHashSet<String>()
@@ -81,7 +81,7 @@ object OutFiles {
         return paths.mapNotNull { host(it) }.distinctBy { it.path }.take(8)
     }
 
-    /** Гостевой путь → файл на хосте, только если это обычный файл внутри окружения. */
+    /** Guest path → host file, only if it's a regular file inside the environment. */
     fun host(guest: String): File? {
         if (!guest.startsWith("/") || guest.contains("..")) return null
         val f = Graph.paths.host(guest)
@@ -106,7 +106,7 @@ object OutFiles {
         ctx.startActivity(Intent.createChooser(i, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
-    /** Копия в Загрузки/OpenCode — там её видят файловый менеджер, плеер и галерея. */
+    /** A copy in Downloads/OpenCode, where the file manager, player and gallery can see it. */
     suspend fun save(ctx: Context, f: File) = withContext(Dispatchers.IO) {
         if (Build.VERSION.SDK_INT < 29) { withContext(Dispatchers.Main) { share(ctx, f) }; return@withContext }
         val values = ContentValues().apply {
@@ -123,7 +123,7 @@ object OutFiles {
     fun human(b: Long) = app.ocmobile.data.Attachments.human(b)
 }
 
-/** Один проигрыватель на всё приложение: новый трек останавливает прежний. */
+/** One player for the whole app: a new track stops the previous one. */
 private object Player {
     var mp: MediaPlayer? = null
     var path by mutableStateOf<String?>(null)
@@ -230,7 +230,7 @@ private fun AudioCard(f: File) {
             Column(Modifier.weight(1f)) {
                 Txt(f.name, size = 15.sp, weight = FontWeight.Medium, maxLines = 1)
                 Spacer(Modifier.height(6.dp))
-                // дорожка: тап — перемотка
+                // track: tap to seek
                 Canvas(Modifier.fillMaxWidth().height(18.dp).pointerInput(f.path) {
                     detectTapGestures { o: Offset ->
                         val k = (o.x / size.width).coerceIn(0f, 1f)

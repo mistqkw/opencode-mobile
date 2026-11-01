@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.border
@@ -42,6 +43,8 @@ import app.ocmobile.ui.components.Ico
 import app.ocmobile.ui.components.IconBtn
 import app.ocmobile.ui.components.ModelSheet
 import app.ocmobile.ui.components.OcSwitch
+import app.ocmobile.ui.components.OcTextField
+import app.ocmobile.ui.components.OcDialog
 import app.ocmobile.ui.components.Pill
 import app.ocmobile.ui.components.SectionLabel
 import app.ocmobile.ui.components.SettingsGroup
@@ -83,10 +86,10 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
         else -> "Stopped"
     }
 
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("SettingsScreen1")) {
         TopBar("Settings", left = { IconBtn(Ic.Menu, onMenu) }, right = { IconBtn(Ic.Info, { nav.push(Route.About) }) }, serif = true)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
-            // Карточка аккаунта (в Messenger — профиль, как в Telegram)
+            // Account card (in Messenger, a profile like in Telegram)
             if (Oc.look.id == "messenger") Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Avatar(96.dp) { nav.push(Route.Profile) }
                 Spacer(Modifier.height(12.dp))
@@ -123,7 +126,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
                 }
             } else Spacer(Modifier.height(16.dp))
 
-            // Как в Claude: четыре коротких группы, остальное — на вложенных экранах.
+            // Like in Claude: four short groups, the rest on nested screens.
             SettingsGroup {
                 SettingsRow("Profile", icon = Ic.User, onClick = { nav.push(Route.Profile) })
                 SettingsRow("Billing", icon = Ic.Dollar, onClick = { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://opencode.ai/console")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) })
@@ -141,6 +144,8 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
                 SettingsRow("Interface", subtitle = app.ocmobile.ui.theme.Looks.of(prefs.edition).title, icon = Ic.Laptop, onClick = { nav.push(Route.Edition) })
+                // the mascot tab: only in the cl0udly look
+                if (Oc.look.id == "cloud") SettingsRow("cl0udly", subtitle = "Mascot, outfits and games", icon = Ic.Cloud, onClick = { nav.push(Route.MascotSettings) })
                 SettingsRow("Color mode", subtitle = prefs.colorMode.replaceFirstChar { it.uppercase() }, icon = Ic.Moon, onClick = { dialog = "color" })
                 SettingsRow("Font style", subtitle = if (prefs.fontStyle == "default") "Default" else "System", icon = Ic.FontSize, onClick = { nav.push(Route.Appearance) })
                 SettingsRow("Voice", subtitle = app.ocmobile.data.Speech.label(), icon = Ic.Waveform, onClick = { dialog = "voice" })
@@ -154,6 +159,10 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
                     ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
                 })
                 SettingsRow("App icon", subtitle = AppIcons.all.firstOrNull { it.id == prefs.appIcon }?.label, icon = Ic.Image, onClick = { iconSheet = true })
+            }
+            Spacer(Modifier.height(16.dp))
+            SettingsGroup {
+                SettingsRow("Report a bug", subtitle = "Opens an issue on GitHub with the details filled in", icon = Ic.Warning, onClick = { dialog = "bug" })
             }
             if (prefs.signedIn.isNotBlank()) {
                 Spacer(Modifier.height(16.dp))
@@ -171,6 +180,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
         }
     }
 
+    if (dialog == "bug") BugDialog { dialog = null }
     when (dialog) {
         "voice" -> ChoiceDialog("Speech language", app.ocmobile.data.Speech.languages.map { Triple(it.first, it.second, null) }, prefs.speechLang, { prefs.speechLang = it }) { dialog = null }
         "color" -> ChoiceDialog("Color mode", listOf(Triple("system", "System", Ic.Phone), Triple("light", "Light", Ic.Sun), Triple("dark", "Dark", Ic.Moon)), prefs.colorMode, { prefs.colorMode = it }) { dialog = null }
@@ -183,13 +193,13 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
     if (iconSheet) IconPickerSheet { iconSheet = false }
 }
 
-/** «Capabilities»: модель, память, агенты, навыки — то, что в Claude лежит в одноимённом разделе. */
+/** "Capabilities": model, memory, agents, skills, what Claude keeps in the section of the same name. */
 @Composable
 fun CapabilitiesScreen(nav: Nav) {
     val c = Oc.c
     val prefs = Graph.prefs
     var modelSheet by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("SettingsScreen2")) {
         TopBar("Capabilities", left = { IconBtn(Ic.Back, { nav.pop() }) }, serif = true)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             SettingsGroup {
@@ -200,6 +210,7 @@ fun CapabilitiesScreen(nav: Nav) {
             SettingsGroup {
                 SettingsRow("Memory", subtitle = if (prefs.memoryEnabled) "${app.ocmobile.data.Memory.shelves().size} shelves" else "Off", icon = Ic.Scroll, onClick = { nav.push(Route.Memory) })
                 SettingsRow("Agents", subtitle = prefs.agent.replaceFirstChar { it.uppercase() }, icon = Ic.Bot, onClick = { nav.push(Route.Agents) })
+                SettingsRow("Team", subtitle = when (prefs.teamMode) { "manual" -> "Your team · ${app.ocmobile.data.Team.members.size} helpers"; "auto" -> "Automatic · up to ${app.ocmobile.data.Team.max} helpers"; else -> "Off" }, icon = Ic.Users, onClick = { nav.push(Route.Team) })
                 SettingsRow("Skills", subtitle = "${app.ocmobile.data.Skills.local().size} skills · type / in a chat", icon = Ic.Scroll, onClick = { nav.push(Route.Skills) })
             }
         }
@@ -207,12 +218,12 @@ fun CapabilitiesScreen(nav: Nav) {
     if (modelSheet) ModelSheet { modelSheet = false }
 }
 
-/** «OpenCode»: сервер на телефоне, провайдеры, конфиг — как раздел Claude Code в Claude. */
+/** "OpenCode": the server on the phone, providers, config, like the Claude Code section in Claude. */
 @Composable
 fun OcSettingsScreen(nav: Nav) {
     val c = Oc.c
     val rt by Graph.runtime.state.collectAsState()
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("SettingsScreen3")) {
         TopBar("OpenCode", left = { IconBtn(Ic.Back, { nav.pop() }) }, serif = true)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             SettingsGroup {
@@ -228,13 +239,13 @@ fun OcSettingsScreen(nav: Nav) {
     }
 }
 
-/** «Font style»: шрифт, размер текста и интерфейса, код — одним экраном вместо пяти строк. */
+/** "Font style": font, text and interface size, code, one screen instead of five rows. */
 @Composable
 fun AppearanceScreen(nav: Nav) {
     val c = Oc.c
     val prefs = Graph.prefs
     var dialog by remember { mutableStateOf<String?>(null) }
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("SettingsScreen4")) {
         TopBar("Font style", left = { IconBtn(Ic.Back, { nav.pop() }) }, serif = true)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             SettingsGroup {
@@ -254,5 +265,34 @@ fun AppearanceScreen(nav: Nav) {
         "size" -> ChoiceDialog("Text size", listOf(Triple("small", "Small", null), Triple("medium", "Medium", null), Triple("large", "Large", null)), prefs.textSize, { prefs.textSize = it }) { dialog = null }
         "scale" -> ChoiceDialog("Display size", listOf(Triple("90", "Compact", null), Triple("100", "Default", null), Triple("110", "Large", null), Triple("120", "Extra large", null)), prefs.uiScale, { prefs.uiScale = it }) { dialog = null }
         "code" -> ChoiceDialog("Code font", listOf(Triple("mono", "Monospace", null), Triple("system", "System", null)), prefs.codeFont, { prefs.codeFont = it }) { dialog = null }
+    }
+}
+
+/** What happened: a couple of lines and, optionally, the tail of the server log; then GitHub opens. */
+@Composable
+private fun BugDialog(onDismiss: () -> Unit) {
+    val c = Oc.c
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var what by remember { mutableStateOf("") }
+    var withLog by remember { mutableStateOf(true) }
+    OcDialog("Report a bug", onDismiss, confirmText = "Open GitHub", onConfirm = {
+        app.ocmobile.data.BugReport.open(ctx, "Bug: " + what.trim().lineSequence().firstOrNull().orEmpty().take(70), what, withLog)
+        onDismiss()
+    }) {
+        Column {
+            Txt("What did you do, and what went wrong?", size = 15.sp, color = c.textDim)
+            Spacer(Modifier.height(10.dp))
+            OcTextField(what, { what = it }, Modifier.fillMaxWidth(), placeholder = "The chat froze after…", singleLine = false, minLines = 3)
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Txt("Attach server log", size = 15.sp)
+                    Txt("Last lines, passwords and keys removed", size = 13.sp, color = c.textDim)
+                }
+                OcSwitch(withLog) { withLog = it }
+            }
+            Spacer(Modifier.height(8.dp))
+            Txt("You'll see everything on GitHub before you send it. Needs a GitHub account.", size = 13.sp, color = c.textDim, lineHeight = 18.sp)
+        }
     }
 }

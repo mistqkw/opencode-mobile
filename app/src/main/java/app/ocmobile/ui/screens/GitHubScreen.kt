@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -58,7 +59,7 @@ import app.ocmobile.ui.theme.Oc
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 
-/** GitHub в окружении телефона: войти один раз — дальше агент работает с репозиториями от твоего имени. */
+/** GitHub in the phone environment: sign in once and the agent works with repositories as you. */
 @Composable
 fun GitHubScreen(nav: Nav) {
     val c = Oc.c
@@ -71,7 +72,7 @@ fun GitHubScreen(nav: Nav) {
     val look = Oc.look.id
     val mono = if (look == "hairline" || look == "terminal") Oc.mono else null
 
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("GitHubScreen1")) {
         TopBar("GitHub", left = { IconBtn(Ic.Back, { if (st is GitHub.State.Code) GitHub.cancel(); nav.pop() }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             if (Graph.devices.isRemote) {

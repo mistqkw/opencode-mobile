@@ -51,13 +51,13 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /*
- * «Агент работает» — у каждого вида свой характер, а не только свой цвет:
- * Terminal — спиннер TUI и секунды; Hairline — моно-подпись и бегущий отрезок по линии 1px;
- * Notebook — подпись выводится от руки с кареткой; Messenger — пузырь «печатает…»;
- * Cards — карточка-заготовка ответа; ChatGPT — пульсирующая точка; Kimi — маскот думает.
+ * "Agent is working": each look has its own character, not just its own color:
+ * Terminal: the TUI spinner and seconds; Hairline: a mono label and a segment running along a 1px line;
+ * Notebook: the label is handwritten with a caret; Messenger: a "typing…" bubble;
+ * Cards: a placeholder reply card; ChatGPT: a pulsing dot; Kimi: the mascot thinks.
  */
 
-/** Индикатор под вид; null — вид пользуется общим (значки Claude). */
+/** Indicator for the look; null means the look uses the shared one (Claude icons). */
 @Composable
 internal fun lookThinking(work: Work, modifier: Modifier): Boolean {
     when (Oc.look.id) {
@@ -68,12 +68,13 @@ internal fun lookThinking(work: Work, modifier: Modifier): Boolean {
         "cards" -> CardsThinking(work, modifier)
         "chatgpt" -> ChatGptThinking(work, modifier)
         "kimi" -> KimiThinking(work, modifier)
+        "cloud" -> CloudThinking(work, modifier)
         else -> return false
     }
     return true
 }
 
-/** Секунды с начала работы. */
+/** Seconds since work started. */
 @Composable
 private fun elapsed(): Long {
     val start = remember { System.currentTimeMillis() }
@@ -139,7 +140,7 @@ private fun NotebookThinking(work: Work, modifier: Modifier) {
     val c = Oc.c
     val text = work.label + "…"
     val t = rememberInfiniteTransition(label = "ink")
-    // 0..0.7 пишем по букве, 0.7..1 держим; каретка мигает
+    // 0..0.7 write letter by letter, 0.7..1 hold; the caret blinks
     val ph by t.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "ph")
     val caret by t.animateFloat(0f, 1f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "caret")
     val shown = ((ph / 0.7f).coerceAtMost(1f) * text.length).toInt()
@@ -151,7 +152,7 @@ private fun NotebookThinking(work: Work, modifier: Modifier) {
             },
             fontFamily = Oc.reply, fontStyle = FontStyle.Italic, fontSize = 17.sp, color = c.textDim,
         )
-        // чернильная волнистая черта растёт вместе с текстом
+        // an ink wavy rule grows along with the text
         Canvas(Modifier.width(150.dp).height(6.dp)) {
             val p = (ph / 0.7f).coerceAtMost(1f)
             val path = androidx.compose.ui.graphics.Path()
@@ -175,7 +176,7 @@ private fun MessengerThinking(work: Work, modifier: Modifier) {
         Box(Modifier.clip(TypingShape).background(c.surface).padding(start = 18.dp, end = 14.dp, top = 12.dp, bottom = 12.dp)) {
             Canvas(Modifier.width(34.dp).height(10.dp)) {
                 for (i in 0 until 3) {
-                    // волна: точка подпрыгивает и светлеет по очереди
+                    // wave: a dot hops and brightens in turn
                     val k = ((sin((ph - i * 0.18f) * 2 * PI).toFloat()) + 1f) / 2f
                     val r = size.height * 0.38f
                     val cx = r + i * (size.width - 2 * r) / 2
@@ -188,7 +189,7 @@ private fun MessengerThinking(work: Work, modifier: Modifier) {
     }
 }
 
-/** Пузырь с хвостиком слева — как у входящих в мессенджере. */
+/** A bubble with a tail on the left, like incoming messages in a messenger. */
 private val TypingShape = object : androidx.compose.ui.graphics.Shape {
     override fun createOutline(size: Size, layoutDirection: androidx.compose.ui.unit.LayoutDirection, density: androidx.compose.ui.unit.Density): androidx.compose.ui.graphics.Outline {
         val r = with(density) { 16.dp.toPx() }; val tl = with(density) { 7.dp.toPx() }
@@ -277,8 +278,8 @@ private fun KimiThinking(work: Work, modifier: Modifier) {
 }
 
 /**
- * Маскот Kimi: голубая «подушка» с глазами. Обычно моргает и смотрит по сторонам,
- * когда думает — поднимает взгляд вверх и щурится.
+ * The Kimi mascot: a light blue "cushion" with eyes. Usually blinks and looks around;
+ * when thinking it looks up and squints.
  */
 @Composable
 fun KimiMascot(modifier: Modifier, color: Color, thinking: Boolean = false) {

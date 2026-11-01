@@ -17,7 +17,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.GZIPOutputStream
 
-/** Модели разбирают настоящие ответы OpenCode 1.19.4, снятые с живого сервера. */
+/** Models parse real OpenCode 1.19.4 responses captured from a live server. */
 class ApiModelsTest {
     private fun res(n: String) = javaClass.getResource("/fx/$n")!!.readText()
 

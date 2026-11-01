@@ -3,7 +3,7 @@ package app.ocmobile.runtime
 import android.content.Context
 import java.io.File
 
-/** Где что лежит: proot из jniLibs (исполняемый), rootfs и временные файлы — в filesDir. */
+/** Where things live: proot from jniLibs (executable), rootfs and temp files in filesDir. */
 class RuntimePaths(ctx: Context) {
     val nativeDir: String = ctx.applicationInfo.nativeLibraryDir
     val proot = File(nativeDir, "libproot.so")
@@ -11,7 +11,7 @@ class RuntimePaths(ctx: Context) {
 
     private val base: File = ctx.filesDir
     val rootfs = File(base, "rootfs")
-    /** Копия libtalloc.so под именем libtalloc.so.2 — jniLibs не умеют таких имён. */
+    /** A copy of libtalloc.so named libtalloc.so.2: jniLibs can't hold such names. */
     val libDir = File(base, "lib")
     val tmp = File(base, "tmp")
     val fake = File(base, "fake")

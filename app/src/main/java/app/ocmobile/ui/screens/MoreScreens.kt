@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -83,7 +84,7 @@ fun ConnectorsScreen(nav: Nav) {
     var add by remember { mutableStateOf(false) }
     suspend fun load() { status = runCatching { Graph.api.mcpStatus() }.getOrDefault(JsonObject(emptyMap())) }
     LaunchedEffect(Unit) { load() }
-    Box(Modifier.fillMaxSize().background(c.bg)) {
+    Box(Modifier.fillMaxSize().screenBackdrop("MoreScreens1")) {
         Column(Modifier.fillMaxSize()) {
             TopBar("Connectors", left = { IconBtn(Ic.Back, { nav.pop() }) })
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 120.dp)) {
@@ -150,7 +151,7 @@ fun ServerScreen(nav: Nav) {
     var reset by remember { mutableStateOf(false) }
     var updating by remember { mutableStateOf<String?>(null) }
 
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("MoreScreens2")) {
         TopBar("Local server", left = { IconBtn(Ic.Back, { nav.pop() }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)).background(c.surface).padding(20.dp)) {
@@ -174,7 +175,7 @@ fun ServerScreen(nav: Nav) {
                 SettingsRow("Start with the app", icon = Ic.Zap, trailing = { OcSwitch(prefs.autoStartServer) { prefs.autoStartServer = it } })
                 SettingsRow("Keep CPU awake while running", icon = Ic.Server, trailing = { OcSwitch(prefs.keepAwake) { prefs.keepAwake = it } })
                 SettingsRow("Compatibility mode", subtitle = "PROOT_NO_SECCOMP — try if crashes happen on your phone", icon = Ic.Shield, trailing = { OcSwitch(prefs.noSeccomp) { prefs.noSeccomp = it } })
-                // Android 12+ убивает «лишние» дочерние процессы приложений (phantom process killer) — у proot их много
+                // Android 12+ kills "extra" child processes of apps (phantom process killer), and proot has many
                 SettingsRow("Server keeps stopping?", subtitle = "Developer options → turn on “Disable child process restrictions”", icon = Ic.Info, onClick = {
                     runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                         .onFailure { Graph.chats.toasts.tryEmit("Turn on Developer options first: tap Build number 7 times in About phone") }
@@ -243,7 +244,7 @@ fun ConfigEditorScreen(nav: Nav) {
         text = runCatching { pretty.encodeToString(JsonObject.serializer(), Graph.api.config()) }.getOrElse { "{}" }; loaded = true
     }
     LaunchedEffect(Unit) { load() }
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("MoreScreens3")) {
         TopBar("Config", left = { IconBtn(Ic.Back, { nav.pop() }) }, right = { IconBtn(Ic.Refresh, { scope.launch { load() } }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 32.dp)) {
             Txt("Everything OpenCode supports in opencode.json: models, agents, MCP, permissions, formatters, instructions, keybinds. Changes are merged and applied at once.", size = 14.sp, color = c.textDim, modifier = Modifier.padding(bottom = 12.dp), lineHeight = 20.sp)
@@ -281,7 +282,7 @@ fun ProfileScreen(nav: Nav) {
             prefs.avatarPath = f.path
         }
     }
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("MoreScreens4")) {
         TopBar("Profile", left = { IconBtn(Ic.Back, { nav.pop() }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Avatar(112.dp) { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
@@ -310,17 +311,18 @@ fun AboutScreen(nav: Nav) {
     val c = Oc.c
     val ctx = LocalContext.current
     fun open(u: String) = ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("MoreScreens5")) {
         TopBar("About", left = { IconBtn(Ic.Back, { nav.pop() }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             SettingsGroup {
                 SettingsRow("OpenCode mobile", subtitle = "v${BuildConfig.VERSION_NAME}", icon = Ic.Info)
+                if (app.ocmobile.ui.theme.Oc.look.id == "cloud") SettingsRow("cl0udly", subtitle = Graph.prefs.petCount.let { "Petted $it ${if (it == "1") "time" else "times"}" }, icon = Ic.Cloud, chevron = true, onClick = { nav.push(app.ocmobile.ui.Route.MascotSettings) })
                 SettingsRow("Source on GitHub", subtitle = "mistqkw/opencode-mobile", icon = Ic.GitHub, onClick = { open("https://github.com/mistqkw/opencode-mobile") })
                 SettingsRow("OpenCode (in container)", subtitle = Graph.prefs.opencodeVersion.ifBlank { "not installed" }, icon = Ic.Terminal)
                 SettingsRow("OpenCode documentation", icon = Ic.External, onClick = { open("https://opencode.ai/docs") })
                 SettingsRow("OpenCode Go console", icon = Ic.External, onClick = { open("https://opencode.ai/console") })
             }
-            // Обновления из релизов GitHub
+            // Updates from GitHub releases
             val upd by app.ocmobile.data.Updater.state.collectAsState()
             SettingsGroup {
                 SettingsRow(

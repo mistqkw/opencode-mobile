@@ -24,14 +24,14 @@ import app.ocmobile.data.Vault
 class OcApp : Application() {
     @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
     override fun onCreate() {
-        // своя панель над выделенным текстом (Copy / Select all / Reply / Read aloud) — через LocalTextToolbar
+        // our own toolbar over selected text (Copy / Select all / Reply / Read aloud), via LocalTextToolbar
         androidx.compose.foundation.ComposeFoundationFlags.isNewContextMenuEnabled = false
         super.onCreate()
         Graph.init(this)
     }
 }
 
-/** Единая точка сборки зависимостей — приложение маленькое, DI-фреймворк не нужен. */
+/** Single place where dependencies are wired up: the app is small, no DI framework needed. */
 object Graph {
     lateinit var app: Application
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -52,7 +52,7 @@ object Graph {
         devices = Devices(prefs)
         api = OpenCodeApi(prefs)
         runtime = RuntimeController(a, paths, prefs, api)
-        // кто уже пользовался приложением до экрана знакомства — не показываем его заново
+        // people who used the app before the welcome screen existed don't see it again
         if (!prefs.onboarded && paths.rootfsReady && prefs.loginSeen) prefs.onboarded = true
         events = EventHub(api, runtime)
         chats = ChatHub(api, events, prefs)
@@ -65,7 +65,7 @@ object Graph {
         Scheduler.load(a)
         PhoneBridge.start()
         LiveNotify.start()
-        // сервер поднялся — подключаем к нему MCP «phone» (запись в конфиге меняется, только если нужно)
+        // the server is up: connect the "phone" MCP to it (the config entry changes only when needed)
         scope.launch { runtime.state.collect { if (it is app.ocmobile.runtime.RuntimeState.Running) PhoneBridge.register() } }
         Memory.sync()
         Vault.restore()

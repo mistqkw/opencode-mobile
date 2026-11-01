@@ -56,23 +56,23 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Анимация входа: у каждого вида своя. Показывается при холодном старте поверх приложения
- * (пока поднимается сервер), по тапу пропускается. Только линии, точки и плоский цвет — без свечений.
+ * Intro animation: each look has its own. Shown on a cold start on top of the app
+ * (while the server starts), skipped with a tap. Only lines, dots and flat color, no glow.
  */
 object Intro {
-    /** Уже показали в этом процессе. */
+    /** Already shown in this process. */
     var played = false
-    /** Повторить (из настроек «Preview» и для отладки). */
+    /** Replay (from the "Preview" setting and for debugging). */
     val replay = mutableIntStateOf(0)
 }
 
-/** Отрезок времени [a, b] → 0..1 с плавным входом и выходом. */
+/** A time span [a, b] → 0..1 with a smooth start and end. */
 private fun seg(t: Float, a: Float, b: Float): Float {
     val k = ((t - a) / (b - a)).coerceIn(0f, 1f)
     return k * k * (3 - 2 * k)
 }
 
-/** Пружинка с перелётом для «выскакивания». */
+/** A spring with overshoot for "popping out". */
 private fun pop(t: Float, a: Float, b: Float): Float {
     val k = ((t - a) / (b - a)).coerceIn(0f, 1f)
     if (k == 0f) return 0f
@@ -88,19 +88,20 @@ fun IntroHost() {
     LaunchedEffect(replay) { if (replay > 0) show = true }
     if (!show) return
     val look = Oc.look.id
-    val dur = when (look) { "terminal" -> 2300; "kimi" -> 2200; "notebook" -> 2300; else -> 2000 }
+    val dur = when (look) { "terminal" -> 2300; "cloud" -> 2800; "kimi" -> 2200; "notebook" -> 2300; else -> 2000 }
     val t = remember(replay) { Animatable(0f) }
     val fade = remember(replay) { Animatable(1f) }
     LaunchedEffect(replay) {
         Intro.played = true
         t.snapTo(0f); fade.snapTo(1f)
         t.animateTo(1f, tween(dur, easing = LinearEasing))
-        fade.animateTo(0f, tween(320))
+        // cl0udly: the cloud flies over to the home screen, the exit is longer and smoother
+        fade.animateTo(0f, if (look == "cloud") tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing) else tween(320))
         show = false
     }
     val p = t.value
     Box(
-        Modifier.fillMaxSize().graphicsLayer { alpha = fade.value }
+        Modifier.fillMaxSize().graphicsLayer { alpha = if (look == "cloud") 1f else fade.value }
             .clickable(remember { MutableInteractionSource() }, null) { show = false },
     ) {
         when (look) {
@@ -108,6 +109,7 @@ fun IntroHost() {
             "desktop" -> DesktopIntro(p)
             "hairline" -> HairlineIntro(p)
             "chatgpt" -> ChatGptIntro(p)
+            "cloud" -> CloudIntro(p, exit = 1f - fade.value)
             "kimi" -> KimiIntro(p)
             "notebook" -> NotebookIntro(p)
             else -> ClaudeIntro(p)
@@ -115,7 +117,7 @@ fun IntroHost() {
     }
 }
 
-// ---------- Claude: лучи распускаются цветком, сворачиваются в знак, название проявляется по буквам ----------
+// ---------- Claude: rays bloom like a flower, fold into the mark, the name appears letter by letter ----------
 
 @Composable
 private fun ClaudeIntro(t: Float) {
@@ -130,7 +132,7 @@ private fun ClaudeIntro(t: Float) {
                 rotate(rot, Offset(cx, cy)) {
                     for (i in 0 until n) {
                         val a = i * 2 * PI.toFloat() / n
-                        // лучи разной длины, как лепестки
+                        // rays of different lengths, like petals
                         val len = size.minDimension * (if (i % 2 == 0) 0.46f else 0.34f) * grow * (1 - fold)
                         val inner = size.minDimension * 0.06f * (1 - fold)
                         if (len > inner) drawLine(
@@ -139,7 +141,7 @@ private fun ClaudeIntro(t: Float) {
                         )
                     }
                 }
-                // знак OpenCode: мягкая рамка с «окном», нижняя половина окна чуть тоньше
+                // the OpenCode mark: a soft frame with a "window", the lower half of the window a little thinner
                 val m = pop(t, 0.42f, 0.66f)
                 if (m > 0f) {
                     val w = size.minDimension * 0.42f * m; val h = w * 1.25f
@@ -156,7 +158,7 @@ private fun ClaudeIntro(t: Float) {
     }
 }
 
-/** Слово по буквам: каждая поднимается и проявляется чуть позже предыдущей. */
+/** A word letter by letter: each one rises and fades in a little after the previous. */
 @Composable
 private fun StaggerText(text: String, t: Float, a: Float, b: Float, sizeSp: Int, family: androidx.compose.ui.text.font.FontFamily, color: Color, weight: FontWeight? = null) {
     Row {
@@ -170,7 +172,7 @@ private fun StaggerText(text: String, t: Float, a: Float, b: Float, sizeSp: Int,
     }
 }
 
-// ---------- Terminal: печатаем команду, логотип TUI проявляется сканом по колонкам ----------
+// ---------- Terminal: type the command, the TUI logo appears with a column scan ----------
 
 private val tuiLeft = listOf("                   ", "█▀▀█ █▀▀█ █▀▀█ █▀▀▄", "█__█ █__█ █^^^ █__█", "▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀~~▀")
 private val tuiRight = listOf("             ▄     ", "█▀▀▀ █▀▀█ █▀▀█ █▀▀█", "█___ █__█ █__█ █^^^", "▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀")
@@ -198,7 +200,7 @@ private fun TerminalIntro(t: Float) {
             Canvas(Modifier.fillMaxWidth().height(64.dp)) {
                 val cols = tuiLeft[0].length * 2 + 1
                 val cw = size.width / cols
-                val hh = cw * 1.05f // половина клетки по высоте
+                val hh = cw * 1.05f // half a cell tall
                 val y0 = (size.height - hh * 2 * 4) / 2
                 val shadow = lerp(bg, Color(0xFF808080), 0.25f)
                 fun line(rows: List<String>, x0: Int, fg: Color) {
@@ -222,7 +224,7 @@ private fun TerminalIntro(t: Float) {
                 }
                 line(tuiLeft, 0, Color(0xFF808080))
                 line(tuiRight, tuiLeft[0].length + 1, Color(0xFFEEEEEE))
-                // курсор сканера
+                // scanner cursor
                 if (scan in 0.01f..0.99f) drawRect(Color(0xFFFAB283), Offset(scan * size.width, y0), Size(cw * 0.6f, hh * 8))
             }
             Spacer(Modifier.height(22.dp))
@@ -239,7 +241,7 @@ private fun TerminalIntro(t: Float) {
     }
 }
 
-// ---------- Desktop: официальный знак обводится линией, заливается, нижний блок поднимается ----------
+// ---------- Desktop: the official mark is traced with a line, filled, the lower block rises ----------
 
 @Composable
 private fun DesktopIntro(t: Float) {
@@ -256,7 +258,7 @@ private fun DesktopIntro(t: Float) {
                 val sw = w * 0.04f
                 drawPath(part, light, style = Stroke(sw))
                 val fill = seg(t, 0.36f, 0.52f)
-                // рамка 240×300 с окном 120×180 — пропорции официального знака
+                // a 240×300 frame with a 120×180 window: the official mark's proportions
                 if (fill > 0f) {
                     val frame = Path().apply {
                         fillType = androidx.compose.ui.graphics.PathFillType.EvenOdd
@@ -279,7 +281,7 @@ private fun DesktopIntro(t: Float) {
                 Text("Desktop", fontFamily = Oc.heading, fontSize = 26.sp, color = c.textDim)
             }
             Spacer(Modifier.height(22.dp))
-            // тонкая полоса загрузки, бегущий отрезок
+            // a thin loading bar, a running segment
             val run = seg(t, 0.7f, 0.76f)
             Canvas(Modifier.width(140.dp).height(2.dp).graphicsLayer { alpha = run }) {
                 drawRect(c.border)
@@ -290,7 +292,7 @@ private fun DesktopIntro(t: Float) {
     }
 }
 
-// ---------- Hairline: линии 1px расчерчивают экран, синий квадрат, широкий заголовок выезжает из-под линии ----------
+// ---------- Hairline: 1px lines rule the screen, a blue square, a wide heading slides out from under a line ----------
 
 @Composable
 private fun HairlineIntro(t: Float) {
@@ -299,7 +301,7 @@ private fun HairlineIntro(t: Float) {
         Canvas(Modifier.fillMaxSize()) {
             val line = c.border
             val px = 1.dp.toPx()
-            // три горизонтали и вертикаль, каждая со своей задержкой
+            // three horizontals and a vertical, each with its own delay
             listOf(0.3f, 0.5f, 0.7f).forEachIndexed { i, fy ->
                 val k = seg(t, 0.02f + i * 0.07f, 0.3f + i * 0.07f)
                 val y = size.height * fy
@@ -308,7 +310,7 @@ private fun HairlineIntro(t: Float) {
             }
             val kv = seg(t, 0.12f, 0.42f)
             drawRect(line, Offset(24.dp.toPx(), 0f), Size(px, size.height * kv))
-            // синий квадрат на пересечении
+            // blue square at the crossing
             val q = pop(t, 0.36f, 0.5f)
             val s = 10.dp.toPx() * q
             drawRect(c.accent, Offset(24.dp.toPx() - s / 2, size.height * 0.5f - s / 2), Size(s, s))
@@ -321,13 +323,13 @@ private fun HairlineIntro(t: Float) {
             RiseLine("Open", t, 0.46f, 0.64f, c.text)
             RiseLine("Code.", t, 0.56f, 0.74f, c.accent)
         }
-        // счётчик в углу, как в TexFi
+        // a counter in the corner, like in TexFi
         val pct = (seg(t, 0f, 0.92f) * 100).toInt()
         Text("%03d".format(pct), Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 40.dp), fontFamily = Oc.label, fontSize = 11.sp, color = c.textDim)
     }
 }
 
-/** Строка выезжает снизу из-под невидимой кромки. */
+/** A line slides up from under an invisible edge. */
 @Composable
 private fun RiseLine(text: String, t: Float, a: Float, b: Float, color: Color) {
     val k = seg(t, a, b)
@@ -339,7 +341,7 @@ private fun RiseLine(text: String, t: Float, a: Float, b: Float, color: Color) {
     }
 }
 
-// ---------- ChatGPT: точка дышит, раскрывается в кольцо, под ним название ----------
+// ---------- ChatGPT: a dot breathes, opens into a ring, the name below ----------
 
 @Composable
 private fun ChatGptIntro(t: Float) {
@@ -350,11 +352,11 @@ private fun ChatGptIntro(t: Float) {
                 val cx = size.width / 2; val cy = size.height / 2
                 val R = size.minDimension * 0.38f
                 val appear = pop(t, 0f, 0.16f)
-                // два вдоха
+                // two breaths
                 val breathe = if (t in 0.16f..0.5f) 1f + 0.18f * sin(((t - 0.16f) / 0.34f) * 2 * PI.toFloat() * 2).coerceAtLeast(0f) else 1f
                 val open = seg(t, 0.5f, 0.72f)
                 val dot = size.minDimension * 0.13f
-                // точка растёт в диск, диск становится кольцом
+                // the dot grows into a disc, the disc becomes a ring
                 val r = (dot + (R - dot) * open) * appear * breathe
                 val sw = size.minDimension * 0.11f
                 if (open < 1f) drawCircle(c.text, r, Offset(cx, cy), alpha = 1f - open)
@@ -368,7 +370,7 @@ private fun ChatGptIntro(t: Float) {
     }
 }
 
-// ---------- Kimi: маскот падает и пружинит, моргает, оглядывается, здоровается ----------
+// ---------- Kimi: the mascot drops and bounces, blinks, looks around, says hi ----------
 
 @Composable
 private fun KimiIntro(t: Float) {
@@ -377,20 +379,20 @@ private fun KimiIntro(t: Float) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Canvas(Modifier.size(120.dp)) {
                 val s = size.minDimension * 0.66f
-                // падение с отскоком: 0..0.22 падает, 0.22..0.42 два затухающих подскока
+                // drop with a bounce: 0..0.22 falls, 0.22..0.42 two fading hops
                 val fall = seg(t, 0f, 0.22f)
                 val bounce = if (t > 0.22f) {
                     val k = ((t - 0.22f) / 0.2f).coerceIn(0f, 1f)
                     kotlin.math.abs(sin(k * PI.toFloat() * 2)) * (1 - k) * 0.22f
                 } else 0f
                 val y = -size.height * 1.4f * (1 - fall) - s * bounce
-                // сплющивание в момент касания
+                // squash on impact
                 val hit = if (t in 0.2f..0.3f) sin(((t - 0.2f) / 0.1f) * PI.toFloat()) else 0f
                 val sx = 1f + 0.18f * hit; val sy = 1f - 0.16f * hit
                 val w = s * sx; val h = s * sy
                 val l = (size.width - w) / 2; val top = size.height - h - size.height * 0.08f + y
                 drawRoundRect(c.accent, Offset(l, top), Size(w, h), CornerRadius(w * 0.42f))
-                // глаза: моргнуть и посмотреть по сторонам
+                // eyes: blink and look to the sides
                 val blink = if (t in 0.5f..0.56f) 1f - sin(((t - 0.5f) / 0.06f) * PI.toFloat()) * 0.9f else 1f
                 val look = if (t > 0.58f) sin(((t - 0.58f) / 0.3f).coerceIn(0f, 1f) * PI.toFloat() * 2) else 0f
                 val ew = w * 0.13f; val eh = h * 0.3f * blink
@@ -407,14 +409,14 @@ private fun KimiIntro(t: Float) {
     }
 }
 
-// ---------- Notebook: название пишется от руки, перо идёт за строкой, затем волнистая черта и дата ----------
+// ---------- Notebook: the name is handwritten, a pen follows the line, then a wavy rule and the date ----------
 
 @Composable
 private fun NotebookIntro(t: Float) {
     val c = Oc.c
     Box(Modifier.fillMaxSize().background(c.bg)) {
         Canvas(Modifier.fillMaxSize()) {
-            // тетрадные линейки проявляются сверху вниз
+            // notebook rules appear from top to bottom
             val step = 34.dp.toPx()
             var y = step * 3; var i = 0
             while (y < size.height) {
@@ -449,7 +451,7 @@ private fun NotebookIntro(t: Float) {
     }
 }
 
-/** Текст открывается слева направо, на краю — перо (чернильная точка с наклонным штрихом). */
+/** Text is revealed from left to right, with a pen at the edge (an ink dot with a slanted stroke). */
 private fun Modifier.drawWithReveal(k: Float, ink: Color): Modifier = this.drawWithContent {
     val x = size.width * k
     clipRect(right = x) { this@drawWithContent.drawContent() }

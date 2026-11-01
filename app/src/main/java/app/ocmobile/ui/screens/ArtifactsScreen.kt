@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -57,10 +58,10 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonObject
 
-/** Файл, который агент создал или изменил в какой-то из сессий. */
+/** A file the agent created or changed in one of the sessions. */
 private data class Artifact(val file: String, val sessionTitle: String, val updated: Long, val adds: Long, val dels: Long, val content: String?, val patch: String?)
 
-/** Вкладка Artifacts: файлы из последних сессий (по данным diff каждой сессии). */
+/** The Artifacts tab: files from recent sessions (from each session's diff). */
 @Composable
 fun ArtifactsScreen(nav: Nav, onMenu: () -> Unit) {
     val c = Oc.c
@@ -83,7 +84,7 @@ fun ArtifactsScreen(nav: Nav, onMenu: () -> Unit) {
     }
     val list = items?.filter { query.isBlank() || it.file.contains(query, true) || it.sessionTitle.contains(query, true) }
 
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("ArtifactsScreen1")) {
         TopBar("Artifacts", left = { IconBtn(Ic.Menu, onMenu) })
         Row(
             Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(30.dp)).border(1.5.dp, c.border, Oc.round(30.dp)).padding(horizontal = 20.dp, vertical = 18.dp),

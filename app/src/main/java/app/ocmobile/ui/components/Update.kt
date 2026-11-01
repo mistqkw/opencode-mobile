@@ -41,12 +41,12 @@ import app.ocmobile.data.Updater
 import app.ocmobile.data.Updater.State
 import app.ocmobile.ui.theme.Oc
 
-/** Открыть окно обновления вручную (из «About»). */
+/** Open the update window by hand (from "About"). */
 object UpdateUi { val open = mutableStateOf(false) }
 
 /**
- * Окно «Доступно обновление»: при запуске само проверяет GitHub и, если есть новая версия,
- * показывает её с кнопкой Install — дальше загрузка с прогрессом и системный установщик.
+ * The "Update available" window: checks GitHub by itself on launch and, if there's a new version,
+ * shows it with an Install button, then a download with progress and the system installer.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,7 +61,7 @@ fun UpdateHost() {
         is State.Failed -> s.r
         else -> null
     }
-    // само по себе окно всплывает только для новой, не пропущенной и не закрытой версии
+    // the window pops up by itself only for a new version that wasn't skipped or dismissed
     val auto = r != null && r.tag != Graph.prefs.updateSkipped && r.tag != dismissed
     if (!UpdateUi.open.value && !auto) return
     if (UpdateUi.open.value && st is State.Idle) LaunchedEffect(Unit) { Updater.check() }

@@ -37,21 +37,22 @@ import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
 
 /**
- * Меню «/» над полем ввода, как в Claude: навыки и команды, фильтр по набранному.
- * Выбор подставляет «/имя », дальше можно дописать задачу.
+ * The "/" menu above the input, like in Claude: skills and commands, filtered by what's typed.
+ * Opens on a "/…" word anywhere in the text; picking puts "/name " in its place.
  */
 @Composable
 fun SlashMenu(state: ComposerState, nav: Nav) {
     val c = Oc.c
     val all by Graph.catalog.commands.collectAsState()
-    val t = state.text
-    val open = t.startsWith("/") && t.none { it == ' ' || it == '\n' }
-    val q = t.drop(1).lowercase()
+    // the "/…" word under the cursor, anywhere in the text
+    val token = state.slashToken
+    val open = token != null
+    val q = token?.second.orEmpty().lowercase()
     val items = if (open) all.filter { it.name.lowercase().contains(q) }
         .sortedWith(compareBy({ !it.name.lowercase().startsWith(q) }, { it.source != "skill" }, { it.name })) else emptyList()
     val look = Oc.look.id
     val lined = look == "hairline" || look == "terminal"
-    val shape = when (look) { "terminal" -> RectangleShape; "hairline" -> RoundedCornerShape(2.dp); "kimi" -> RoundedCornerShape(26.dp); else -> Oc.round(22.dp) }
+    val shape = when (look) { "terminal" -> RectangleShape; "hairline" -> RoundedCornerShape(2.dp); "kimi", "cloud" -> RoundedCornerShape(26.dp); else -> Oc.round(22.dp) }
     val mono = if (lined) Oc.mono else null
     AnimatedVisibility(open, enter = fadeIn(tween(120)) + expandVertically(tween(160)), exit = fadeOut(tween(90)) + shrinkVertically(tween(120))) {
         Column(
@@ -62,7 +63,7 @@ fun SlashMenu(state: ComposerState, nav: Nav) {
             if (items.isEmpty()) Txt(if (all.isEmpty()) "Loading skills…" else "No skill named /$q", Modifier.padding(horizontal = 18.dp, vertical = 12.dp), size = 15.sp, color = c.textDim, family = mono)
             items.forEach { it ->
                 Row(
-                    Modifier.fillMaxWidth().tap { state.text = "/" + it.name + " " }.padding(horizontal = 14.dp, vertical = 9.dp),
+                    Modifier.fillMaxWidth().tap { state.pickSlash(it.name) }.padding(horizontal = 14.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(Modifier.size(30.dp).clip(if (lined) shape else RoundedCornerShape(10.dp)).background(c.accent.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {

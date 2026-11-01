@@ -5,10 +5,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
-/** Одна доля контекста: что это и сколько токенов занимает. */
+/** One slice of context: what it is and how many tokens it takes. */
 data class CtxPart(val key: String, val label: String, val tokens: Long)
 
-/** Чем заполнено окно модели в этом чате, как в /context у Claude Code. */
+/** What fills the model's window in this chat, like /context in Claude Code. */
 data class ContextInfo(
     val window: Long,
     val used: Long,
@@ -26,10 +26,10 @@ data class ContextInfo(
 }
 
 /**
- * Сервер не отдаёт разбивку контекста, поэтому собираем её сами:
- * инструменты — по их описаниям и схемам с /experimental/tool, память — по AGENTS.md,
- * системный промпт — из первого ответа (его вход минус инструменты, память и первое сообщение),
- * а сообщения — всё остальное из настоящего числа токенов последнего ответа.
+ * The server doesn't give a context breakdown, so we build it ourselves:
+ * tools from their descriptions and schemas at /experimental/tool, memory from AGENTS.md,
+ * the system prompt from the first reply (its input minus tools, memory and the first message),
+ * and messages are the rest of the real token count of the last reply.
  */
 object ContextUsage {
     private val builtIn = setOf(
@@ -38,7 +38,7 @@ object ContextUsage {
     )
     private val toolCache = HashMap<String, List<Pair<String, Int>>>()
 
-    /** Инструменты модели: id и размер в символах. Кешируется на модель и папку. */
+    /** The model's tools: id and size in characters. Cached per model and folder. */
     suspend fun tools(providerId: String, modelId: String, directory: String?): List<Pair<String, Int>> {
         val key = "$providerId/$modelId@$directory"
         toolCache[key]?.let { return it }
@@ -53,14 +53,14 @@ object ContextUsage {
 
     private fun tok(chars: Int) = (chars / 4).toLong()
 
-    /** Память и правила: глобальный AGENTS.md (вместе с полками) и AGENTS.md проекта. */
+    /** Memory and rules: the global AGENTS.md (with the shelves) and the project's AGENTS.md. */
     fun memoryTokens(directory: String?): Long {
         if (Graph.devices.isRemote) return 0
         val files = listOfNotNull(Graph.paths.globalAgentsMd, directory?.let { File(Graph.paths.host(it), "AGENTS.md") })
         return files.sumOf { f -> runCatching { if (f.exists()) tok(f.length().toInt()) else 0L }.getOrDefault(0L) }
     }
 
-    /** Запас под автосжатие, как в OpenCode: 15 % окна, но не меньше 16k при окне от 32k. */
+    /** Headroom for auto-compaction, as in OpenCode: 15 % of the window, but at least 16k for windows of 32k and up. */
     fun buffer(window: Long): Long = if (window <= 0) 0 else maxOf((window * 0.15).toLong(), if (window >= 32_000) 16_000L else 0L)
 
     fun compute(messages: List<ChatMessage>, tools: List<Pair<String, Int>>, window: Long, directory: String?): ContextInfo {

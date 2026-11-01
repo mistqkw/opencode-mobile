@@ -50,7 +50,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Виды, у которых свой пустой экран вместо надписи OpenCode. */
+/** Looks that have their own empty screen instead of the OpenCode label. */
 val lookHomes = setOf("hairline", "notebook", "messenger", "cards", "chatgpt")
 
 private class Idea(val icon: androidx.compose.ui.graphics.vector.ImageVector, val title: String, val sub: String, val prompt: String)
@@ -67,7 +67,7 @@ private fun ideas(code: Boolean) = if (code) listOf(
     Idea(Ic.Code, "Code", "a small script", "Write a small script that "),
 )
 
-/** Пустой экран под вид: каждый со своим характером, по тапу на подсказку — текст в поле ввода. */
+/** Empty screen for the look: each with its own character; tapping a suggestion puts the text in the input. */
 @Composable
 fun LookHome(id: String, code: Boolean, onPick: (String) -> Unit) {
     when (id) {
@@ -79,7 +79,7 @@ fun LookHome(id: String, code: Boolean, onPick: (String) -> Unit) {
     }
 }
 
-// Hairline: моно-подпись, широкий заголовок с одним синим словом, список через линии 1px
+// Hairline: mono label, a wide heading with one blue word, a list separated by 1px lines
 @Composable
 private fun HairlineHome(code: Boolean, onPick: (String) -> Unit) {
     val c = Oc.c
@@ -106,7 +106,7 @@ private fun HairlineHome(code: Boolean, onPick: (String) -> Unit) {
     }
 }
 
-// Notebook: дата курсивом, вопрос с засечками, тонкая линейка и «строчки» подсказок
+// Notebook: date in italics, a serif question, a thin rule and suggestion "lines"
 @Composable
 private fun NotebookHome(code: Boolean, onPick: (String) -> Unit) {
     val c = Oc.c
@@ -128,7 +128,7 @@ private fun NotebookHome(code: Boolean, onPick: (String) -> Unit) {
     }
 }
 
-// Messenger: «профиль» собеседника и пустой чат с приветствиями-стикерами
+// Messenger: the other person's "profile" and an empty chat with sticker greetings
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MessengerHome(code: Boolean, onPick: (String) -> Unit) {
@@ -158,7 +158,7 @@ private fun MessengerHome(code: Boolean, onPick: (String) -> Unit) {
     }
 }
 
-// Cards: сетка 2×2 из карточек-подсказок
+// Cards: a 2×2 grid of suggestion cards
 @Composable
 private fun CardsHome(code: Boolean, onPick: (String) -> Unit) {
     val c = Oc.c
@@ -189,7 +189,7 @@ private fun CardsHome(code: Boolean, onPick: (String) -> Unit) {
     }
 }
 
-// ChatGPT: короткий вопрос по центру и чипы-подсказки
+// ChatGPT: a short question in the center and suggestion chips
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChatGptHome(code: Boolean, onPick: (String) -> Unit) {

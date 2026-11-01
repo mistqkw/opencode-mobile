@@ -1,5 +1,7 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
+import app.ocmobile.ui.theme.kimiLike
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -60,12 +62,12 @@ import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.launch
 
-/** Карточки и рамки — по образу: в Hairline и Terminal — линии на фоне, в остальных — плашки. */
+/** Cards and frames follow the look: lines on the background in Hairline and Terminal, panels in the rest. */
 @Composable
 private fun cardShape(): Shape = when (Oc.look.id) {
     "terminal" -> androidx.compose.ui.graphics.RectangleShape
     "hairline" -> androidx.compose.foundation.shape.RoundedCornerShape(2.dp)
-    "kimi" -> androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+    "kimi", "cloud" -> androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
     else -> Oc.round(20.dp)
 }
 
@@ -77,7 +79,7 @@ private fun Modifier.skillCard(): Modifier {
     return clip(shape).background(if (lined) c.bg else c.surface).then(if (lined || Oc.look.id == "notebook") Modifier.border(1.dp, c.border, shape) else Modifier)
 }
 
-/** Новый чат, в котором агент помогает собрать навык. */
+/** A new chat where the agent helps build a skill. */
 suspend fun startSkillChat(ctx: android.content.Context, about: String = ""): String {
     Graph.paths.host(CHAT_DIR).mkdirs()
     val s = Graph.chats.createSession(CHAT_DIR)
@@ -126,7 +128,7 @@ fun SkillsScreen(nav: Nav) {
     val builtIn = server.filter { it.name !in mineNames && it.location?.startsWith(Skills.dir().path) != true }
     val cmds = commands.filter { it.source == "command" }
 
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("SkillsScreen1")) {
         TopBar("Skills", left = { IconBtn(Ic.Back, { nav.pop() }) }, right = { IconBtn(Ic.Plus, { nav.push(Route.SkillEdit("")) }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             Txt(
@@ -178,7 +180,7 @@ fun SkillsScreen(nav: Nav) {
 private fun AddTile(icon: ImageVector, title: String, sub: String, modifier: Modifier, onClick: () -> Unit) {
     val c = Oc.c
     Column(modifier.height(118.dp).skillCard().tap(scale = 0.97f, onClick = onClick).padding(14.dp)) {
-        Ico(icon, tint = if (Oc.look.id == "kimi") c.text else c.accent, size = 22.dp)
+        Ico(icon, tint = if (Oc.look.id.kimiLike) c.text else c.accent, size = 22.dp)
         Spacer(Modifier.weight(1f))
         Txt(title, size = 15.sp, weight = FontWeight.Medium, maxLines = 1)
         Spacer(Modifier.height(2.dp))
@@ -240,7 +242,7 @@ private fun PasteSheet(onDismiss: () -> Unit, onSave: (String, String, String) -
     }
 }
 
-/** Просмотр и правка одного навыка. «builtin:имя» — встроенный, только чтение. */
+/** Viewing and editing a single skill. "builtin:name" is built in and read-only. */
 @Composable
 fun SkillEditScreen(arg: String, nav: Nav) {
     val c = Oc.c
@@ -263,7 +265,7 @@ fun SkillEditScreen(arg: String, nav: Nav) {
             .onFailure { Graph.chats.toasts.tryEmit(it.message ?: "Could not save") }
     }
 
-    Column(Modifier.fillMaxSize().background(c.bg).imePadding()) {
+    Column(Modifier.fillMaxSize().screenBackdrop("SkillsScreen2").imePadding()) {
         TopBar(
             if (isNew) "New skill" else "/$name",
             left = { IconBtn(Ic.Back, { nav.pop() }) },

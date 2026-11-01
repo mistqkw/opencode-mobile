@@ -23,7 +23,7 @@ import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.launch
 
-/** Лист по долгому нажатию на сессию в списках: закрепить, переименовать, в архив, удалить. */
+/** Long-press sheet for a session in lists: pin, rename, archive, delete. */
 @Composable
 fun SessionActionsSheet(s: Session, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()

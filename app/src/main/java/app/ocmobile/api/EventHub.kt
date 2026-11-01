@@ -18,18 +18,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 
-/** Одно глобальное SSE-соединение `/global/event` — события всех проектов и сессий. */
+/** One global SSE connection to `/global/event`: events of all projects and sessions. */
 class EventHub(private val api: OpenCodeApi, private val runtime: RuntimeController) {
     data class Event(val directory: String?, val type: String, val props: JsonObject)
 
     val events = MutableSharedFlow<Event>(extraBufferCapacity = 1024)
     val connected = MutableStateFlow(false)
-    /** Растёт при каждом (пере)подключении: подписчикам надо перечитать состояние. */
+    /** Grows on every (re)connect: subscribers must reload their state. */
     val generation = MutableStateFlow(0)
 
     fun start(scope: CoroutineScope) {
         scope.launch {
-            // Подключаемся к локальному серверу, когда он запущен, либо к выбранному удалённому устройству.
+            // Connect to the local server when it runs, or to the selected remote device.
             combine(runtime.state, Graph.devices.activeId) { s, d -> if (d.isNotEmpty()) "remote:$d" else if (s is RuntimeState.Running) "local" else "" }
                 .distinctUntilChanged()
                 .collectLatest { target ->

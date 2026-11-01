@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -69,7 +70,7 @@ fun ProvidersScreen(nav: Nav) {
     val available = all.filter { it.id !in connectedIds && (query.isBlank() || it.name.contains(query, true) || it.id.contains(query, true)) }
         .sortedWith(compareBy({ popular.indexOf(it.id).let { i -> if (i < 0) 999 else i } }, { it.name.lowercase() }))
 
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().screenBackdrop("ProvidersScreen1")) {
         TopBar("Providers", left = { IconBtn(Ic.Back, { nav.pop() }) })
         LazyColumn(Modifier.weight(1f).navigationBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp)) {
             item {

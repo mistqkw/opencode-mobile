@@ -13,7 +13,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.util.Calendar
 
-/** Задача по расписанию: в заданное время создаёт сессию в проекте и отправляет в неё промпт. */
+/** Scheduled task: at the given time it creates a session in the project and sends the prompt to it. */
 @Serializable
 data class ScheduledTask(
     val id: String,

@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -78,9 +79,9 @@ import kotlin.math.sin
 private enum class Talk { Idle, Listening, Thinking, Speaking }
 
 /**
- * Голосовой режим — как в Claude: экран разговора. Слушаем (SpeechRecognizer), отправляем в чат,
- * ждём ответ агента и читаем его вслух (TextToSpeech), затем снова слушаем.
- * [sessionId] = null — новый чат создаётся с первой фразой; [onClose] получает id чата, если он появился.
+ * Voice mode, like in Claude: a conversation screen. Listen (SpeechRecognizer), send to the chat,
+ * wait for the agent's reply and read it aloud (TextToSpeech), then listen again.
+ * [sessionId] = null: a new chat is created with the first phrase; [onClose] gets the chat id if one appeared.
  */
 @Composable
 fun VoiceMode(sessionId: String?, onClose: (String?) -> Unit) {
@@ -109,7 +110,7 @@ fun VoiceMode(sessionId: String?, onClose: (String?) -> Unit) {
         t.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "voice")
     }
 
-    /** Отправить фразу и дождаться ответа агента. */
+    /** Send a phrase and wait for the agent's reply. */
     fun ask(text: String) {
         talk = Talk.Thinking; caption = text
         scope.launch {
@@ -120,7 +121,7 @@ fun VoiceMode(sessionId: String?, onClose: (String?) -> Unit) {
                 runCatching { chat.load() }
                 val before = chat.messages.size
                 Graph.chats.send(ctx, id, text, emptyList())
-                // ждём, пока агент начнёт и закончит (статус сессии исчезает, когда она простаивает)
+                // wait for the agent to start and finish (the session status disappears when it's idle)
                 withTimeoutOrNull(15_000) { Graph.chats.statuses.first { it[id] != null } }
                 withTimeoutOrNull(10 * 60_000) { Graph.chats.statuses.first { it[id] == null } }
                 delay(300)
@@ -148,7 +149,7 @@ fun VoiceMode(sessionId: String?, onClose: (String?) -> Unit) {
             override fun onEndOfSpeech() { level = 0f }
             override fun onError(error: Int) {
                 level = 0f
-                // тишина или не расслышали — просто слушаем дальше
+                // silence or not understood: just keep listening
                 if (talk == Talk.Listening && (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT)) scope.launch { delay(250); listen() }
                 else if (talk == Talk.Listening) talk = Talk.Idle
             }
@@ -184,12 +185,12 @@ fun VoiceMode(sessionId: String?, onClose: (String?) -> Unit) {
     fun close() { recognizer?.cancel(); tts?.stop(); onClose(session) }
 
     Dialog(onDismissRequest = { close() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Box(Modifier.fillMaxSize().background(c.bg)) {
+        Box(Modifier.fillMaxSize().screenBackdrop("VoiceMode1")) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Spacer(Modifier.weight(1f))
                 VoiceRing(talk, level, Modifier.size(220.dp).tap(scale = 0.97f) {
                     when (talk) {
-                        Talk.Speaking -> { tts?.stop(); talk = Talk.Idle; listen() } // перебить — как в Claude
+                        Talk.Speaking -> { tts?.stop(); talk = Talk.Idle; listen() } // interrupt, like in Claude
                         Talk.Idle -> listen()
                         Talk.Listening -> recognizer?.stopListening()
                         Talk.Thinking -> {}
@@ -215,7 +216,7 @@ fun VoiceMode(sessionId: String?, onClose: (String?) -> Unit) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                     RoundBtn(if (speaker) Ic.Volume else Ic.VolumeOff, false) { speaker = !speaker; if (!speaker) tts?.stop() }
                     Spacer(Modifier.weight(1f))
-                    // микрофон: выключить/включить
+                    // microphone: off/on
                     Box(
                         Modifier.size(64.dp).clip(CircleShape).background(if (muted) c.danger.copy(alpha = .18f) else c.surfaceHigh).tap {
                             muted = !muted
@@ -241,8 +242,8 @@ private fun RoundBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, fill
 }
 
 /**
- * Кольцо из лучей — без свечений, только линии. Слушаем: лучи вытягиваются от громкости голоса;
- * думаем: по кругу бежит светлая волна; говорим: кольцо мягко «дышит» волнами.
+ * A ring of rays, no glow, only lines. Listening: rays stretch with the voice volume;
+ * thinking: a light wave runs around; speaking: the ring gently "breathes" in waves.
  */
 @Composable
 private fun VoiceRing(talk: Talk, level: Float, modifier: Modifier) {

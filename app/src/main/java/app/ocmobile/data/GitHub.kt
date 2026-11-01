@@ -17,12 +17,12 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
 /**
- * Вход в GitHub для окружения на телефоне: код устройства (как у `gh auth login --web`), потом
- * в Ubuntu ставятся git и gh, токен отдаётся gh, git настраивается на имя и noreply-почту аккаунта.
- * После этого агент клонирует, коммитит, пушит и открывает PR от имени пользователя.
+ * GitHub sign-in for the environment on the phone: a device code (like `gh auth login --web`), then
+ * git and gh are installed in Ubuntu, the token goes to gh, git is set to the account's name and noreply email.
+ * After that the agent clones, commits, pushes and opens PRs as the user.
  */
 object GitHub {
-    /** Публичный client id GitHub CLI: токен и правда достаётся gh. */
+    /** GitHub CLI's public client id: the token really does go to gh. */
     private const val CLIENT_ID = "178c6fc778ccc68e1d6a"
     private const val SCOPES = "repo read:org gist workflow"
 
@@ -63,7 +63,7 @@ object GitHub {
 
     private fun JsonObject.s(k: String) = this[k]?.jsonPrimitive?.takeIf { it.isString }?.content
 
-    /** Весь вход: код → ожидание подтверждения → настройка окружения. */
+    /** The whole sign-in: code → wait for confirmation → set up the environment. */
     suspend fun signIn() = withContext(Dispatchers.IO) {
         try {
             val dc = post("https://github.com/login/device/code", mapOf("client_id" to CLIENT_ID, "scope" to SCOPES))
@@ -74,7 +74,7 @@ object GitHub {
             state.value = State.Code(code, dc.s("verification_uri") ?: "https://github.com/login/device")
             var token: String? = null
             while (token == null) {
-                if (state.value !is State.Code) return@withContext   // отменили
+                if (state.value !is State.Code) return@withContext   // cancelled
                 if (System.currentTimeMillis() > until) error("The code expired. Try again.")
                 delay(interval * 1000L)
                 val r = post("https://github.com/login/oauth/access_token", mapOf("client_id" to CLIENT_ID, "device_code" to device, "grant_type" to "urn:ietf:params:oauth:grant-type:device_code"))
@@ -136,7 +136,7 @@ object GitHub {
         state.value = State.Idle
     }
 
-    /** Кем подписываются коммиты сейчас (из git config окружения). */
+    /** Who commits are signed by now (from the environment's git config). */
     suspend fun gitIdentity(): Pair<String, String>? {
         val out = StringBuilder()
         val rc = runCatching { Graph.runtime.runGuest(listOf("/bin/bash", "-lc", "git config --global user.name; git config --global user.email"), timeoutSec = 30) { out.appendLine(it) } }.getOrDefault(-1)

@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.theme.screenBackdrop
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -64,7 +65,7 @@ import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Провайдеры с бесплатным тарифом: вход аккаунтом на их сайте, затем ключ попадает в приложение сам. */
+/** Providers with a free tier: sign in with your account on their site, then the key reaches the app by itself. */
 class FreeProvider(val id: String, val title: String, val note: String, val url: String, val keyRegex: Regex?, val where: String)
 
 val freeProviders = listOf(
@@ -75,8 +76,8 @@ val freeProviders = listOf(
 )
 
 /**
- * Подключение провайдера без ручного копирования: GitHub — вход по коду устройства (сервер сам ждёт подтверждения),
- * остальные — вход аккаунтом на сайте, кнопка «Copy» у ключа и возврат в приложение: ключ подхватывается из буфера.
+ * Connecting a provider without manual copying: GitHub signs in with a device code (the server waits for confirmation itself),
+ * the others sign in on the site, tap "Copy" next to the key and return to the app: the key is picked up from the clipboard.
  */
 @Composable
 fun ConnectScreen(providerId: String, nav: Nav) {
@@ -86,7 +87,7 @@ fun ConnectScreen(providerId: String, nav: Nav) {
     val fp = freeProviders.firstOrNull { it.id == providerId } ?: freeProviders.first()
     var state by remember { mutableStateOf("wait") }            // wait | saving | done | error
     var error by remember { mutableStateOf<String?>(null) }
-    var code by remember { mutableStateOf<String?>(null) }       // код устройства GitHub
+    var code by remember { mutableStateOf<String?>(null) }       // GitHub device code
     var manual by remember { mutableStateOf("") }
     var handled by remember { mutableStateOf(false) }
     val device = fp.keyRegex == null
@@ -122,7 +123,7 @@ fun ConnectScreen(providerId: String, nav: Nav) {
                 code = Regex("[A-Z0-9]{4}-[A-Z0-9]{4}").find(instr)?.value ?: instr
                 val url = r.str("url") ?: "https://github.com/login/device"
                 open(url)
-                Graph.api.oauthCallback(providerId, 0, null)           // ждёт подтверждения в браузере
+                Graph.api.oauthCallback(providerId, 0, null)           // waiting for confirmation in the browser
                 runCatching { app.ocmobile.data.FreeModels.enableCopilot(select = false) }
                 done("github")
             } catch (e: Exception) { error = e.message ?: "GitHub did not confirm the sign-in"; state = "error" }
@@ -143,7 +144,7 @@ fun ConnectScreen(providerId: String, nav: Nav) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(c.bg)) {
+    Box(Modifier.fillMaxSize().screenBackdrop("ConnectScreen1")) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBtn(Ic.Close, { nav.pop() })
@@ -186,7 +187,7 @@ fun ConnectScreen(providerId: String, nav: Nav) {
             }
         }
         AnimatedVisibility(state != "wait", enter = fadeIn(tween(250))) {
-            Box(Modifier.fillMaxSize().background(c.bg), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().screenBackdrop("ConnectScreen2"), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     when (state) {
                         "saving" -> { Spinner(40.dp); Spacer(Modifier.height(20.dp)); Txt("Connecting…", size = 18.sp, color = c.textDim) }

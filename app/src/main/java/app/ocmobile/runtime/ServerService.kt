@@ -20,7 +20,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
-/** Foreground-сервис, в котором живёт процесс `opencode serve`. */
+/** Foreground service that hosts the `opencode serve` process. */
 class ServerService : Service() {
     companion object {
         const val ACTION_START = "app.ocmobile.START"

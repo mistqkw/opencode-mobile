@@ -13,7 +13,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.ByteArrayOutputStream
 
-/** Превращает выбранные файлы в части промпта: картинки уменьшаем и кладём как data: URL. */
+/** Turns picked files into prompt parts: images are scaled down and sent as data: URLs. */
 object Attachments {
     private const val MAX_EDGE = 2048
     private const val RECOMPRESS_ABOVE = 1_500_000
@@ -28,8 +28,8 @@ object Attachments {
     }
 
     /**
-     * Часть промпта для вложения. Модели принимают только то, что умеют (картинки, иногда PDF);
-     * остальное — звук, видео, архивы, любые файлы — кладём на диск окружения и говорим агенту, где оно лежит.
+     * A prompt part for an attachment. Models only take what they can (images, sometimes PDF);
+     * the rest (audio, video, archives, any files) goes onto the environment's disk and the agent is told where.
      */
     fun toPart(ctx: Context, a: Attachment): JsonObject {
         val m = app.ocmobile.Graph.catalog.model(app.ocmobile.Graph.prefs.providerId, app.ocmobile.Graph.prefs.modelId)
@@ -37,7 +37,7 @@ object Attachments {
         if (inline) return toFilePart(ctx, a)
         val bytes = ctx.contentResolver.openInputStream(a.uri)!!.use { it.readBytes() }
         if (app.ocmobile.Graph.devices.isRemote) {
-            // на чужой компьютер файл не положить: текст отправляем прямо в сообщении
+            // a file can't be put on someone else's computer: send the text right in the message
             if (!isTextLike(a.mime, a.name) || bytes.size > 256_000) throw java.io.IOException("Only images and text files can be sent to a remote device")
             return synthetic("<attached-file name=\"${a.name}\" mime=\"${a.mime}\" size=\"${bytes.size}\"/>\nContents of ${a.name}:\n```\n${String(bytes)}\n```")
         }
@@ -64,7 +64,7 @@ object Attachments {
 
     fun human(b: Long) = when { b >= 1_000_000 -> "%.1f MB".format(b / 1e6); b >= 1000 -> "%.0f KB".format(b / 1e3); else -> "$b B" }
 
-    /** Синтетическая часть с вложением → (имя, путь); null, если это не вложение. */
+    /** Synthetic part with an attachment → (name, path); null if it isn't an attachment. */
     fun parseAttached(text: String): Pair<String, String?>? {
         if (!text.startsWith("<attached-file ")) return null
         val head = text.substringBefore("/>")

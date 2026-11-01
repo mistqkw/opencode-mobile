@@ -1,6 +1,9 @@
 package app.ocmobile.ui.components
 
+import app.ocmobile.ui.theme.kimiLike
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -65,17 +68,17 @@ import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.launch
 
 /*
- * Вид Kimi — повторяет устройство приложения Kimi: круглые кнопки с обводкой в верхней панели,
- * модель выпадает карточкой сверху, «+» открывает лист с крупными плитками и строками-разделами,
- * над полем ввода — горизонтальные чипы быстрых действий.
+ * The Kimi look follows how the Kimi app is built: outlined round buttons in the top bar,
+ * the model drops down as a card from the top, "+" opens a sheet with large tiles and section rows,
+ * horizontal quick-action chips above the input.
  */
 
-val isKimi: Boolean @Composable get() = Oc.look.id == "kimi"
+val isKimi: Boolean @Composable get() = Oc.look.id.kimiLike
 
-/** Внутри верхней панели: кнопки рисуются кругами с обводкой (только в Kimi). */
+/** Inside the top bar: buttons are drawn as outlined circles (only in Kimi). */
 val LocalInTopBar = compositionLocalOf { false }
 
-/** Круглая кнопка Kimi: тёмный круг с тонкой обводкой. */
+/** Kimi round button: a dark circle with a thin outline. */
 @Composable
 fun KimiCircleBtn(icon: ImageVector, onClick: () -> Unit, size: androidx.compose.ui.unit.Dp = 48.dp, tint: Color = Oc.c.text) {
     val c = Oc.c
@@ -85,7 +88,7 @@ fun KimiCircleBtn(icon: ImageVector, onClick: () -> Unit, size: androidx.compose
     ) { Ico(icon, tint = tint, size = 22.dp) }
 }
 
-/** Пилюля модели в шапке: «OpenCode» и серым — модель, как «Kimi K2.8 Preview». */
+/** Model pill in the header: "OpenCode" and the model in grey, like "Kimi K2.8 Preview". */
 @Composable
 fun KimiModelPill(onClick: () -> Unit) {
     val c = Oc.c
@@ -97,15 +100,15 @@ fun KimiModelPill(onClick: () -> Unit) {
             .border(1.dp, c.border, CircleShape).tap(scale = 0.97f, onClick = onClick).padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Txt("OpenCode", size = 17.sp, maxLines = 1)
+        Txt("OpenCode", size = 17.sp, maxLines = 1)   // the model runs through OpenCode, so that's what we say, in any look
         Spacer(Modifier.width(7.dp))
         Txt(name.removeSuffix(" Free"), Modifier.weight(1f, fill = false), size = 17.sp, color = c.textDim, maxLines = 1)
     }
 }
 
 /**
- * Голубой шар-маскот с глазами. Живой: нажатие — подпрыгивает и улыбается,
- * если тыкать часто — злится и трясётся, потом остывает; долгое нажатие — засыпает до следующего касания.
+ * A light blue ball mascot with eyes. Alive: a tap makes it hop and smile,
+ * tapping often makes it angry and shake, then it cools down; a long press puts it to sleep until the next touch.
  */
 @Composable
 fun KimiBall(modifier: Modifier, thinking: Boolean = false) {
@@ -167,12 +170,12 @@ fun KimiBall(modifier: Modifier, thinking: Boolean = false) {
         listOf(-0.22f, 0.22f).forEach { fx ->
             val ex = cx + r * fx + (if (mood == Mood.Idle) look * r * 0.06f else 0f)
             when (mood) {
-                // радость: глаза-дуги «^ ^»
+                // joy: arched "^ ^" eyes
                 Mood.Happy -> drawArc(
                     Color.White, 205f, 130f, false, Offset(ex - ew * 0.8f, ey - ew * 0.3f), androidx.compose.ui.geometry.Size(ew * 1.6f, ew * 1.6f),
                     style = androidx.compose.ui.graphics.drawscope.Stroke(ew * 0.6f, cap = androidx.compose.ui.graphics.StrokeCap.Round),
                 )
-                // злость: верх глаза скошен к переносице
+                // anger: the top of the eye slants toward the nose
                 Mood.Angry -> {
                     val eh = r * 0.3f
                     val inner = if (fx < 0) 1 else -1
@@ -186,7 +189,7 @@ fun KimiBall(modifier: Modifier, thinking: Boolean = false) {
                     }
                     drawPath(p, Color.White)
                 }
-                // сон: закрытые глаза-чёрточки
+                // sleep: closed eyes as dashes
                 Mood.Sleep -> drawLine(Color.White, Offset(ex - ew * 0.8f, ey + ew), Offset(ex + ew * 0.8f, ey + ew), ew * 0.6f, androidx.compose.ui.graphics.StrokeCap.Round)
                 Mood.Idle -> {
                     val eh = r * 0.34f * blink
@@ -199,7 +202,7 @@ fun KimiBall(modifier: Modifier, thinking: Boolean = false) {
 
 private enum class Mood { Idle, Happy, Angry, Sleep }
 
-/** Чипы быстрых действий над полем ввода (горизонтальная прокрутка). */
+/** Quick-action chips above the input (horizontal scroll). */
 @Composable
 fun KimiQuickChips(nav: Nav, code: Boolean, onPick: (String) -> Unit) {
     val c = Oc.c
@@ -224,7 +227,7 @@ fun KimiQuickChips(nav: Nav, code: Boolean, onPick: (String) -> Unit) {
     }
 }
 
-// ---------- выбор модели: карточка выпадает сверху ----------
+// ---------- model picker: a card drops from the top ----------
 
 @Composable
 fun KimiModelPanel(onDismiss: () -> Unit, onMore: () -> Unit) {
@@ -232,6 +235,9 @@ fun KimiModelPanel(onDismiss: () -> Unit, onMore: () -> Unit) {
     val prefs = Graph.prefs
     val providers by Graph.catalog.providers.collectAsState()
     var page by remember { mutableStateOf("main") }
+    val scope = rememberCoroutineScope()
+    val agents by Graph.catalog.agents.collectAsState()
+    LaunchedEffect(Unit) { if (agents.isEmpty()) runCatching { Graph.catalog.refresh() } }
     val current = Graph.catalog.model(prefs.providerId, prefs.modelId)
     val enter = remember { Animatable(0f) }
     LaunchedEffect(Unit) { enter.animateTo(1f, tween(220, easing = FastOutSlowInEasing)) }
@@ -250,37 +256,86 @@ fun KimiModelPanel(onDismiss: () -> Unit, onMore: () -> Unit) {
                     .graphicsLayer { alpha = enter.value; translationY = (1 - enter.value) * -24.dp.toPx(); scaleY = 0.96f + 0.04f * enter.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f) }
                     .clip(RoundedCornerShape(32.dp)).background(c.surfaceHigh).border(1.dp, c.border, RoundedCornerShape(32.dp))
                     .clickable(remember { MutableInteractionSource() }, null) {}
-                    .heightIn(max = 620.dp).verticalScroll(rememberScrollState()).padding(vertical = 10.dp),
+                    .animateContentSize(tween(240, easing = FastOutSlowInEasing))
+                    .padding(vertical = 10.dp),
             ) {
-                when (page) {
-                    "effort" -> {
-                        KimiPanelRow("Default", "Let the model decide", prefs.variant.isBlank()) { prefs.variant = ""; page = "main" }
-                        current?.variantNames.orEmpty().forEach { n ->
-                            KimiPanelRow(n.replaceFirstChar { it.uppercase() }, if (n == "high" || n == "max") "Thinks longer, answers slower" else null, prefs.variant == n) { prefs.variant = n; page = "main" }
-                        }
-                    }
-                    "agent" -> Graph.catalog.agents.collectAsState().value.forEach { a ->
-                        KimiPanelRow(a.name.replaceFirstChar { it.uppercase() }, a.description, prefs.agent == a.name) { prefs.agent = a.name; page = "main" }
-                    }
-                    else -> {
-                        if (featured.isEmpty()) Txt("No connected providers yet.", Modifier.padding(24.dp), color = c.textDim)
-                        featured.forEach { (pid, m) ->
-                            val sel = prefs.providerId == pid && prefs.modelId == m.id
-                            KimiPanelRow(m.name.ifBlank { m.id }, describe(m), sel) {
-                                pickModel(pid, m)
-                                onDismiss()
+                // panel pages switch with a slide: deeper goes right to left, back goes left to right
+                androidx.compose.animation.AnimatedContent(page, label = "panel", transitionSpec = {
+                    val fwd = targetState != "main"
+                    val dir = if (fwd) 1 else -1
+                    (androidx.compose.animation.slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { it / 3 * dir } + androidx.compose.animation.fadeIn(tween(200))) togetherWith
+                        (androidx.compose.animation.slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { -it / 3 * dir } + androidx.compose.animation.fadeOut(tween(140)))
+                }) { pg ->
+                    Column {
+                        if (pg != "main") KimiBackRow(when (pg) { "effort" -> "Reasoning level"; "agent" -> "Mode"; else -> "More models" }) { page = "main" }
+                        when (pg) {
+                            "effort" -> Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState())) {
+                                KimiPanelRow("Default", "Let the model decide", prefs.variant.isBlank()) { prefs.variant = ""; page = "main" }
+                                current?.variantNames.orEmpty().forEach { n ->
+                                    KimiPanelRow(n.replaceFirstChar { it.uppercase() }, if (n == "high" || n == "max") "Thinks longer, answers slower" else null, prefs.variant == n) { prefs.variant = n; page = "main" }
+                                }
+                            }
+                            "agent" -> Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState())) {
+                                // only primary agents; until the list comes from the server, Build and Plan
+                                val list = agents.filter { it.mode != "subagent" && !it.hidden }.map { it.name to it.description }
+                                    .ifEmpty { listOf("build" to "Makes changes and runs commands", "plan" to "Reads and plans, doesn't change files") }
+                                list.forEach { (name, desc) ->
+                                    KimiPanelRow(name.replaceFirstChar { it.uppercase() }, desc, prefs.agent == name) {
+                                        prefs.agent = name
+                                        scope.launch { runCatching { Graph.api.patchConfig(kotlinx.serialization.json.buildJsonObject { put("default_agent", kotlinx.serialization.json.JsonPrimitive(name)) }) } }
+                                        page = "main"
+                                    }
+                                }
+                            }
+                            "all" -> {
+                                var query by remember { mutableStateOf("") }
+                                PickSearch(query, { query = it }, "Search models")
+                                androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 480.dp)) {
+                                    providers.forEach { p ->
+                                        val ms = p.models.values.filter { query.isBlank() || it.name.contains(query, true) || it.id.contains(query, true) }
+                                            .sortedWith(compareByDescending<ModelInfo> { it.release_date ?: "" }.thenBy { it.name })
+                                        if (ms.isNotEmpty()) {
+                                            item(key = "h-${p.id}") { Txt(p.name.ifBlank { p.id }, Modifier.padding(start = 28.dp, top = 12.dp, bottom = 4.dp), size = 14.sp, color = c.textDim) }
+                                            items(ms.size, key = { p.id + "/" + ms[it].id }) { k ->
+                                                val m = ms[k]
+                                                KimiPanelRow(m.name.ifBlank { m.id }, describe(m), prefs.providerId == p.id && prefs.modelId == m.id) { pickModel(p.id, m); onDismiss() }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else -> Column(Modifier.heightIn(max = 600.dp).verticalScroll(rememberScrollState())) {
+                                if (featured.isEmpty()) Txt("No connected providers yet.", Modifier.padding(24.dp), color = c.textDim)
+                                featured.forEach { (pid, m) ->
+                                    val sel = prefs.providerId == pid && prefs.modelId == m.id
+                                    KimiPanelRow(m.name.ifBlank { m.id }, describe(m), sel) {
+                                        pickModel(pid, m)
+                                        onDismiss()
+                                    }
+                                }
+                                KimiDivider()
+                                KimiNavRow("More models", null) { page = "all" }
+                                KimiDivider()
+                                if (current != null && current.variantNames.isNotEmpty())
+                                    KimiNavRow("Reasoning level", prefs.variant.ifBlank { "Standard" }.replaceFirstChar { it.uppercase() }) { page = "effort" }
+                                KimiNavRow("Mode", prefs.agent.replaceFirstChar { it.uppercase() }) { page = "agent" }
                             }
                         }
-                        KimiDivider()
-                        KimiNavRow("More models", null, onMore)
-                        KimiDivider()
-                        if (current != null && current.variantNames.isNotEmpty())
-                            KimiNavRow("Reasoning level", prefs.variant.ifBlank { "Standard" }.replaceFirstChar { it.uppercase() }) { page = "effort" }
-                        KimiNavRow("Mode", prefs.agent.replaceFirstChar { it.uppercase() }) { page = "agent" }
                     }
                 }
             }
         }
+    }
+}
+
+/** "Back" row on a nested panel page. */
+@Composable
+private fun KimiBackRow(title: String, onBack: () -> Unit) {
+    val c = Oc.c
+    Row(Modifier.fillMaxWidth().tap(scale = 1f, onClick = onBack).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Ico(Ic.Back, tint = c.text, size = 22.dp)
+        Spacer(Modifier.width(14.dp))
+        Txt(title, size = 19.sp, weight = FontWeight.SemiBold, maxLines = 1)
     }
 }
 
@@ -303,11 +358,13 @@ private fun KimiPanelRow(title: String, sub: String?, selected: Boolean, onClick
     }
 }
 
-/** Отметка выбранного: маленькая «луна» — освещённая половина. */
+/** Selected mark: a small "moon", the lit half. */
 @Composable
 private fun Moon(modifier: Modifier) {
     val c = Oc.c
-    Canvas(modifier) {
+    // spins very slowly: one turn every 12 seconds
+    val spin by androidx.compose.animation.core.rememberInfiniteTransition(label = "moon").animateFloat(0f, 360f, androidx.compose.animation.core.infiniteRepeatable(tween(12000, easing = androidx.compose.animation.core.LinearEasing)), label = "spin")
+    Canvas(modifier.graphicsLayer { rotationZ = spin }) {
         val r = size.minDimension / 2
         drawCircle(Color(0xFF3A3A3A), r)
         drawArc(Color(0xFFD8D8D8), -90f, 180f, true)
@@ -328,7 +385,7 @@ private fun KimiNavRow(title: String, value: String?, onClick: () -> Unit) {
 @Composable
 private fun KimiDivider() = Box(Modifier.padding(horizontal = 28.dp, vertical = 6.dp).fillMaxWidth().height(1.dp).background(Oc.c.text.copy(alpha = 0.1f)))
 
-// ---------- лист «+»: плитки и разделы ----------
+// ---------- "+" sheet: tiles and sections ----------
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -391,20 +448,24 @@ private fun KimiSheetRow(icon: ImageVector, title: String, sub: String, onClick:
     }
 }
 
-/** Пустой главный экран Kimi: шар, приветствие по имени и голубая пилюля под ним. */
+/** Kimi's empty home screen: the ball, a greeting by name and a blue pill under it. */
 @Composable
-fun KimiHero(code: Boolean, onMore: () -> Unit) {
+fun KimiHero(code: Boolean, typing: Boolean = false, onMore: () -> Unit) {
     val c = Oc.c
     val name = Graph.prefs.userName.trim().substringBefore(' ')
     Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        KimiBall(Modifier.size(88.dp))
+        if (Oc.look.id == "cloud") { if (Graph.prefs.mascotOn) PixelCloud(Modifier.size(width = 124.dp, height = 84.dp), watching = typing) }
+        else KimiBall(Modifier.size(88.dp))
         Spacer(Modifier.height(22.dp))
+        // cl0udly: a new greeting every time
+        val cloud = Oc.look.id == "cloud"
+        val hello = remember(code, cloud) { if (cloud) Greetings.pick(name, code) else null }
         Txt(
-            (if (name.isBlank()) "Hi." else "Hi, $name.") + "\n" + (if (code) "What are we building today?" else "What shall we do today?"),
+            hello ?: ((if (name.isBlank()) "Hi." else "Hi, $name.") + "\n" + (if (code) "What are we building today?" else "What shall we do today?")),
             size = 25.sp, weight = FontWeight.SemiBold, align = TextAlign.Center, lineHeight = 34.sp,
         )
         Spacer(Modifier.height(18.dp))
-        Box(Modifier.clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.7f)).tap(scale = 0.96f, onClick = onMore).padding(horizontal = 18.dp, vertical = 10.dp)) {
+        if (Oc.look.id != "cloud") Box(Modifier.clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.7f)).tap(scale = 0.96f, onClick = onMore).padding(horizontal = 18.dp, vertical = 10.dp)) {
             Txt("More models", size = 16.sp, color = c.accent, weight = FontWeight.Medium)
         }
     }

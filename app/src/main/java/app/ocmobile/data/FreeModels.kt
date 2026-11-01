@@ -5,12 +5,12 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * Запасные бесплатные пути, когда встроенные бесплатные модели Zen упираются в серверный лимит
- * (он считается на стороне Zen, сбрасывается не всегда и от клиента не зависит):
- *  - GitHub Copilot: вход уже есть, но сервер OpenCode 1.19.4 скрывает модели Copilot, если API не помечает их
- *    «model_picker_enabled», поэтому модели, которые реально отвечают на бесплатном тарифе, подключаем как свой провайдер;
- *  - Pollinations: анонимный OpenAI-совместимый шлюз, аккаунт не нужен (сообщения уходят на pollinations.ai).
- * Всё пишется в глобальный opencode.jsonc внутри окружения.
+ * Free fallback routes for when Zen's built-in free models hit the server limit
+ * (it's counted on Zen's side, doesn't always reset and doesn't depend on the client):
+ *  - GitHub Copilot: the sign-in is there, but OpenCode server 1.19.4 hides Copilot models unless the API marks them
+ *    "model_picker_enabled", so the models that really answer on the free plan are added as our own provider;
+ *  - Pollinations: an anonymous OpenAI-compatible gateway, no account needed (messages go to pollinations.ai).
+ * Everything is written to the global opencode.jsonc inside the environment.
  */
 object FreeModels {
     const val COPILOT_ID = "copilot-chat"
@@ -40,7 +40,7 @@ object FreeModels {
         (0 until arr.length()).map { arr.getString(it) }
     }.getOrDefault(emptyList())
 
-    /** Применяем через сервер: он пишет глобальный конфиг и подхватывает его сразу (правка файла руками требовала бы перезапуска). */
+    /** Applied through the server: it writes the global config and picks it up at once (editing the file by hand would need a restart). */
     private suspend fun apply(providerId: String, block: JSONObject?) {
         val disabled = disabledList().filter { it != providerId }.toMutableList()
         if (block == null) disabled.add(providerId)
@@ -49,8 +49,8 @@ object FreeModels {
         Graph.api.patchGlobalConfig(app.ocmobile.api.OcJson.parseToJsonElement(patch.toString()) as kotlinx.serialization.json.JsonObject)
     }
 
-    /** Модели Copilot, которые отвечают на бесплатном тарифе через /chat/completions. */
-    /** [select] = false — только подключить модели, не меняя выбранную (вход через GitHub не должен навязывать Copilot). */
+    /** Copilot models that answer on the free plan via /chat/completions. */
+    /** [select] = false: only add the models without changing the selected one (GitHub sign-in shouldn't force Copilot). */
     suspend fun enableCopilot(select: Boolean = true): Boolean {
         val token = copilotToken() ?: return false
         apply(

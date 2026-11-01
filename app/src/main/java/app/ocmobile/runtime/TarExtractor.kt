@@ -8,9 +8,9 @@ import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
 /**
- * Распаковка .tar.gz без внешних утилит: понимает ustar, GNU long names и pax,
- * симлинки и жёсткие ссылки. Права доступа сохраняются, но у владельца (приложения)
- * всегда остаётся доступ — иначе потом не удалить и не обновить файлы.
+ * Extracts .tar.gz without external tools: understands ustar, GNU long names and pax,
+ * symlinks and hard links. Permissions are kept, but the owner (the app) always
+ * keeps access, otherwise the files couldn't be deleted or updated later.
  */
 object TarExtractor {
     class Result(val files: Int, val skipped: Int)
@@ -106,14 +106,14 @@ object TarExtractor {
                         Os.chmod(target.path, (mode and 0x1FF) or 0x180)
                         files++
                     }
-                    else -> { skip(gz, size + pad(size)); skipped++ } // устройства, fifo
+                    else -> { skip(gz, size + pad(size)); skipped++ } // devices, fifo
                 }
 
                 val now = counting.count
                 if (now - lastReport > 256 * 1024) { lastReport = now; onProgress(now, total) }
             }
         }
-        // Права на каталоги — в конце, иначе закрытый каталог не даст положить в него файлы.
+        // Directory permissions go last, otherwise a closed directory wouldn't accept files.
         for ((dir, mode) in dirModes.asReversed()) {
             runCatching { Os.chmod(dir.path, (mode and 0x1FF) or 0x1C0) }
         }
@@ -165,7 +165,7 @@ object TarExtractor {
     }
 
     private fun octal(b: ByteArray, off: Int, len: Int): Long {
-        if (b[off].toInt() and 0x80 != 0) { // base-256 для больших значений
+        if (b[off].toInt() and 0x80 != 0) { // base-256 for large values
             var v = (b[off].toInt() and 0x7F).toLong()
             for (k in 1 until len) v = (v shl 8) or (b[off + k].toLong() and 0xFF)
             return v
