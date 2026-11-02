@@ -14,7 +14,7 @@ object AppIcons {
     // for the interface looks
     AppIcon("look_cloud", "cl0udly", "app.ocmobile.IconLookCloud", Color(0xFF232428), R.drawable.ic_fg_look_cloud),
     AppIcon("cloud_light", "cl0udly · light", "app.ocmobile.IconCloudLight", Color(0xFFF4F5F7), R.drawable.ic_fg_cloud_light),
-    AppIcon("look_claude", "Claude", "app.ocmobile.IconLookClaude", Color(0xFFD97757), R.drawable.ic_fg_look_claude),
+    AppIcon("look_claude", "Warm", "app.ocmobile.IconLookClaude", Color(0xFFD97757), R.drawable.ic_fg_look_claude),
     AppIcon("look_terminal", "OpenCode · Terminal", "app.ocmobile.IconLookTerminal", Color(0xFF0A0A0A), R.drawable.ic_fg_look_terminal),
     AppIcon("look_desktop", "OpenCode · Desktop", "app.ocmobile.IconLookDesktop", Color(0xFF1E1E1E), R.drawable.ic_fg_look_desktop),
     AppIcon("look_hairline", "Hairline", "app.ocmobile.IconLookHairline", Color(0xFF000000), R.drawable.ic_fg_look_hairline),

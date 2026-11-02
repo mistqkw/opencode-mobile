@@ -55,7 +55,7 @@ private fun pal(
 )
 
 object Looks {
-    val claude = Look("claude", "Claude", "Soft and warm, like the Claude app", DarkColors, LightColors)
+    val claude = Look("claude", "Warm", "Soft and warm, with serif replies", DarkColors, LightColors)
     val terminal = Look("terminal", "OpenCode · Terminal", "Monospace, square corners, like the TUI", TerminalDark, TerminalLight, frame = "terminal")
     val desktop = Look("desktop", "OpenCode · Desktop", "Flat panels and Inter, like the desktop app", DesktopDark, DesktopLight, frame = "desktop")
 

@@ -16,7 +16,7 @@ Current version: **v0.0.1 beta-4**. Android 8+, arm64. Unofficial client.
 
 **Team of agents.** Turn on a team in Settings → Capabilities → Team. Either define the helpers yourself (name, role, model) or let the main agent decide how many it needs and which models to use. Helpers run in parallel as OpenCode subagents, and the chat shows what each one is doing.
 
-**Live terminal and review.** The agent's work is one summary line that opens into a card of steps, like in Claude Code; each step opens to show the command and its output, the diff or the thought. Command output appears in the chat while it runs. After a task, Changes lets you keep or undo each edited file. Search looks inside messages and memory.
+**Live terminal and review.** The agent's work is one summary line that opens into a card of steps; each step opens to show the command and its output, the diff or the thought. Command output appears in the chat while it runs. After a task, Changes lets you keep or undo each edited file. Search looks inside messages and memory.
 
 **Skills.** Type `/` in the chat to pick a skill or command. Skills are regular `SKILL.md` folders, so you can import the ones you use in Claude or ChatGPT (.zip, .skill or SKILL.md), paste the instructions of a custom GPT or a Claude project, or ask the agent to write a new skill in the chat.
 
