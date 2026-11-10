@@ -47,8 +47,11 @@ class Nav {
     val stack = mutableStateListOf<Route>(Route.Home)
     init { NavMemory.restore()?.let { stack.clear(); stack.addAll(it) } }
     val current get() = stack.last()
-    /** 1 is forward, -1 back, 0 a root change: the screen animation depends on it. */
+    /** 1 is forward, -1 back, 0 a root change, 2 a plain switch, 3 none (already swiped away): the screen animation depends on it. */
     var direction = 0
+    val previous: Route? get() = stack.getOrNull(stack.lastIndex - 1)
+    /** The screen was swiped away from the left edge: go back without another animation. */
+    fun popAfterSwipe() { if (stack.size > 1) { direction = 3; stack.removeAt(stack.lastIndex); NavMemory.save(stack) } }
     fun push(r: Route) { if (current != r) { direction = 1; stack.add(r) }; NavMemory.save(stack) }
     fun pop(): Boolean {
         if (stack.size > 1) { direction = -1; stack.removeAt(stack.lastIndex); NavMemory.save(stack); return true }

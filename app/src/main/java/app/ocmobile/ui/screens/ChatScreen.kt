@@ -219,17 +219,28 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (chat.loading && chat.messages.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Spinner(32.dp) }
+                // the shape of a conversation while it loads: a short question on the right, a reply under it
+                Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
+                    Row { Spacer(Modifier.weight(0.4f)); app.ocmobile.ui.components.Skeleton(Modifier.weight(0.6f), lines = 1, height = 40.dp) }
+                    app.ocmobile.ui.components.Skeleton(lines = 4)
+                    Row { Spacer(Modifier.weight(0.5f)); app.ocmobile.ui.components.Skeleton(Modifier.weight(0.5f), lines = 1, height = 40.dp) }
+                    app.ocmobile.ui.components.Skeleton(lines = 3)
+                }
             } else {
-                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalTextToolbar provides selBar) {
-                LazyColumn(Modifier.fillMaxSize(), state = listState, verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)) {
-                    // one reply's steps arrive as separate messages: merge them into one turn, like Claude Code
-                    val turns = ArrayList<List<ChatMessage>>().apply {
-                        chat.messages.forEach { m ->
-                            val prev = lastOrNull()
-                            if (prev != null && !m.info.isUser && !prev.last().info.isUser) set(lastIndex, prev + m) else add(listOf(m))
+                // one reply's steps arrive as separate messages: merge them into one turn. Rebuilt only when
+                // messages come or go, not on every chunk of text (the text is read inside each item)
+                val turns by remember(chat) {
+                    androidx.compose.runtime.derivedStateOf {
+                        ArrayList<List<ChatMessage>>().apply {
+                            chat.messages.forEach { m ->
+                                val prev = lastOrNull()
+                                if (prev != null && !m.info.isUser && !prev.last().info.isUser) set(lastIndex, prev + m) else add(listOf(m))
+                            }
                         }
                     }
+                }
+                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalTextToolbar provides selBar) {
+                LazyColumn(Modifier.fillMaxSize(), state = listState, verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)) {
                     items(turns, key = { it.first().id }) { turn ->
                         val m = turn.last()
                         val head = turn.first()
@@ -263,12 +274,21 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
                 }
                 }
             }
-            if (!stick) {
+            // "down": by the right edge so it doesn't cover the text, a 48 dp target around a 40 dp circle
+            androidx.compose.animation.AnimatedVisibility(
+                !stick, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 8.dp),
+                enter = androidx.compose.animation.fadeIn(tween(140)) + androidx.compose.animation.scaleIn(tween(140), initialScale = 0.8f),
+                exit = androidx.compose.animation.fadeOut(tween(140)) + androidx.compose.animation.scaleOut(tween(140), targetScale = 0.8f),
+            ) {
                 Box(
-                    Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp).size(40.dp).clip(CircleShape).background(c.surfaceHigh)
-                        .border(1.dp, c.border, CircleShape).clickable { stick = true; scope.launch { listState.animateScrollToItem(chat.messages.size) } },
+                    Modifier.size(48.dp).clip(CircleShape)
+                        .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "Scroll down") { stick = true; scope.launch { listState.animateScrollToItem(chat.messages.size) } },
                     contentAlignment = Alignment.Center,
-                ) { Ico(Ic.ChevronDown, size = 22.dp) }
+                ) {
+                    Box(Modifier.size(40.dp).clip(CircleShape).background(c.surfaceHigh).border(1.dp, c.border, CircleShape), contentAlignment = Alignment.Center) {
+                        Ico(Ic.ChevronDown, size = 22.dp, contentDescription = "Scroll down")
+                    }
+                }
             }
         }
         val myPerm = perms.firstOrNull { it.sessionID == id }
@@ -356,8 +376,10 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
 /** Soft appearance of a new message: opacity and a slide from below. */
 @Composable
 private fun Appear(animate: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    val p = remember { Animatable(if (animate) 0f else 1f) }
-    LaunchedEffect(Unit) { if (animate) p.animateTo(1f, tween(130, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
+    // with animations off a new message is simply there
+    val motion = app.ocmobile.ui.theme.rememberMotionEnabled()
+    val p = remember { Animatable(if (animate && motion) 0f else 1f) }
+    LaunchedEffect(Unit) { if (animate && motion) p.animateTo(1f, tween(130, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
     Box(modifier.graphicsLayer { alpha = p.value; translationY = (1f - p.value) * 36f }) { content() }
 }
 
