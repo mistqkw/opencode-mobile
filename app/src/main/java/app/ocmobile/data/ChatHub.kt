@@ -201,6 +201,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             "session.error" -> {
                 val msg = p.obj("error")?.obj("data")?.str("message") ?: p.obj("error")?.str("name")
                 if (msg != null) toasts.tryEmit(msg)
+                app.ocmobile.ui.components.MascotSignals.outcome = app.ocmobile.ui.components.Outcome(ok = false)
             }
             else -> {
                 val sid = p.str("sessionID") ?: p.obj("info")?.str("sessionID") ?: p.obj("part")?.str("sessionID")
@@ -335,6 +336,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
 
     /** The agent finished: a light vibration in the app, a notification with the start of the reply in the background. */
     private fun finished(id: String) {
+        app.ocmobile.ui.components.MascotSignals.outcome = app.ocmobile.ui.components.Outcome(ok = true)
         if (isIncognito(id)) return
         val ctx = Graph.app
         if (foreground) {

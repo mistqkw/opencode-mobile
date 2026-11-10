@@ -49,6 +49,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
@@ -321,8 +323,13 @@ fun ComposerHost(
             // empty and idle: the voice mode button, like in Claude
             val voice = !ready && onVoice != null
             val sendBg by animateColorAsState(if (voice && sendCol != null) sendCol else if (ready && readyCol != null) readyCol else if (ready || voice) c.text else c.surfaceHigh, tween(90), label = "sendBg")
+            // stop breathes slowly while the agent works (not when motion is off)
+            val stopping = !voice && busy && !state.canSend
+            val pulse = if (stopping && app.ocmobile.ui.theme.rememberMotionEnabled())
+                androidx.compose.animation.core.rememberInfiniteTransition(label = "stop").animateFloat(1f, 0.7f, androidx.compose.animation.core.infiniteRepeatable(tween(600), androidx.compose.animation.core.RepeatMode.Reverse), label = "stopA")
+            else null
             Box(
-                Modifier.size(40.dp).clip(Oc.pill).background(sendBg)
+                Modifier.size(40.dp).graphicsLayer { alpha = pulse?.value ?: 1f }.clip(Oc.pill).background(sendBg)
                     .tap(enabled = ready || voice) { haptic(); if (voice) onVoice?.invoke() else if (busy && !state.canSend) onStop() else onSend() },
                 contentAlignment = Alignment.Center,
             ) {
@@ -563,7 +570,7 @@ fun ModelSheet(start: String = "main", onDismiss: () -> Unit) {
 }
 
 /**
- * cl0udly input: one line while idle; on focus (or with text) it grows into a card like Claude's,
+ * cl0udly input: one line while idle; on focus (or with text) it grows into a card:
  * the text on top and the buttons under it. The same four elements move, so the field keeps focus and the keyboard stays.
  */
 @Composable

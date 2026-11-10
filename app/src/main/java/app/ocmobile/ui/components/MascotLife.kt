@@ -16,7 +16,11 @@ object MascotSignals {
     var level by mutableFloatStateOf(0f)
     /** Debug build only: `--es dev_holiday halloween` shows an outfit without waiting for the date. */
     var forced by mutableStateOf<Holiday?>(null)
+    /** The agent just finished ([Outcome.ok]) or failed: the mascot on screen reacts once. */
+    var outcome by mutableStateOf<Outcome?>(null)
 }
+
+class Outcome(val ok: Boolean, val at: Long = System.currentTimeMillis())
 
 /**
  * A holiday or season: the mascot's outfit and what flies around it.

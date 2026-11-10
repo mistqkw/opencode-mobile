@@ -278,6 +278,23 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
 
     // a cue from outside (a new tour page): answers with a random reaction, like a tap
     LaunchedEffect(cue) { if (cue != null) { delay(250); tapReaction() } }
+    // the agent finished: a happy hop; an error: eyes down and a small settle
+    val outcome = MascotSignals.outcome
+    val hop = app.ocmobile.ui.theme.rememberMotionEnabled()
+    LaunchedEffect(outcome) {
+        if (outcome == null || !interactive || System.currentTimeMillis() - outcome.at > 3000) return@LaunchedEffect
+        calmJob?.cancel()
+        if (outcome.ok) {
+            mood = CloudMood.Happy
+            if (hop) { jump.animateTo(-0.22f, tween(110)); jump.animateTo(0f, tween(110)); boing(0.85f) }
+            delay(900)
+        } else {
+            mood = CloudMood.Drowsy
+            if (hop) boing(0.93f)
+            delay(1200)
+        }
+        mood = CloudMood.Idle
+    }
     // hearts float up for ~0.9 s; the clock ticks only while they exist
     LaunchedEffect(hearts.isNotEmpty()) {
         while (hearts.isNotEmpty()) {
@@ -567,7 +584,7 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
             val fall = CH * k * 1.4f
             val conf = listOf(Color(LILAC), Color(0xFFF2C94C), Color(0xFFF08DB0), Color(0xFF7FD1C7))
             val (px, py, col) = when (b.kind) {
-                'f' -> Triple(floor(x + b.x * w + kotlin.math.sin(age * 6f + b.x * 9f) * step), floor(y - CH * k * 0.5f + age * fall), Color.White.copy(alpha = 0.75f * (1f - age)))
+                'f' -> Triple(floor(x + b.x * w + kotlin.math.sin(age * 6f + b.x * 9f) * step), floor(y - CH * k * 0.5f + age * fall), (if (c.isDark) Color.White else Color(0xFF8FA8C8)).copy(alpha = 0.75f * (1f - age)))
                 'c' -> Triple(floor(x + b.x * w + kotlin.math.sin(age * 10f + b.x * 31f) * step * 1.5f), floor(y - CH * k * 0.5f + age * fall), conf[((b.x * 997).toInt() and 3)].copy(alpha = 1f - age * age))
                 'l' -> Triple(floor(x + b.x * w + kotlin.math.sin(age * 7f + b.x * 13f) * step * 2f), floor(y - CH * k * 0.4f + age * fall), Color(0xFFE09A4F).copy(alpha = 0.9f * (1f - age)))
                 'b' -> Triple(floor(x - w * 0.4f + age * w * 1.8f), floor(y - step * 4 + kotlin.math.sin(age * 12f) * step * 1.5f), GREY.copy(alpha = if (age < 0.85f) 0.9f else (1f - age) * 6f))
