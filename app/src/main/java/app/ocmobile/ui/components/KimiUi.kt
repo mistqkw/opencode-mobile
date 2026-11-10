@@ -39,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -391,6 +392,7 @@ private fun KimiDivider() = Box(Modifier.padding(horizontal = 28.dp, vertical = 
 @Composable
 fun KimiAddSheet(
     nav: Nav,
+    sessionId: String? = null,
     onDismiss: () -> Unit,
     onCamera: () -> Unit,
     onPhotos: () -> Unit,
@@ -416,6 +418,15 @@ fun KimiAddSheet(
             KimiSheetRow(Ic.Scroll, "Skills", "Reuse specialised skills to get tasks done reliably") { close { nav.push(Route.Skills) } }
             KimiSheetRow(Ic.Clock2, "Scheduled", "OpenCode runs a task on its own at the time you pick") { close { nav.root(Route.Scheduled) } }
             KimiSheetRow(Ic.Shield, "Permissions", mapOf("ask" to "Asks before every change", "edits" to "Edits files freely, asks before commands", "auto" to "Runs everything without asking")[prefs.permissionMode] ?: "") { close { nav.push(Route.PermissionsCfg) } }
+            // memory: for every chat, and for this one only
+            var memAll by remember { mutableStateOf(prefs.memoryEnabled) }
+            var memHere by remember { mutableStateOf(prefs.memoryOn(sessionId)) }
+            KimiSwitchRow(Ic.Sparkle, "Memory", if (memAll) "Remembers you between chats" else "Nothing is read or saved", memAll) {
+                memAll = it; prefs.memoryEnabled = it; memHere = prefs.memoryOn(sessionId); app.ocmobile.data.Memory.sync()
+            }
+            if (sessionId != null && memAll) KimiSwitchRow(Ic.Chat, "Memory in this chat", if (memHere) "Reads and saves notes here" else "Off for this chat only", memHere) {
+                memHere = it; Graph.chats.setChatMemory(sessionId, it)
+            }
         }
     }
 }
@@ -430,6 +441,24 @@ private fun KimiTile(label: String, icon: ImageVector, onClick: () -> Unit) {
         Ico(icon, size = 26.dp)
         Spacer(Modifier.height(10.dp))
         Txt(label, size = 16.sp, align = TextAlign.Center, maxLines = 2, lineHeight = 20.sp)
+    }
+}
+
+@Composable
+private fun KimiSwitchRow(icon: ImageVector, title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    val c = Oc.c
+    Row(
+        Modifier.fillMaxWidth().toggleable(on, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange).padding(horizontal = 26.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Ico(icon, tint = c.text, size = 24.dp)
+        Spacer(Modifier.width(18.dp))
+        Column(Modifier.weight(1f)) {
+            Txt(title, size = 18.sp, weight = FontWeight.SemiBold)
+            Txt(sub, Modifier.padding(top = 3.dp), size = 15.sp, color = c.textDim, lineHeight = 21.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        OcSwitch(on, onChange)
     }
 }
 

@@ -219,15 +219,17 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     }
 
     /** Permission rules for a session by the selected mode. "Auto" is an explicit "allow all": without it OpenCode asks about bash. */
-    fun permissionRules(mode: String = prefs.permissionMode): JsonArray? {
+    fun permissionRules(mode: String = prefs.permissionMode, sessionId: String? = null): JsonArray? {
         val base = when (mode) {
             "ask" -> listOf(rule("*", "ask"))
             "edits" -> listOf(rule("*", "allow"), rule("bash", "ask"), rule("webfetch", "ask"))
             else -> listOf(rule("*", "allow"))
         }
         // memory lives outside the project: the agent reaches it without asking (rules at the end win)
-        val mem = if (prefs.memoryEnabled) listOf("external_directory", "read", "edit").flatMap { perm ->
-            listOf("$MEMORY_DIR/*", "$MEMORY_DIR/**").map { rule(perm, "allow", it) }
+        // memory turned off for this chat: the agent can't open or change it here at all
+        val access = if (prefs.memoryOn(sessionId)) "allow" else if (prefs.memoryEnabled) "deny" else null
+        val mem = if (access != null) listOf("external_directory", "read", "edit").flatMap { perm ->
+            listOf("$MEMORY_DIR/*", "$MEMORY_DIR/**").map { rule(perm, access, it) }
         } else emptyList()
         val all = base + mem
         return if (all.isEmpty()) null else buildJsonArray { all.forEach { add(it) } }
@@ -251,11 +253,15 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     /** Sessions whose rules are already set for the current mode (when the mode changes, we set them again). */
     private val ruled = HashMap<String, String>()
 
+    /** Memory on or off for one chat; its rules are set again before the next message. */
+    fun setChatMemory(sessionId: String, on: Boolean) { prefs.setChatMemory(sessionId, on); ruled.remove(sessionId) }
+
     suspend fun send(ctx: Context, sessionId: String, text: String, atts: List<Attachment>, keepParts: List<JsonObject> = emptyList()) {
         val dir = session(sessionId)?.directory
-        if (ruled[sessionId] != prefs.permissionMode) runCatching {
-            api.setSessionPermission(sessionId, dir, permissionRules() ?: JsonArray(emptyList()))
-            ruled[sessionId] = prefs.permissionMode
+        val ruleKey = prefs.permissionMode + "/" + prefs.memoryOn(sessionId) + "/" + prefs.memoryEnabled
+        if (ruled[sessionId] != ruleKey) runCatching {
+            api.setSessionPermission(sessionId, dir, permissionRules(sessionId = sessionId) ?: JsonArray(emptyList()))
+            ruled[sessionId] = ruleKey
         }
         val localId = if (keepParts.isEmpty()) chat(sessionId).addLocalUser(text) else null
         val text = expandSlash(text)
@@ -273,7 +279,8 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             // in the cl0udly look the agent is the cl0udly cloud (Persona), unless turned off
             // anonymous chat: tell the agent not to remember anything from it
             val anon = if (isIncognito(sessionId)) "This is an anonymous chat. Do not save anything from it to memory, notes or files outside the task." else null
-            api.promptAsync(sessionId, dir, parts, prefs.providerId, prefs.modelId, prefs.agent, prefs.variant, listOfNotNull(Persona.instruction(), team, anon).joinToString("\n\n").ifBlank { null })
+            val memory = if (prefs.memoryOn(sessionId) && !Graph.devices.isRemote) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Memory.systemBlock() } else null
+            api.promptAsync(sessionId, dir, parts, prefs.providerId, prefs.modelId, prefs.agent, prefs.variant, listOfNotNull(Persona.instruction(), team, anon, memory).joinToString("\n\n").ifBlank { null })
         } catch (e: Exception) {
             localId?.let { chat(sessionId).dropLocal(it) }
             throw e

@@ -128,17 +128,22 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
     }
     // While stuck, the bottom is caught up smoothly frame by frame, not with a jump on every incoming chunk.
     LaunchedEffect(listState) {
+        var lastViewport = listState.layoutInfo.viewportEndOffset
         while (true) {
             snapshotFlow { stick && listState.canScrollForward }.first { it }
             androidx.compose.runtime.withFrameNanos { }
             val info = listState.layoutInfo
+            // the keyboard is moving and the list got shorter: follow it in the same frame, not behind it
+            val viewport = info.viewportEndOffset
+            val resized = lastViewport != 0 && viewport != lastViewport
+            lastViewport = viewport
             val seen = info.visibleItemsInfo.lastOrNull() ?: continue
             // the end is far away (opened an old chat, tapped "down"): go straight there
             if (seen.index < info.totalItemsCount - 2) { listState.scrollToItem(info.totalItemsCount - 1); continue }
             // the last chunk is still past the screen edge: catch up smoothly, not with a jump
             val gap = if (seen.index < info.totalItemsCount - 1) info.mainAxisItemSpacing + 1 else 0
             val rest = (seen.offset + seen.size + gap - (info.viewportEndOffset - info.afterContentPadding)).toFloat()
-            if (rest > 0.5f) listState.scrollBy(maxOf(2f, rest * 0.4f))
+            if (rest > 0.5f) listState.scrollBy(if (resized) rest else maxOf(2f, rest * 0.4f))
         }
     }
     // first time the chat is shown: straight to the end, without scrolling through the whole history
@@ -194,6 +199,13 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
                 val items = listOf(
                     "Rename" to { rename = true },
                     (if (id in pinned) "Unpin" else "Pin") to { Graph.prefs.togglePin(id) },
+                ) + (if (!Graph.prefs.memoryEnabled) emptyList() else listOf(
+                    (if (Graph.prefs.memoryOn(id)) "Turn off memory here" else "Turn on memory here") to {
+                        val on = !Graph.prefs.memoryOn(id)
+                        hub.setChatMemory(id, on)
+                        hub.toasts.tryEmit(if (on) "Memory is on in this chat" else "This chat won't read or save memory"); Unit
+                    },
+                )) + listOf(
                     "Changes" to { showDiff = true },
                     "Fork" to { scope.launch { runCatching { Graph.api.forkSession(id, chat.directory, null) }.getOrNull()?.let { nav.openChat(it.id) } } },
                     "Compact context" to { scope.launch { runCatching { Graph.api.summarize(id, chat.directory, Graph.prefs.providerId, Graph.prefs.modelId) } } },

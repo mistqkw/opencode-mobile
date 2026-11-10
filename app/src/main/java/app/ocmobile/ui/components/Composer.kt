@@ -50,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -160,6 +161,7 @@ fun ComposerHost(
     val sendCol = Oc.look.sendColor?.invoke(c)
     // in Messenger/Hairline/Cards/Notebook the send button is colored too; in ChatGPT/Kimi it's white, like the originals
     val readyCol = if (Oc.look.compact) null else sendCol
+    var focused by remember { mutableStateOf(false) }
 
     Column(modifier) {
     SlashMenu(state, nav)
@@ -169,7 +171,7 @@ fun ComposerHost(
     val skillColors = remember(names, c.accent) { SkillHighlight(names, c.accent) }
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
-            .animateContentSize(tween(140))
+            .then(if (look == "cloud") Modifier else Modifier.animateContentSize(tween(140)))
             .clip(if (compact) RoundedCornerShape(if (look.kimiLike) 34.dp else 28.dp) else Oc.round(30.dp))
             .background(when { compact -> c.surfaceHigh; look == "hairline" || look == "notebook" -> c.bg; else -> c.surface })
             .then(
@@ -193,7 +195,40 @@ fun ComposerHost(
                 state.attachments.toList().forEach { a -> AttachmentChip(a) { state.attachments.remove(a) } }
             }
         }
-        if (compact && !dict.active) Row(Modifier.fillMaxWidth().padding(if (look.kimiLike) 9.dp else 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (look == "cloud" && !dict.active) {
+            val ready = busy || state.canSend
+            val voice = !ready && onVoice != null
+            CloudInput(
+                expanded = focused || state.text.isNotEmpty() || state.attachments.isNotEmpty(),
+                hint = costHintText(sessionId?.let { Graph.chats.chat(it) }, state.text, state.attachments.size),
+                field = {
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (state.text.isEmpty()) Txt(placeholder, size = 17.sp, color = c.textDim, maxLines = 1)
+                        BasicTextField(
+                            value = state.input, onValueChange = { state.input = it }, visualTransformation = skillColors,
+                            textStyle = TextStyle(color = c.text, fontSize = 17.sp, fontFamily = Oc.body),
+                            cursorBrush = SolidColor(c.text), maxLines = 8,
+                            modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
+                        )
+                    }
+                },
+                plus = { IconBtn(Ic.Plus, { haptic(); state.showAdd = true }, size = 44.dp, bg = c.text.copy(alpha = 0.08f)) },
+                mic = { IconBtn(Ic.Mic, { haptic(); startDict() }, size = 44.dp, tint = c.text) },
+                send = {
+                    val bg by animateColorAsState(if (ready) readyCol ?: c.text else if (voice) sendCol ?: c.border else c.border, tween(90), label = "sendBg")
+                    Box(
+                        Modifier.size(44.dp).clip(CircleShape).background(bg)
+                            .tap(enabled = ready || voice) { haptic(); if (voice) onVoice?.invoke() else if (busy && !state.canSend) onStop() else onSend() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        androidx.compose.animation.AnimatedContent(
+                            if (voice) 2 else if (busy && !state.canSend) 1 else 0, label = "sendIcon",
+                            transitionSpec = { (androidx.compose.animation.fadeIn(tween(90)) + androidx.compose.animation.scaleIn(tween(140), 0.8f)) togetherWith androidx.compose.animation.fadeOut(tween(60)) },
+                        ) { k -> Ico(when (k) { 2 -> Ic.Waveform; 1 -> Ic.Stop; else -> Ic.ArrowUp }, tint = if (ready) (if (readyCol != null) androidx.compose.ui.graphics.Color.White else c.bg) else if (voice && sendCol != null) androidx.compose.ui.graphics.Color.White else c.text, size = 20.dp) }
+                    }
+                },
+            )
+        } else if (compact && !dict.active) Row(Modifier.fillMaxWidth().padding(if (look.kimiLike) 9.dp else 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconBtn(Ic.Plus, { haptic(); state.showAdd = true }, size = 44.dp, bg = if (look.kimiLike) c.text.copy(alpha = 0.08f) else androidx.compose.ui.graphics.Color.Transparent)
             Box(Modifier.weight(1f).padding(horizontal = 8.dp).heightIn(min = 24.dp, max = 160.dp), contentAlignment = Alignment.CenterStart) {
                 if (state.text.isEmpty()) Txt(placeholder, size = 17.sp, color = c.textDim, maxLines = 1)
@@ -301,12 +336,14 @@ fun ComposerHost(
     }
 
     // message price before sending
-    if (!dict.active) CostHint(sessionId?.let { Graph.chats.chat(it) }, state.text, state.attachments.size)
+    // cl0udly shows it inside the input, so the input doesn't jump up when typing starts
+    if (!dict.active && look != "cloud") CostHint(sessionId?.let { Graph.chats.chat(it) }, state.text, state.attachments.size)
     }
 
     if (state.showAdd && look.kimiLike) {
         KimiAddSheet(
             nav = nav,
+            sessionId = sessionId,
             onDismiss = { state.showAdd = false },
             onCamera = {
                 val f = File(ctx.cacheDir, "camera").apply { mkdirs() }.let { File(it, "cam-${System.currentTimeMillis()}.jpg") }
@@ -393,7 +430,7 @@ private fun AddSheet(
                             if (sessionId != null) scope.launch {
                                 runCatching {
                                     Graph.api.setSessionPermission(sessionId, Graph.chats.session(sessionId)?.directory,
-                                        Graph.chats.permissionRules(k) ?: kotlinx.serialization.json.JsonArray(emptyList()))
+                                        Graph.chats.permissionRules(k, sessionId) ?: kotlinx.serialization.json.JsonArray(emptyList()))
                                 }
                             }
                             page = "main"
@@ -521,6 +558,57 @@ fun ModelSheet(start: String = "main", onDismiss: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * cl0udly input: one line while idle; on focus (or with text) it grows into a card like Claude's,
+ * the text on top and the buttons under it. The same four elements move, so the field keeps focus and the keyboard stays.
+ */
+@Composable
+private fun CloudInput(
+    expanded: Boolean,
+    hint: String?,
+    field: @Composable () -> Unit,
+    plus: @Composable () -> Unit,
+    mic: @Composable () -> Unit,
+    send: @Composable () -> Unit,
+) {
+    val c = Oc.c
+    val t = androidx.compose.animation.core.animateFloatAsState(
+        if (expanded) 1f else 0f, tween(210, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "inputMorph",
+    )
+    // the price fades with the card and keeps its last text while it fades out
+    var lastHint by remember { mutableStateOf("") }
+    if (hint != null) lastHint = hint
+    androidx.compose.ui.layout.Layout(
+        contents = listOf(field, plus, mic, send, { Txt(lastHint, size = 12.sp, color = c.textDim, maxLines = 1) }),
+        modifier = Modifier.fillMaxWidth(),
+    ) { (fieldM, plusM, micM, sendM, hintM), cons ->
+        val p = t.value
+        fun lerp(a: Float, b: Float) = a + (b - a) * p
+        val w = cons.maxWidth
+        val pad = 9.dp.toPx(); val btn = 44.dp.toPx()
+        val sendX = w - pad - btn
+        val micX = sendX - 4.dp.toPx() - btn
+        // one line: between plus and mic; card: across the top
+        val fieldX = lerp(pad + btn + 8.dp.toPx(), 20.dp.toPx())
+        val fieldW = lerp(micX - 8.dp.toPx() - (pad + btn + 8.dp.toPx()), w - 40.dp.toPx()).toInt().coerceAtLeast(0)
+        val f = fieldM.first().measure(androidx.compose.ui.unit.Constraints(minWidth = fieldW, maxWidth = fieldW, minHeight = 24.dp.roundToPx()))
+        val lineH = btn + pad * 2
+        val rowY = 16.dp.toPx() + f.height + 6.dp.toPx()
+        val h = lerp(maxOf(lineH, f.height + pad * 2), rowY + btn + pad)
+        val btnY = lerp((h - btn) / 2f, rowY)
+        val fieldY = lerp((lineH - f.height) / 2f, 16.dp.toPx())
+        val bc = androidx.compose.ui.unit.Constraints.fixed(btn.toInt(), btn.toInt())
+        val pl = plusM.first().measure(bc); val mi = micM.first().measure(bc); val se = sendM.first().measure(bc)
+        val hintX = pad + btn + 12.dp.toPx()
+        val hi = hintM.first().measure(androidx.compose.ui.unit.Constraints(maxWidth = (micX - 12.dp.toPx() - hintX).toInt().coerceAtLeast(0)))
+        layout(w, h.toInt()) {
+            f.place(fieldX.toInt(), fieldY.toInt())
+            pl.place(pad.toInt(), btnY.toInt()); mi.place(micX.toInt(), btnY.toInt()); se.place(sendX.toInt(), btnY.toInt())
+            if (p > 0f) hi.placeWithLayer(hintX.toInt(), (btnY + (btn - hi.height) / 2f).toInt()) { alpha = if (hint != null) p else 0f }
         }
     }
 }

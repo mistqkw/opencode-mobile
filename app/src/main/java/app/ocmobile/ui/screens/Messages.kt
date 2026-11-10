@@ -665,6 +665,8 @@ private fun QuestionResult(input: JsonObject?, state: JsonObject?) {
  * Text that arrives in chunks is typed out evenly: the shown part catches up with what arrived
  * within ~0.15 s, however much came at once. Finished text (history) is shown at once,
  * a new reply ([live]) is typed from the first letter.
+ * Words come out whole: a half-typed word never jumps to the next line, and the reply is laid out
+ * once per word instead of on every frame.
  */
 @Composable
 private fun smoothText(target: String, live: Boolean): String {
@@ -688,5 +690,15 @@ private fun smoothText(target: String, live: Boolean): String {
             if (n > 0) { acc -= n; shown = minOf(latest.value.length, shown + n) }
         }
     }
-    return if (shown >= target.length) target else target.substring(0, shown)
+    val words by remember {
+        androidx.compose.runtime.derivedStateOf {
+            val t = latest.value
+            if (shown >= t.length) t else {
+                var e = shown
+                while (e < t.length && !t[e].isWhitespace()) e++
+                t.substring(0, e)
+            }
+        }
+    }
+    return words
 }

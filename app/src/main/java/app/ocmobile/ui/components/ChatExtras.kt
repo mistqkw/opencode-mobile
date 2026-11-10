@@ -114,11 +114,23 @@ fun PreviewChips(chat: Chat, id: String, nav: Nav) {
  */
 @Composable
 fun CostHint(chat: Chat?, text: String, attachments: Int) {
-    val prefs = Graph.prefs
-    if (!prefs.costHint || text.isBlank()) return
+    val hint = costHintText(chat, text, attachments) ?: return
     val c = Oc.c
     val look = Oc.look.id
-    val m = Graph.catalog.model(prefs.providerId, prefs.modelId) ?: return
+    val mod = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 2.dp)
+    when (look) {
+        "hairline" -> Txt(hint.uppercase(), mod, size = 10.sp, color = c.textDim, family = Oc.label, align = androidx.compose.ui.text.style.TextAlign.End)
+        "terminal" -> Txt("~ " + hint.removePrefix("≈ "), mod, size = 12.sp, color = c.textDim, family = Oc.mono, align = androidx.compose.ui.text.style.TextAlign.End)
+        "notebook" -> androidx.compose.material3.Text(hint, mod, fontSize = 13.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = FontStyle.Italic, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+        else -> Txt(hint, mod, size = 12.sp, color = c.textDim, align = androidx.compose.ui.text.style.TextAlign.End)
+    }
+}
+
+/** The price of the message being typed ("Free model", "≈ $0.02 · 1.3% of 5h"), or null when there's nothing to show. */
+fun costHintText(chat: Chat?, text: String, attachments: Int): String? {
+    val prefs = Graph.prefs
+    if (!prefs.costHint || text.isBlank()) return null
+    val m = Graph.catalog.model(prefs.providerId, prefs.modelId) ?: return null
     fun price(k: String) = m.cost?.get(k)?.jsonPrimitive?.doubleOrNull ?: 0.0
     val pin = price("input"); val pout = price("output"); val pcache = m.cost?.get("cache_read")?.jsonPrimitive?.doubleOrNull ?: pin
     val hint = if (pin == 0.0 && pout == 0.0) "Free model" else {
@@ -132,11 +144,5 @@ fun CostHint(chat: Chat?, text: String, attachments: Int) {
         "≈ " + (if (usd < 0.01) "<$0.01" else "$%.2f".format(java.util.Locale.US, usd)) +
             (share?.let { " · " + (if (it < 0.1) "<0.1" else "%.1f".format(java.util.Locale.US, it)) + "% of 5h" } ?: "")
     }
-    val mod = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 2.dp)
-    when (look) {
-        "hairline" -> Txt(hint.uppercase(), mod, size = 10.sp, color = c.textDim, family = Oc.label, align = androidx.compose.ui.text.style.TextAlign.End)
-        "terminal" -> Txt("~ " + hint.removePrefix("≈ "), mod, size = 12.sp, color = c.textDim, family = Oc.mono, align = androidx.compose.ui.text.style.TextAlign.End)
-        "notebook" -> androidx.compose.material3.Text(hint, mod, fontSize = 13.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = FontStyle.Italic, textAlign = androidx.compose.ui.text.style.TextAlign.End)
-        else -> Txt(hint, mod, size = 12.sp, color = c.textDim, align = androidx.compose.ui.text.style.TextAlign.End)
-    }
+    return hint
 }

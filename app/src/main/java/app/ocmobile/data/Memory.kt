@@ -143,12 +143,16 @@ The user talks to you from a phone app. It cannot see your terminal or your disk
             val b = old.indexOf(END)
             val without = if (a >= 0 && b > a) (old.substring(0, a) + old.substring(b + END.length)).trim() else old.trim()
             Graph.paths.host("/root/outbox").mkdirs()
-            val body = listOfNotNull(filesPrompt, Skills.prompt, GitHub.prompt, prompt().takeIf { Graph.prefs.memoryEnabled }, snapshot().takeIf { Graph.prefs.memoryEnabled }).joinToString("\n\n")
+            // memory itself goes with each request (systemBlock), so it can be off for a single chat
+            val body = listOfNotNull(filesPrompt, Skills.prompt, GitHub.prompt).joinToString("\n\n")
             val block = "$START\n$body\n$END"
             val text = listOf(without, block).filter { it.isNotEmpty() }.joinToString("\n\n")
             if (text != old.trim()) f.writeText(text + "\n")
         }
     }
+
+    /** How to use memory and what's in it: sent as the system part of every request in a chat with memory on. */
+    fun systemBlock(): String = prompt() + "\n\n" + snapshot()
 
     /** The user's rules: AGENTS.md without the memory service block (the app maintains that). */
     fun userRules(): String {

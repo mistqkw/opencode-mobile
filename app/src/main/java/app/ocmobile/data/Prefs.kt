@@ -122,6 +122,7 @@ class Prefs(ctx: Context) {
     var permissionMode by str("permission_mode", "auto")  // ask | edits | auto
     var currentDir by str("current_dir", "/root/work")
     var pinned by str("pinned", "")
+    var memoryOff by str("memory_off", "")               // chats where memory is off while it's on for the rest
 
     // Subscription limits (in dollars). Default: the published OpenCode Go limits.
     var limit5h by dbl("limit_5h", 12.0)
@@ -142,6 +143,14 @@ class Prefs(ctx: Context) {
         }
 
     fun pinnedSet(): Set<String> = pinned.split(',').filter { it.isNotBlank() }.toSet()
+
+    /** Memory is read and written in this chat: on in general and not turned off for it. */
+    fun memoryOn(sessionId: String?) = memoryEnabled && (sessionId == null || sessionId !in memoryOff.split(','))
+    fun setChatMemory(sessionId: String, on: Boolean) {
+        val s = memoryOff.split(',').filter { it.isNotBlank() }.toMutableSet()
+        if (on) s.remove(sessionId) else s.add(sessionId)
+        memoryOff = s.joinToString(",")
+    }
     fun togglePin(id: String) {
         val s = pinnedSet().toMutableSet()
         if (!s.add(id)) s.remove(id)
