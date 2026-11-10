@@ -15,9 +15,10 @@ android {
         // and with targetSdk >= 29 Android forbids exec from app_data_file (same as Termux).
         // The APK is distributed as a file, not through Play.
         targetSdk = 28
-        versionCode = 4
-        versionName = "0.0.1 beta-4"
-        ndk { abiFilters += "arm64-v8a" }
+        versionCode = 5
+        versionName = "0.0.1 beta-5"
+        // -Pabi=armeabi-v7a: a build for 32-bit phones without proot, it only connects to a computer
+        ndk { abiFilters += (findProperty("abi") as String? ?: "arm64-v8a") }
     }
 
     // targetSdk 28: see above; not an error for an APK outside Play

@@ -54,6 +54,8 @@ object Graph {
         runtime = RuntimeController(a, paths, prefs, api)
         // people who used the app before the welcome screen existed don't see it again
         if (!prefs.onboarded && paths.rootfsReady && prefs.loginSeen) prefs.onboarded = true
+        // no local server on this phone: the tour waits for it, so go straight to the app and connect a computer
+        if (!paths.localSupported) { prefs.onboarded = true; prefs.loginSeen = true }
         events = EventHub(api, runtime)
         chats = ChatHub(api, events, prefs)
         usage = UsageTracker(a, api, prefs, events)

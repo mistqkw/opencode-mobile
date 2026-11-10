@@ -23,7 +23,7 @@ object BugReport {
             "App: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
             "Phone: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
             "Interface: ${Graph.prefs.edition}",
-            "Server: ${if (Graph.devices.isRemote) "remote" else rt::class.simpleName}",
+            "Server: ${if (Graph.devices.isRemote) "remote" else stateName(rt)}",
         ).joinToString("\n")
         val sb = StringBuilder()
         sb.append("**What happened**\n\n").append(what.trim().ifBlank { "(describe what you did and what went wrong)" }).append("\n\n")
@@ -58,5 +58,16 @@ object BugReport {
             lines.removeAt(start); b = lines.joinToString("\n")
         }
         ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url())).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    // simpleName is minified in the release build ("wj2"), so name the states here
+    private fun stateName(s: app.ocmobile.runtime.RuntimeState) = when (s) {
+        is app.ocmobile.runtime.RuntimeState.NotInstalled -> "not installed"
+        is app.ocmobile.runtime.RuntimeState.Installing -> "installing"
+        is app.ocmobile.runtime.RuntimeState.InstallFailed -> "install failed: ${s.message}"
+        is app.ocmobile.runtime.RuntimeState.Stopped -> "stopped"
+        is app.ocmobile.runtime.RuntimeState.Starting -> "starting"
+        is app.ocmobile.runtime.RuntimeState.Running -> "running ${s.version}"
+        is app.ocmobile.runtime.RuntimeState.Crashed -> "crashed: ${s.message}"
     }
 }

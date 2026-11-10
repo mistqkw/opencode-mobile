@@ -8,6 +8,8 @@ class RuntimePaths(ctx: Context) {
     val nativeDir: String = ctx.applicationInfo.nativeLibraryDir
     val proot = File(nativeDir, "libproot.so")
     val prootLoader = File(nativeDir, "libproot-loader.so")
+    /** False on 32-bit phones (the armeabi-v7a build has no proot): OpenCode exists only for arm64, so only a computer can be used. */
+    val localSupported get() = proot.exists() && android.os.Build.SUPPORTED_64_BIT_ABIS.isNotEmpty()
 
     private val base: File = ctx.filesDir
     val rootfs = File(base, "rootfs")

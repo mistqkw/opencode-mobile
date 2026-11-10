@@ -62,7 +62,8 @@ import kotlin.coroutines.resume
  * so the app runs a small HTTP server on 127.0.0.1:
  *  - /mcp: the "phone" MCP server (Streamable HTTP, JSON responses only): notifications, reminders, alarm,
  *    clipboard, location, camera, "Downloads", links, previews, phone status;
- *  - /preview/<token>/<path>: serves project files for the site preview in the built-in browser.
+ *  - /preview/<token>/<path>: serves project files for the site preview in the built-in browser;
+ *  - /llm/<token>/<provider>/…: pass-through to Pollinations/Copilot that repairs their tool calls (ToolCallFix).
  * Other apps can see localhost too, so everything is locked with a random token.
  */
 object PhoneBridge {
@@ -103,6 +104,7 @@ object PhoneBridge {
         val cur = runCatching { org.json.JSONObject(cfgFile.readText()).optJSONObject("mcp")?.optJSONObject(NAME) }.getOrNull()
         val same = cur != null && cur.optString("url") == url && cur.optBoolean("enabled", true) == on &&
             cur.optJSONObject("headers")?.optString("Authorization") == "Bearer $token"
+        FreeModels.routeThroughFix()
         if (same || (cur == null && !on)) return
         val block = buildJsonObject {
             put("type", "remote"); put("url", url); put("enabled", on)
@@ -133,6 +135,10 @@ object PhoneBridge {
                 else respond(out, 200, "application/json", reply.toString().toByteArray())
             }
             path == "/mcp" -> respond(out, 405, "text/plain", ByteArray(0), "Allow: POST\r\n")
+            path.startsWith("/llm/$token/") -> {
+                val rest = rawPath.removePrefix("/llm/$token/")
+                ToolCallFix.forward(out, method, rest.substringBefore('/'), "/" + rest.substringAfter('/', ""), headers, body)
+            }
             path.startsWith("/preview/$token/") && method == "GET" -> servePreview(out, Uri.decode(path.removePrefix("/preview/$token")))
             else -> respond(out, 404, "text/plain", "not found".toByteArray())
         }

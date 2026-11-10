@@ -252,12 +252,15 @@ private fun AddDeviceSheet(onDismiss: () -> Unit) {
                     error = null
                     val opts = com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions.Builder()
                         .setBarcodeFormats(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_QR_CODE).build()
-                    com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(ctx, opts).startScan()
-                        .addOnSuccessListener { b ->
-                            if (app.ocmobile.data.ConnectLink.offer(b.rawValue.orEmpty())) onDismiss()
-                            else error = "That's not a cl0udly connection code"
-                        }
-                        .addOnFailureListener { error = "The scanner isn't available. Point your camera app at the code instead." }
+                    // a broken scanner must not take the app down: say so and leave the camera-app route
+                    runCatching {
+                        com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(ctx, opts).startScan()
+                            .addOnSuccessListener { b ->
+                                if (app.ocmobile.data.ConnectLink.offer(b.rawValue.orEmpty())) onDismiss()
+                                else error = "That's not a cl0udly connection code"
+                            }
+                            .addOnFailureListener { error = "The scanner isn't available. Point your camera app at the code instead." }
+                    }.onFailure { error = "The scanner isn't available. Point your camera app at the code instead." }
                 }.padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {

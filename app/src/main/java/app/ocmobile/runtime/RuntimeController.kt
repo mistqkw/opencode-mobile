@@ -38,7 +38,7 @@ class RuntimeController(
     }
 
     val state = MutableStateFlow<RuntimeState>(
-        if (prefs.runtimeReady && paths.opencodeBin.exists()) RuntimeState.Stopped else RuntimeState.NotInstalled
+        if (!paths.localSupported || prefs.runtimeReady && paths.opencodeBin.exists()) RuntimeState.Stopped else RuntimeState.NotInstalled
     )
     val log = MutableStateFlow<List<String>>(emptyList())
 
@@ -52,7 +52,7 @@ class RuntimeController(
     // ---------- install ----------
 
     suspend fun install() = withContext(Dispatchers.IO) {
-        if (installing) return@withContext
+        if (installing || !paths.localSupported) return@withContext
         installing = true
         try {
             step("Preparing", null)
@@ -251,6 +251,7 @@ class RuntimeController(
     /** Start the server through a foreground service, otherwise Android kills the process in the background. */
     fun startServer() {
         val s = state.value
+        if (!paths.localSupported) return
         if (s is RuntimeState.NotInstalled || s is RuntimeState.Installing || s is RuntimeState.InstallFailed) return
         userStopped = false
         ContextCompat.startForegroundService(app, Intent(app, ServerService::class.java).setAction(ServerService.ACTION_START))

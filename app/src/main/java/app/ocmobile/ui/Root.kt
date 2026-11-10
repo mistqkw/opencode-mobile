@@ -122,6 +122,7 @@ private fun Shell(rt: RuntimeState) {
             when (r) {
                 "route:settings" -> { drawer.close(); nav.root(Route.Settings) }
                 "route:home" -> { drawer.close(); nav.root(Route.Home) }
+                "route:code" -> { drawer.close(); nav.root(Route.Code) }
                 "route:about" -> { drawer.close(); nav.root(Route.Settings); nav.push(Route.About) }
                 "route:memory" -> { drawer.close(); nav.root(Route.Memory) }
                 "route:drawer" -> drawer.open()
@@ -279,13 +280,16 @@ private fun ServerBanner(rt: RuntimeState) {
         AnimatedVisibility(show) {
             Row(
                 Modifier.padding(horizontal = 16.dp).clip(Oc.pill).background(c.surfaceHigh).border(1.dp, c.border, Oc.pill)
-                    .clickable(enabled = remoteId.isEmpty() && rt !is RuntimeState.Starting) { Graph.runtime.startServer() }.padding(horizontal = 16.dp, vertical = 10.dp),
+                    .clickable(enabled = remoteId.isEmpty() && rt !is RuntimeState.Starting) {
+                        if (Graph.paths.localSupported) Graph.runtime.startServer() else Graph.chats.openRequest.value = "route:code"
+                    }.padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (remoteId.isNotEmpty()) Txt("Can't reach ${Graph.devices.active()?.name ?: "device"}…", size = 14.sp, color = c.warn) else when (rt) {
                     is RuntimeState.Starting -> { Spinner(16.dp, stroke = 2.dp); Spacer(Modifier.width(10.dp)); Txt("Starting local server…", size = 14.sp) }
                     is RuntimeState.Crashed -> Txt("Server crashed — tap to restart", size = 14.sp, color = c.danger)
-                    else -> Txt("Server stopped — tap to start", size = 14.sp, color = c.textDim)
+                    else -> if (!Graph.paths.localSupported) Txt("This phone can't run OpenCode — tap to connect a computer", size = 14.sp, color = c.textDim)
+                        else Txt("Server stopped — tap to start", size = 14.sp, color = c.textDim)
                 }
             }
         }

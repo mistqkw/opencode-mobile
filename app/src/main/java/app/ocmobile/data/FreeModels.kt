@@ -60,7 +60,7 @@ object FreeModels {
                 .put("npm", "@ai-sdk/openai-compatible")
                 .put(
                     "options",
-                    JSONObject().put("baseURL", "https://api.githubcopilot.com").put("apiKey", token).put(
+                    JSONObject().put("baseURL", base(COPILOT_ID)).put("apiKey", token).put(
                         "headers",
                         JSONObject().put("Copilot-Integration-Id", "vscode-chat").put("Editor-Version", "vscode/1.107.0").put("User-Agent", "opencode-mobile"),
                     ),
@@ -83,10 +83,29 @@ object FreeModels {
             JSONObject()
                 .put("name", "Pollinations (no account)")
                 .put("npm", "@ai-sdk/openai-compatible")
-                .put("options", JSONObject().put("baseURL", "https://text.pollinations.ai/openai").put("apiKey", "anonymous"))
+                .put("options", JSONObject().put("baseURL", base(POLLINATIONS_ID)).put("apiKey", "anonymous"))
                 .put("models", JSONObject().put(POLLINATIONS_DEFAULT, model("GPT-OSS 20B", 131072, 8192, true, true, false))),
         )
         finish(POLLINATIONS_ID, POLLINATIONS_DEFAULT)
+    }
+
+    /** On this phone the provider goes through ToolCallFix; a computer can't reach the phone's localhost. */
+    private fun base(providerId: String) =
+        if (Graph.devices.isRemote) ToolCallFix.upstream.getValue(providerId) else ToolCallFix.baseUrl(providerId)
+
+    /** Entries added before beta-5 point straight at the provider: move them to the proxy. */
+    suspend fun routeThroughFix() {
+        if (Graph.devices.isRemote) return
+        val prov = runCatching { JSONObject(configFile.readText()).optJSONObject("provider") }.getOrNull() ?: return
+        val off = disabledList()
+        for (id in ToolCallFix.upstream.keys) {
+            if (id in off) continue     // apply() would switch it back on
+            val block = prov.optJSONObject(id) ?: continue
+            val opts = block.optJSONObject("options") ?: continue
+            if (opts.optString("baseURL") == base(id)) continue
+            opts.put("baseURL", base(id))
+            runCatching { apply(id, block) }
+        }
     }
 
     suspend fun disable(providerId: String) {

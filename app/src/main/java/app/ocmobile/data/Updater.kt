@@ -86,7 +86,10 @@ object Updater {
         return Json.parseToJsonElement(body).jsonArray.mapNotNull { e ->
             val o = e.jsonObject
             if (o["draft"]?.jsonPrimitive?.boolean == true) return@mapNotNull null
-            val apk = (o["assets"] as? JsonArray)?.map { it.jsonObject }?.firstOrNull { it.str("name").endsWith(".apk") } ?: return@mapNotNull null
+            // the main APK only: never a "-armv7" one. 32-bit phones update by hand (their build is zipped in releases)
+            if (android.os.Build.SUPPORTED_64_BIT_ABIS.isEmpty()) return@mapNotNull null
+            val apk = (o["assets"] as? JsonArray)?.map { it.jsonObject }
+                ?.firstOrNull { val n = it.str("name"); n.endsWith(".apk") && !n.contains("-armv7") } ?: return@mapNotNull null
             Release(
                 tag = o.str("tag_name"), name = o.str("name").ifBlank { o.str("tag_name") }, notes = o.str("body"),
                 apkUrl = apk.str("browser_download_url"), size = apk["size"]?.jsonPrimitive?.long ?: 0, page = o.str("html_url"),
