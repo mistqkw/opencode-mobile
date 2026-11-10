@@ -95,6 +95,7 @@ private fun P3.rot(ay: Float, ax: Float): P3 {
 
 @Composable
 private fun phase(ms: Int, label: String): Float {
+    if (!app.ocmobile.ui.theme.rememberMotionEnabled()) return 0.25f
     val t = rememberInfiniteTransition(label = label)
     val ph by t.animateFloat(0f, 1f, infiniteRepeatable(tween(ms, easing = LinearEasing)), label = label)
     return ph

@@ -108,7 +108,7 @@ private fun Room(onPlay: () -> Unit) {
     var pets by remember { mutableIntStateOf(Graph.prefs.petCount.toIntOrNull() ?: 0) }
     fun say(s: String?) { if (s != null) { line = s; said = System.currentTimeMillis() } }
     // it chats to itself if we stay quiet for long
-    LaunchedEffect(Unit) {
+    app.ocmobile.ui.theme.WhileStarted {
         while (true) {
             delay(4000)
             if (System.currentTimeMillis() - said > 14_000) say(CloudTalk.idle.random())

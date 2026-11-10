@@ -79,7 +79,7 @@ internal fun lookThinking(work: Work, modifier: Modifier): Boolean {
 private fun elapsed(): Long {
     val start = remember { System.currentTimeMillis() }
     var now by remember { mutableLongStateOf(start) }
-    LaunchedEffect(Unit) { while (true) { delay(1000); now = System.currentTimeMillis() } }
+    app.ocmobile.ui.theme.WhileStarted { while (true) { now = System.currentTimeMillis(); delay(1000) } }
     return (now - start) / 1000
 }
 
@@ -283,12 +283,19 @@ private fun KimiThinking(work: Work, modifier: Modifier) {
  */
 @Composable
 fun KimiMascot(modifier: Modifier, color: Color, thinking: Boolean = false) {
+    // battery saver / animations off: open eyes, looking straight
+    if (!app.ocmobile.ui.theme.rememberMotionEnabled()) return KimiMascotFrame(modifier, color, thinking, 1f, 0f)
     val t = rememberInfiniteTransition(label = "mascot")
     val blink by t.animateFloat(1f, 1f, infiniteRepeatable(keyframes {
         durationMillis = 3600
         1f at 0; 1f at 3300; 0.1f at 3420; 1f at 3560
     }), label = "blink")
     val look by t.animateFloat(-1f, 1f, infiniteRepeatable(tween(if (thinking) 1200 else 2600), RepeatMode.Reverse), label = "look")
+    KimiMascotFrame(modifier, color, thinking, blink, look)
+}
+
+@Composable
+private fun KimiMascotFrame(modifier: Modifier, color: Color, thinking: Boolean, blink: Float, look: Float) {
     Canvas(modifier) {
         val s = size.minDimension
         drawRoundRect(color, Offset.Zero, Size(s, s), CornerRadius(s * 0.42f))
