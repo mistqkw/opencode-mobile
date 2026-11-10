@@ -567,7 +567,8 @@ fun Monogram(id: String, name: String, size: Dp = 36.dp) {
 @Composable
 fun EmptyState(icon: ImageVector, title: String, text: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Ico(icon, tint = Oc.c.textDim, size = 72.dp)
+        // cl0udly: the little cloud instead of a big icon
+        if (Oc.look.id == "cloud") MiniCloudIcon(72.dp) else Ico(icon, tint = Oc.c.textDim, size = 72.dp)
         Spacer(Modifier.height(24.dp))
         Txt(title, size = 22.sp, color = Oc.c.textDim, align = TextAlign.Center)
         Spacer(Modifier.height(8.dp))

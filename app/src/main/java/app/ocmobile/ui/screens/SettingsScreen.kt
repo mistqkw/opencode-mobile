@@ -213,6 +213,12 @@ fun CapabilitiesScreen(nav: Nav) {
                 SettingsRow("Team", subtitle = when (prefs.teamMode) { "manual" -> "Your team · ${app.ocmobile.data.Team.members.size} helpers"; "auto" -> "Automatic · up to ${app.ocmobile.data.Team.max} helpers"; else -> "Off" }, icon = Ic.Users, onClick = { nav.push(Route.Team) })
                 SettingsRow("Skills", subtitle = "${app.ocmobile.data.Skills.local().size} skills · type / in a chat", icon = Ic.Scroll, onClick = { nav.push(Route.Skills) })
             }
+            // cl0udly: the empty space under the list gets a small cloud with a hint
+            if (Oc.look.id == "cloud") Column(Modifier.fillMaxWidth().padding(top = 72.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                app.ocmobile.ui.components.MiniCloudIcon(56.dp)
+                Spacer(Modifier.height(14.dp))
+                Txt("Start with Model: the rest can wait.", size = 15.sp, color = c.textDim)
+            }
         }
     }
     if (modelSheet) ModelSheet { modelSheet = false }
