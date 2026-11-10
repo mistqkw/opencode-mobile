@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -218,7 +219,23 @@ fun KimiQuickChips(nav: Nav, code: Boolean, onPick: (String) -> Unit) {
         Triple("Write", Ic.Edit) { onPick("Help me write ") },
         Triple("Search the web", Ic.Globe) { onPick("Search the web for ") },
     )
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    val scroll = rememberScrollState()
+    // cl0udly: the chips fade out at the edge instead of being cut off (the left edge only once scrolled)
+    val fade = if (Oc.look.id != "cloud") Modifier else Modifier
+        .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val edge = 24.dp.toPx()
+            if (scroll.canScrollForward) drawRect(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = size.width - edge, endX = size.width),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+            )
+            if (scroll.value > 0) drawRect(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = edge),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+            )
+        }
+    Row(Modifier.fillMaxWidth().then(fade).horizontalScroll(scroll).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         items.forEach { (label, icon, act) ->
             Row(
                 Modifier.height(50.dp).clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.75f)).tap(scale = 0.96f, onClick = act).padding(horizontal = 18.dp),

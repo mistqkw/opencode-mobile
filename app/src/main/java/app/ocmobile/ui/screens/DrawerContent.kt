@@ -63,6 +63,8 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
     Box(Modifier.fillMaxSize().screenBackdrop("DrawerContent1")) {
         // the last row has to clear the bottom panel and the gesture bar
         val navBar = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val loaded = Graph.chats.loaded.collectAsState().value
+        val cloudLook = Oc.look.id == "cloud"
         LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 112.dp + navBar)) {
             item { DrawerHeader { go(it) } }
             item {
@@ -89,12 +91,22 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
                 if (Oc.look.id != "cards") Box(Modifier.padding(horizontal = 20.dp, vertical = 14.dp).fillMaxWidth().height(1.dp).background(c.border))
             }
             if (pinned.isNotEmpty()) {
-                item { Txt("Pinned", Modifier.padding(start = 24.dp, top = 6.dp, bottom = 6.dp), size = 16.sp, color = c.textDim) }
+                item { Txt("Pinned", Modifier.padding(start = 24.dp, top = 6.dp, bottom = 6.dp), size = if (cloudLook) 13.sp else 16.sp, color = c.textDim) }
                 items(pinned, key = { "p" + it.id }) { SessionRow(it, statuses[it.id], nav, close) }
             }
-            item { Txt(if (Oc.look.id.kimiLike) "Chat history" else "Recents", Modifier.padding(start = 24.dp, top = 14.dp, bottom = 6.dp), size = 16.sp, color = c.textDim) }
-            items(recent, key = { "r" + it.id }) { SessionRow(it, statuses[it.id], nav, close) }
-            if (recent.isEmpty() && pinned.isEmpty()) item { Txt("No sessions yet", Modifier.padding(start = 24.dp, top = 8.dp), size = 16.sp, color = c.textDim) }
+            if (!loaded && recent.isEmpty() && pinned.isEmpty()) {
+                item { app.ocmobile.ui.components.Skeleton(Modifier.padding(horizontal = 24.dp, vertical = 14.dp), lines = 5, height = 18.dp) }
+            } else if (cloudLook) {
+                // cl0udly: recent chats by day
+                dayGroups(recent).forEach { (label, list) ->
+                    item(key = "h$label") { Txt(label, Modifier.padding(start = 24.dp, top = 14.dp, bottom = 6.dp), size = 13.sp, color = c.textDim) }
+                    items(list, key = { "r" + it.id }) { SessionRow(it, statuses[it.id], nav, close) }
+                }
+            } else {
+                item { Txt(if (Oc.look.id.kimiLike) "Chat history" else "Recents", Modifier.padding(start = 24.dp, top = 14.dp, bottom = 6.dp), size = 16.sp, color = c.textDim) }
+                items(recent, key = { "r" + it.id }) { SessionRow(it, statuses[it.id], nav, close) }
+            }
+            if (loaded && recent.isEmpty() && pinned.isEmpty()) item { Txt("No sessions yet", Modifier.padding(start = 24.dp, top = 8.dp), size = 16.sp, color = c.textDim) }
         }
         Row(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth()
@@ -258,6 +270,21 @@ private fun SessionRow(s: Session, status: String?, nav: Nav, close: () -> Unit)
             Box(Modifier.size(11.dp).clip(CircleShape).background(if (needs) c.link else c.textDim))
         }
     }
+}
+
+/** Chats split into Today, Yesterday and Earlier by when they last changed; empty groups are left out. */
+private fun dayGroups(list: List<Session>): List<Pair<String, List<Session>>> {
+    val cal = java.util.Calendar.getInstance().apply {
+        set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+    }
+    val today = cal.timeInMillis
+    val yesterday = today - 24 * 3600_000L
+    fun at(s: Session) = s.time.updated.takeIf { it > 0 } ?: s.time.created
+    return listOf(
+        "Today" to list.filter { at(it) >= today },
+        "Yesterday" to list.filter { at(it) in yesterday until today },
+        "Earlier" to list.filter { at(it) < yesterday },
+    ).filter { it.second.isNotEmpty() }
 }
 
 /** Search opened from the drawer: in Recents the search bar "flies" up from where it was. */
