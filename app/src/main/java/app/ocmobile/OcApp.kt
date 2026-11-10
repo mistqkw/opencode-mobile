@@ -36,6 +36,8 @@ object Graph {
     lateinit var app: Application
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     lateinit var prefs: Prefs
+    /** False in UI previews, where the app never started. */
+    fun isPrefsReady() = ::prefs.isInitialized
     lateinit var paths: RuntimePaths
     lateinit var runtime: RuntimeController
     lateinit var devices: Devices
