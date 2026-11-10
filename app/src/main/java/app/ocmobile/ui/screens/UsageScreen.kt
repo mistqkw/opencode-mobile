@@ -58,7 +58,7 @@ private fun resetText(w: UsageWindow): String {
     }
 }
 
-private fun money(x: Double) = if (x >= 100) "$%.0f".format(x) else "$%.2f".format(x)
+private fun money(x: Double) = app.ocmobile.ui.components.Fmt.money(x)
 
 @Composable
 private fun UsageCard(title: String, w: UsageWindow) {
@@ -67,7 +67,7 @@ private fun UsageCard(title: String, w: UsageWindow) {
     Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)).background(c.surface).padding(horizontal = 20.dp, vertical = 18.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Txt(title, size = 21.sp, modifier = Modifier.weight(1f))
-            Txt(if (pct > 0 && pct < 1) "<1% used" else "%.0f%% used".format(pct), size = 17.sp, color = c.textDim)
+            Txt(if (pct > 0 && pct < 1) "<1% used" else app.ocmobile.ui.components.Fmt.percent(pct) + " used", size = 17.sp, color = c.textDim)
         }
         Spacer(Modifier.height(14.dp))
         UsageBar(w.fraction.toFloat(), warn = pct >= 85)
@@ -109,7 +109,7 @@ fun UsageScreen(nav: Nav) {
                 SettingsGroup {
                     snap.byModel.take(12).forEach { m ->
                         SettingsRow(
-                            title = m.model.ifBlank { "unknown" }, subtitle = "${m.provider} · ${m.messages} replies · ${"%.1f".format(m.tokens / 1000.0)}k tokens",
+                            title = m.model.ifBlank { "unknown" }, subtitle = "${m.provider} · ${app.ocmobile.ui.components.Fmt.count(m.messages.toLong(), "reply", "replies")} · ${app.ocmobile.ui.components.Fmt.tokens(m.tokens)} tokens",
                             trailing = { Txt(money(m.cost), size = 17.sp) },
                         )
                     }
@@ -121,7 +121,7 @@ fun UsageScreen(nav: Nav) {
                 if (refreshing) Spinner(18.dp, stroke = 2.dp)
             }
             Txt(
-                "Tracked from ${snap.tracked} replies on this device. Totals for the last 30 days: ${money(snap.totalMonth)}.",
+                "Tracked from ${app.ocmobile.ui.components.Fmt.count(snap.tracked.toLong(), "reply", "replies")} on this device. Totals for the last 30 days: ${money(snap.totalMonth)}.",
                 size = 14.sp, color = c.textDim, modifier = Modifier.padding(horizontal = 20.dp), lineHeight = 20.sp,
             )
         }

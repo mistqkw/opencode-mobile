@@ -130,7 +130,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
             SettingsGroup {
                 SettingsRow("Profile", icon = Ic.User, onClick = { nav.push(Route.Profile) })
                 SettingsRow("Billing", icon = Ic.Dollar, onClick = { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://opencode.ai/console")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) })
-                SettingsRow("Usage", icon = Ic.Drop, onClick = { nav.push(Route.Usage) })
+                SettingsRow("Usage", icon = Ic.Chart, onClick = { nav.push(Route.Usage) })
             }
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
@@ -143,7 +143,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
             }
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
-                SettingsRow("Interface", subtitle = app.ocmobile.ui.theme.Looks.of(prefs.edition).title, icon = Ic.Laptop, onClick = { nav.push(Route.Edition) })
+                SettingsRow("Interface", subtitle = app.ocmobile.ui.theme.Looks.of(prefs.edition).title, icon = Ic.Palette, onClick = { nav.push(Route.Edition) })
                 // the mascot tab: only in the cl0udly look
                 if (Oc.look.id == "cloud") SettingsRow("cl0udly", subtitle = "Mascot, outfits and games", icon = Ic.Cloud, onClick = { nav.push(Route.MascotSettings) })
                 SettingsRow("Color mode", subtitle = prefs.colorMode.replaceFirstChar { it.uppercase() }, icon = Ic.Moon, onClick = { dialog = "color" })

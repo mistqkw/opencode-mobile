@@ -8,6 +8,15 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
 
+/** What TalkBack reads for a button with this icon (English, like the rest of the interface). Null: decorative. */
+fun iconLabel(v: ImageVector): String? = when (v.name) {
+    "menu" -> "Menu"; "close" -> "Close"; "plus" -> "New"; "back" -> "Back"; "up" -> "Send"; "stop" -> "Stop"
+    "search" -> "Search"; "edit" -> "New chat"; "chev_d" -> "Scroll down"; "more" -> "More"; "copy" -> "Copy"
+    "share" -> "Share"; "volume" -> "Read aloud"; "refresh" -> "Retry"; "mic" -> "Dictate"; "waveform" -> "Voice mode"
+    "sliders" -> "Settings"; "info" -> "About"; "trash" -> "Delete"; "check" -> "Done"
+    else -> null
+}
+
 /** Line icons 24×24 (Feather-style outlines): colored via tint. */
 object Ic {
     private fun icon(name: String, vararg paths: String): ImageVector =
@@ -23,6 +32,8 @@ object Ic {
     private const val CIRCLE = "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z"
 
     val Menu by lazy { icon("menu", "M4 7h16", "M4 12h11", "M4 17h7") }
+    val Palette by lazy { icon("palette", "M12 21a9 9 0 1 1 9-9c0 2-1.6 3-3.5 3H16a2 2 0 0 0-1.5 3.3A1.6 1.6 0 0 1 12 21z", "M7.5 11.5h.01", "M10 7.5h.01", "M14.5 7.5h.01") }
+    val Chart by lazy { icon("chart", "M5 20v-6", "M12 20V5", "M19 20v-10") }
     val Close by lazy { icon("close", "M18 6L6 18", "M6 6l12 12") }
     val Plus by lazy { icon("plus", "M12 5v14", "M5 12h14") }
     val Back by lazy { icon("back", "M19 12H5", "M12 19l-7-7 7-7") }

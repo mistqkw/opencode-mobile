@@ -110,15 +110,19 @@ private fun ringColor(): Color = when (Oc.look.id) {
 @Composable
 private fun levelColor(f: Float, normal: Color) = when {
     f >= 0.9f -> Oc.c.danger
-    f >= 0.75f -> Oc.c.warn
+    f >= 0.7f -> Oc.c.warn
     else -> normal
 }
 
 /** Progress ring. In Hairline, a square frame traced clockwise. */
 @Composable
-private fun Ring(f: Float, color: Color, modifier: Modifier, stroke: Dp, square: Boolean = false) {
+private fun Ring(target: Float, color: Color, modifier: Modifier, stroke: Dp, square: Boolean = false) {
     val track = Oc.c.text.copy(alpha = 0.12f)
+    val fa = androidx.compose.animation.core.animateFloatAsState(target, androidx.compose.animation.core.tween(400), label = "ring")
+    // cl0udly: a dot where the ring starts, so an empty ring still reads as a meter and not a blank circle
+    val startDot = Oc.look.id == "cloud"
     Canvas(modifier) {
+        val f = fa.value
         val w = stroke.toPx()
         if (square) {
             drawRect(track, Offset(w / 2, w / 2), Size(size.width - w, size.height - w), style = Stroke(w))
@@ -133,6 +137,7 @@ private fun Ring(f: Float, color: Color, modifier: Modifier, stroke: Dp, square:
             }
         } else {
             drawCircle(track, size.minDimension / 2 - w / 2, style = Stroke(w))
+            if (startDot && f <= 0.03f) drawCircle(color, w / 2, Offset(size.width / 2, w / 2))
             if (f > 0.004f) drawArc(color, -90f, 360f * f.coerceAtMost(1f), false, Offset(w / 2, w / 2), Size(size.width - w, size.height - w), style = Stroke(w, cap = StrokeCap.Round))
         }
     }
@@ -140,14 +145,9 @@ private fun Ring(f: Float, color: Color, modifier: Modifier, stroke: Dp, square:
 
 // ---------- menu ----------
 
-private fun k(n: Long) = when {
-    n >= 1_000_000 -> "%.1fM".format(java.util.Locale.US, n / 1_000_000.0)
-    n >= 10_000 -> "%.0fk".format(java.util.Locale.US, n / 1000.0)
-    n >= 1000 -> "%.1fk".format(java.util.Locale.US, n / 1000.0)
-    else -> "$n"
-}
+private fun k(n: Long) = Fmt.tokens(n)
 
-private fun money(x: Double) = if (x >= 100) "$%.0f".format(java.util.Locale.US, x) else "$%.2f".format(java.util.Locale.US, x)
+private fun money(x: Double) = Fmt.money(x)
 
 private fun resets(w: UsageWindow): String {
     val at = w.resetAt ?: return "No usage yet"
@@ -160,6 +160,17 @@ private fun resets(w: UsageWindow): String {
 @Composable
 private fun partColor(key: String): Color {
     val c = Oc.c
+    // cl0udly: every slice its own hue and brightness, so neighbors differ even without color vision
+    if (Oc.look.id == "cloud") return when (key) {
+        "prompt" -> c.textDim
+        "tools" -> if (c.isDark) Color(0xFF4F7CC2) else Color(0xFF5B8BD6)
+        "mcp" -> if (c.isDark) Color(0xFF3FA796) else Color(0xFF2E9484)
+        "skills" -> if (c.isDark) Color(0xFFE3B34C) else Color(0xFFC48A1C)
+        "memory" -> if (c.isDark) Color(0xFFD9774E) else Color(0xFFC4552C)
+        "messages" -> if (c.isDark) Color(0xFFC9D4E3) else Color(0xFF2E3E55)
+        "buffer" -> c.textDim.copy(alpha = 0.35f)
+        else -> c.textDim.copy(alpha = 0.5f)
+    }
     return when (key) {
         "prompt" -> c.textDim
         "tools" -> Color(0xFF6E8FB5)
@@ -378,7 +389,7 @@ private fun ContextBlock(chat: Chat?, ctx: ContextInfo?) {
             Label(label, Modifier.weight(1f), size = 14.sp)
             Label(k(t), size = 14.sp, color = c.textDim)
             Spacer(Modifier.width(10.dp))
-            Label("%.1f%%".format(java.util.Locale.US, t * 100.0 / ctx.window), Modifier.width(52.dp), size = 13.sp, color = c.textDim, align = TextAlign.End)
+            Label(Fmt.percent(t * 100.0 / ctx.window, 1), Modifier.width(52.dp), size = 13.sp, color = c.textDim, align = TextAlign.End)
         }
     }
     if (!ctx.measured) { Spacer(Modifier.height(6.dp)); Label("Estimated until the first reply comes in.", size = 12.sp, color = c.textDim) }

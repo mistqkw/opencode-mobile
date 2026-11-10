@@ -42,6 +42,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -100,9 +108,9 @@ fun Heading(text: String, modifier: Modifier = Modifier, size: TextUnit = 26.sp,
     Txt(text, modifier, size, color, FontWeight.Normal, Oc.heading, align = align, lineHeight = size * 1.22f)
 
 @Composable
-fun Ico(v: ImageVector, modifier: Modifier = Modifier, tint: Color = Oc.c.text, size: Dp = 24.dp) {
+fun Ico(v: ImageVector, modifier: Modifier = Modifier, tint: Color = Oc.c.text, size: Dp = 24.dp, contentDescription: String? = null) {
     androidx.compose.foundation.Image(
-        imageVector = v, contentDescription = null, modifier = modifier.size(size),
+        imageVector = v, contentDescription = contentDescription, modifier = modifier.size(size),
         colorFilter = ColorFilter.tint(tint),
     )
 }
@@ -122,13 +130,26 @@ fun IconBtn(
     size: Dp = 44.dp,
     iconSize: Dp = 24.dp,
     bg: Color? = null,
+    contentDescription: String? = app.ocmobile.ui.theme.iconLabel(icon),
 ) {
     // Kimi: top bar buttons are outlined circles
-    if (LocalInTopBar.current && Oc.look.id.kimiLike) return KimiCircleBtn(icon, onClick, tint = if (tint == Oc.c.textDim) Oc.c.text else tint)
+    if (LocalInTopBar.current && Oc.look.id.kimiLike) return KimiCircleBtn(icon, onClick, tint = if (tint == Oc.c.textDim) Oc.c.text else tint, contentDescription = contentDescription)
     Box(
-        modifier.size(size).clip(Oc.pill).then(if (bg != null) Modifier.background(bg) else Modifier).tap(onClick = onClick),
+        // a finger gets at least 48 dp even when the button looks smaller
+        modifier.minimumInteractiveComponentSize().size(size).clip(Oc.pill).then(if (bg != null) Modifier.background(bg) else Modifier).tap(onClick = onClick)
+            .semantics { role = androidx.compose.ui.semantics.Role.Button; if (contentDescription != null) this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
-    ) { Ico(icon, tint = tint, size = iconSize) }
+    ) { TopBarIcon(icon, tint, iconSize) }
+}
+
+/** Menu, back and close in the bar turn in when a screen opens, instead of just swapping. */
+@Composable
+internal fun TopBarIcon(icon: ImageVector, tint: Color, size: Dp) {
+    val turning = LocalInTopBar.current && icon.name in setOf("menu", "back", "close")
+    if (!turning || !app.ocmobile.ui.theme.rememberMotionEnabled()) return Ico(icon, tint = tint, size = size)
+    val a = remember(icon) { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(icon) { a.animateTo(1f, tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+    Ico(icon, Modifier.graphicsLayer { rotationZ = (1f - a.value) * (if (icon.name == "menu") 90f else -90f); alpha = 0.3f + 0.7f * a.value }, tint = tint, size = size)
 }
 
 @Composable
@@ -191,15 +212,17 @@ fun OcSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     val c = Oc.c
     val track by animateColorAsState(if (checked) c.toggleOn else c.surfaceHigh, tween(160), label = "track")
     val x by animateDpAsState(if (checked) 22.dp else 2.dp, tween(160), label = "thumb")
+    // TalkBack reads it as a switch with its state
+    val toggle = Modifier.toggleable(checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange)
     if (Oc.look.id == "hairline") {
         // Hairline: a rectangular switch made of lines
-        Box(Modifier.width(48.dp).height(26.dp).border(1.dp, if (checked) c.accent else c.border, RoundedCornerShape(3.dp)).clickable { onChange(!checked) }) {
+        Box(Modifier.width(48.dp).height(26.dp).border(1.dp, if (checked) c.accent else c.border, RoundedCornerShape(3.dp)).then(toggle)) {
             Box(Modifier.offset(x * 0.86f + 1.dp, 3.dp).size(20.dp).clip(RoundedCornerShape(2.dp)).background(if (checked) c.accent else c.textDim))
         }
         return
     }
     Box(
-        Modifier.width(52.dp).height(32.dp).clip(CircleShape).background(track).clickable { onChange(!checked) },
+        Modifier.minimumInteractiveComponentSize().width(52.dp).height(32.dp).clip(CircleShape).background(track).then(toggle),
     ) {
         Box(Modifier.offset(x, 2.dp).size(28.dp).clip(CircleShape).background(if (checked) Color.White else c.textDim.copy(alpha = if (c.isDark) 1f else .8f)))
     }
@@ -250,6 +273,7 @@ fun SettingsRow(
     titleColor: Color = Oc.c.text,
     circleIcon: Boolean = false,
     trailing: @Composable (() -> Unit)? = null,
+    leading: @Composable (() -> Unit)? = null,
 ) {
     val c = Oc.c
     val look = Oc.look.id
@@ -265,10 +289,12 @@ fun SettingsRow(
         else -> Modifier.padding(horizontal = 20.dp, vertical = 15.dp)
     }
     Row(
-        bg.then(if (onClick != null) Modifier.tap(scale = 1f, onClick = onClick) else Modifier).then(pad),
+        // the title, subtitle and a switch are read as one item
+        bg.then(if (onClick != null) Modifier.tap(scale = 1f, onClick = onClick) else Modifier).semantics(mergeDescendants = true) {}.then(pad),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) when {
+        if (leading != null) { leading(); Spacer(Modifier.width(16.dp)) }
+        else if (icon != null) when {
             look == "messenger" && titleColor == c.text -> {
                 Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(tgColor(title)), contentAlignment = Alignment.Center) { Ico(icon, tint = Color.White, size = 19.dp) }
                 Spacer(Modifier.width(18.dp))
@@ -334,9 +360,10 @@ fun Logo(size: Dp = 56.dp, color: Color = Oc.c.accent) {
 
 @Composable
 fun Spinner(size: Dp = 22.dp, color: Color = Oc.c.accent, stroke: Dp = 2.5.dp) {
-    val t = rememberInfiniteTransition(label = "spin")
-    val a by t.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "a")
-    Canvas(Modifier.size(size).rotate(a)) {
+    // the angle is read only while drawing: turning it recomposes nothing; with motion off it stands still
+    val a = if (app.ocmobile.ui.theme.rememberMotionEnabled()) rememberInfiniteTransition(label = "spin")
+        .animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "a") else null
+    Canvas(Modifier.size(size).graphicsLayer { rotationZ = a?.value ?: 0f }) {
         val w = stroke.toPx()
         drawArc(color, 0f, 270f, false, topLeft = Offset(w / 2, w / 2), size = Size(this.size.width - w, this.size.height - w), style = Stroke(w, cap = StrokeCap.Round))
     }
@@ -345,9 +372,10 @@ fun Spinner(size: Dp = 22.dp, color: Color = Oc.c.accent, stroke: Dp = 2.5.dp) {
 /** Work indicator: ">" and a blinking cursor, like in a terminal. */
 @Composable
 fun PulsingLogo(size: Dp = 22.dp, color: Color = Oc.c.accent) {
-    val t = rememberInfiniteTransition(label = "cursor")
-    val blink by t.animateFloat(0.1f, 1f, infiniteRepeatable(tween(520), RepeatMode.Reverse), label = "blink")
+    val blinkS = if (app.ocmobile.ui.theme.rememberMotionEnabled()) rememberInfiniteTransition(label = "cursor")
+        .animateFloat(0.1f, 1f, infiniteRepeatable(tween(520), RepeatMode.Reverse), label = "blink") else null
     Canvas(Modifier.size(size)) {
+        val blink = blinkS?.value ?: 1f
         val s = this.size.minDimension
         val w = s * 0.095f
         val p = androidx.compose.ui.graphics.Path().apply { moveTo(s * .22f, s * .22f); lineTo(s * .58f, s * .5f); lineTo(s * .22f, s * .78f) }
@@ -494,6 +522,45 @@ fun Segmented(options: List<Pair<String, String>>, selected: String, onSelect: (
                 contentAlignment = Alignment.Center,
             ) { Txt(label, size = 14.sp, color = if (sel) c.text else c.textDim, weight = if (sel) FontWeight.Medium else null) }
         }
+    }
+}
+
+/**
+ * Loading placeholder: rounded plates in the surface color with a soft light passing over them.
+ * [lines] plates of falling width; with motion off the shimmer stands still.
+ */
+@Composable
+fun Skeleton(modifier: Modifier = Modifier, lines: Int = 3, height: Dp = 16.dp) {
+    val c = Oc.c
+    val shimmer = if (app.ocmobile.ui.theme.rememberMotionEnabled()) rememberInfiniteTransition(label = "skeleton")
+        .animateFloat(-1f, 2f, infiniteRepeatable(tween(1300, easing = LinearEasing)), label = "shine") else null
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        repeat(lines) { i ->
+            Box(
+                Modifier.fillMaxWidth(if (i == lines - 1 && lines > 1) 0.6f else 1f - i * 0.08f).height(height).clip(Oc.round(height / 2))
+                    .background(c.surface)
+                    .drawWithContent {
+                        drawContent()
+                        val p = shimmer?.value ?: return@drawWithContent
+                        val w = size.width
+                        drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            listOf(Color.Transparent, c.surfaceHigh.copy(alpha = 0.9f), Color.Transparent),
+                            startX = w * p - w * 0.4f, endX = w * p + w * 0.4f,
+                        ))
+                    },
+            )
+        }
+    }
+}
+
+/** A provider's mark without downloading logos: its first letter on a quiet color picked by its id. */
+@Composable
+fun Monogram(id: String, name: String, size: Dp = 36.dp) {
+    val c = Oc.c
+    val inks = listOf(c.accent, c.link, c.ok, c.warn, c.danger, c.textDim)
+    val ink = inks[(id.hashCode() and 0x7fffffff) % inks.size]
+    Box(Modifier.size(size).clip(CircleShape).background(ink.copy(alpha = if (c.isDark) 0.22f else 0.16f)), contentAlignment = Alignment.Center) {
+        Txt(name.trim().take(1).uppercase().ifBlank { "?" }, size = (size.value * 0.44f).sp, color = ink, weight = FontWeight.SemiBold)
     }
 }
 

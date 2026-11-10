@@ -48,6 +48,8 @@ import app.ocmobile.ui.components.TopBar
 import app.ocmobile.ui.components.Txt
 import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.launch
 
 private val popular = listOf("opencode-go", "opencode", "anthropic", "openai", "github-copilot", "google", "openrouter", "xai", "deepseek", "groq", "mistral", "zai", "moonshotai")
@@ -85,9 +87,10 @@ fun ProvidersScreen(nav: Nav) {
                 if (connected.isEmpty()) Txt("Nothing connected yet", Modifier.padding(horizontal = 20.dp), size = 16.sp, color = c.textDim)
                 else SettingsGroup {
                     connected.forEach { p ->
-                        SettingsRow(p.name.ifBlank { p.id }, subtitle = "${p.models.size} models", icon = Ic.Key, trailing = {
+                        SettingsRow(p.name.ifBlank { p.id }, subtitle = "${p.models.size} models", leading = { app.ocmobile.ui.components.Monogram(p.id, p.name.ifBlank { p.id }) }, trailing = {
                             if (p.id == "opencode-go") Chip("Go", color = c.bg, bg = c.text)
-                            SmallButton("Disconnect", { disconnect = p.id }, danger = true)
+                            // a quiet text button: the red is saved for the confirmation
+                            Txt("Disconnect", Modifier.clip(Oc.pill).clickable { disconnect = p.id }.padding(horizontal = 10.dp, vertical = 12.dp), size = 14.sp, color = c.textDim)
                         })
                     }
                 }
@@ -97,11 +100,11 @@ fun ProvidersScreen(nav: Nav) {
                 Box(Modifier.padding(horizontal = 16.dp)) { OcTextField(query, { query = it }, placeholder = "Search providers") }
                 Spacer(Modifier.height(12.dp))
             }
-            if (loading) item { Box(Modifier.fillMaxWidth().padding(24.dp)) { Spinner(26.dp) } }
+            if (loading) item { app.ocmobile.ui.components.Skeleton(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), lines = 5, height = 44.dp) }
             item {
                 SettingsGroup {
                     available.take(60).forEach { p ->
-                        SettingsRow(p.name.ifBlank { p.id }, subtitle = p.id, icon = Ic.Plus, chevron = true, onClick = { connect = p })
+                        SettingsRow(p.name.ifBlank { p.id }, subtitle = p.id, leading = { app.ocmobile.ui.components.Monogram(p.id, p.name.ifBlank { p.id }) }, chevron = true, onClick = { connect = p })
                     }
                 }
             }
@@ -112,14 +115,15 @@ fun ProvidersScreen(nav: Nav) {
         ConnectSheet(p, onDone = { connect = null; scope.launch { load() } })
     }
     disconnect?.let { id ->
-        OcDialog("Disconnect $id?", { disconnect = null }, "Disconnect", {
+        val name = connected.firstOrNull { it.id == id }?.name?.ifBlank { null } ?: id
+        OcDialog("Disconnect $name?", { disconnect = null }, "Disconnect", {
             disconnect = null
             scope.launch {
                 if (id == app.ocmobile.data.FreeModels.COPILOT_ID || id == app.ocmobile.data.FreeModels.POLLINATIONS_ID) app.ocmobile.data.FreeModels.disable(id)
                 else runCatching { Graph.api.removeAuth(id); Graph.api.disposeAll() }
                 Graph.catalog.refresh(); load()
             }
-        }, danger = true) { Txt("Stored credentials for this provider are removed from the phone.", size = 16.sp, color = Oc.c.textDim) }
+        }, danger = true) { Txt("Its key or sign-in is removed from the phone, and its models leave the model list. Chats stay.", size = 16.sp, color = Oc.c.textDim) }
     }
 }
 

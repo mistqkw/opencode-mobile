@@ -39,6 +39,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,12 +84,13 @@ val LocalInTopBar = compositionLocalOf { false }
 
 /** Kimi round button: a dark circle with a thin outline. */
 @Composable
-fun KimiCircleBtn(icon: ImageVector, onClick: () -> Unit, size: androidx.compose.ui.unit.Dp = 48.dp, tint: Color = Oc.c.text) {
+fun KimiCircleBtn(icon: ImageVector, onClick: () -> Unit, size: androidx.compose.ui.unit.Dp = 48.dp, tint: Color = Oc.c.text, contentDescription: String? = app.ocmobile.ui.theme.iconLabel(icon)) {
     val c = Oc.c
     Box(
-        Modifier.size(size).clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.7f)).border(1.dp, c.border, CircleShape).tap(onClick = onClick),
+        Modifier.size(size).clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.7f)).border(1.dp, c.border, CircleShape).tap(onClick = onClick)
+            .semantics { role = androidx.compose.ui.semantics.Role.Button; if (contentDescription != null) this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
-    ) { Ico(icon, tint = tint, size = 22.dp) }
+    ) { TopBarIcon(icon, tint, 22.dp) }
 }
 
 /** Model pill in the header: "OpenCode" and the model in grey, like "Kimi K2.8 Preview". */

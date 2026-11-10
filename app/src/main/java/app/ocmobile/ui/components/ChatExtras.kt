@@ -141,8 +141,8 @@ fun costHintText(chat: Chat?, text: String, attachments: Int): String? {
         val usd = (ctxTokens * pcache + newTokens * pin + outAvg * pout) / 1_000_000.0
         val counted = prefs.limitProviders.split(',').map { it.trim() }.let { it.isEmpty() || prefs.providerId in it }
         val share = if (counted && prefs.limit5h > 0) usd / prefs.limit5h * 100 else null
-        "≈ " + (if (usd < 0.01) "<$0.01" else "$%.2f".format(java.util.Locale.US, usd)) +
-            (share?.let { " · " + (if (it < 0.1) "<0.1" else "%.1f".format(java.util.Locale.US, it)) + "% of 5h" } ?: "")
+        "≈ " + Fmt.price(usd) +
+            (share?.let { " · " + (if (it < 0.1) "<" + Fmt.percent(0.1, 1) else Fmt.percent(it, 1)) + " of 5h" } ?: "")
     }
     return hint
 }
