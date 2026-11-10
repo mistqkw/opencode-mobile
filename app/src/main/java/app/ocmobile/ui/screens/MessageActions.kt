@@ -54,6 +54,11 @@ fun MessageActionsSheet(
     fun done(f: () -> Unit) = { onDismiss(); f() }
     OcSheet(onDismiss) {
         Column(Modifier.padding(bottom = 20.dp)) {
+            // which model wrote the reply and what it cost: kept here, out of the buttons under the reply
+            if (!m.info.isUser) {
+                val bits = listOfNotNull(m.info.modelName, m.info.cost?.takeIf { it > 0 }?.let { app.ocmobile.ui.components.Fmt.price(it) })
+                if (bits.isNotEmpty()) Txt(bits.joinToString("   "), Modifier.padding(horizontal = 24.dp, vertical = 4.dp), size = 14.sp, color = c.textDim, maxLines = 1)
+            }
             if (text.isNotBlank()) {
                 Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(Oc.round(20.dp)).background(c.surface).padding(16.dp)) {
                     Txt(text, size = 15.sp, color = c.textDim, maxLines = 3)

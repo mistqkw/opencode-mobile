@@ -218,12 +218,8 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
                     IconBtn(Ic.Volume, { Speaker.toggle(ctx, textAll) }, size = 40.dp, iconSize = 20.dp, tint = c.textDim)
                 }
                 if (onRetry != null) IconBtn(Ic.Refresh, onRetry, size = 40.dp, iconSize = 20.dp, tint = c.textDim)
+                // the model and the price are in the "⋮" menu: the row is the same size under every reply
                 IconBtn(Ic.More, onLong, size = 40.dp, iconSize = 20.dp, tint = c.textDim)
-                val bits = buildList {
-                    info.modelName?.let { add(it) }
-                    info.cost?.takeIf { it > 0 }?.let { add("$" + "%.4f".format(it).trimEnd('0').trimEnd('.')) }
-                }
-                if (bits.isNotEmpty()) Txt(bits.joinToString(" · "), size = 13.sp, color = c.textDim)
             }
             if (last) Txt((if (app.ocmobile.data.Persona.on) "cl0udly" else "OpenCode") + " can make mistakes. Check important changes.", size = 13.sp, color = c.textDim, modifier = Modifier.padding(top = 2.dp))
         } }

@@ -78,15 +78,20 @@ import kotlinx.serialization.json.JsonObject
 internal fun StepsTimeline(parts: List<Part>, running: Boolean, onImage: (String) -> Unit) {
     val c = Oc.c
     var open by remember { mutableStateOf(false) }
-    val rot by androidx.compose.animation.core.animateFloatAsState(if (open) 90f else 0f, tween(108), label = "steps")
+    // the chevron turns with a little spring; quick, like the rest of the app
+    val rot by androidx.compose.animation.core.animateFloatAsState(if (open) 90f else 0f, androidx.compose.animation.core.spring(0.8f, androidx.compose.animation.core.Spring.StiffnessMedium), label = "steps")
     Column {
-        Row(Modifier.clip(Oc.round(10.dp)).clickable { open = !open }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        // the main way to open the steps: a full 48 dp row, brighter than a caption
+        Row(
+            Modifier.heightIn(min = 48.dp).clip(Oc.round(10.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = if (open) "Hide steps" else "Show steps") { open = !open }.padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             AnimatedContent(richSummary(parts), label = "sum", modifier = Modifier.weight(1f, fill = false), transitionSpec = {
                 (fadeIn(tween(96)) + androidx.compose.animation.slideInVertically(tween(120)) { it / 2 }) togetherWith
                     (fadeOut(tween(60)) + androidx.compose.animation.slideOutVertically(tween(84)) { -it / 2 })
-            }) { t -> Text(t, color = c.textDim, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-            Spacer(Modifier.width(4.dp))
-            Ico(Ic.ChevronRight, tint = c.textDim, size = 16.dp, modifier = Modifier.rotate(rot))
+            }) { t -> Text(t, color = c.text.copy(alpha = 0.72f), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            Spacer(Modifier.width(6.dp))
+            Ico(Ic.ChevronRight, tint = c.text.copy(alpha = 0.72f), size = 18.dp, modifier = Modifier.graphicsLayer { rotationZ = rot })
             if (running) { Spacer(Modifier.width(8.dp)); Spinner(12.dp, color = c.textDim, stroke = 1.5.dp) }
         }
         // collapsed while a command runs: its terminal is visible right away
@@ -94,7 +99,11 @@ internal fun StepsTimeline(parts: List<Part>, running: Boolean, onImage: (String
         AnimatedVisibility(liveCmd != null && !open, enter = expandVertically(tween(132)) + fadeIn(tween(108)), exit = shrinkVertically(tween(132)) + fadeOut(tween(72))) {
             liveCmd?.let { Box(Modifier.padding(top = 8.dp)) { CommandView(it) } }
         }
-        AnimatedVisibility(open, enter = fadeIn(tween(96)) + expandVertically(tween(84, easing = FastOutSlowInEasing)), exit = fadeOut(tween(60)) + shrinkVertically(tween(120))) {
+        AnimatedVisibility(
+            open,
+            enter = fadeIn(tween(96)) + expandVertically(androidx.compose.animation.core.spring(0.8f, androidx.compose.animation.core.Spring.StiffnessMedium)),
+            exit = fadeOut(tween(60)) + shrinkVertically(androidx.compose.animation.core.spring(0.8f, androidx.compose.animation.core.Spring.StiffnessMedium)),
+        ) {
             Column(Modifier.padding(top = 8.dp).fillMaxWidth().clip(Oc.round(14.dp)).border(1.dp, c.border, Oc.round(14.dp))) {
                 parts.forEachIndexed { i, p ->
                     key(p.id.ifEmpty { "i$i" }) {
