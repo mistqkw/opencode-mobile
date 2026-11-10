@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -156,12 +157,32 @@ internal fun DrawScope.drawIconCloud(
     }
 }
 
-/** Step counter: jerky motion, redrawn only a few times a second. */
+/**
+ * Step counter: jerky motion, redrawn only a few times a second. Read it while drawing (not in composition),
+ * so a tick redraws the canvas and recomposes nothing. Stands still with motion off or the app in the background.
+ */
 @Composable
-private fun rememberSteps(periodMs: Long): Int {
-    var n by remember { mutableIntStateOf(0) }
-    LaunchedEffect(periodMs) { while (true) { delay(periodMs); n++ } }
+private fun rememberSteps(periodMs: Long): androidx.compose.runtime.State<Int> {
+    val n = remember { mutableIntStateOf(0) }
+    if (app.ocmobile.ui.theme.rememberMotionEnabled()) app.ocmobile.ui.theme.WhileStarted(periodMs) { while (true) { delay(periodMs); n.intValue++ } }
     return n
+}
+
+/** The mascot's endless idle motion: blinking, looking around, floating. Null with motion off: a still frame. */
+private class IdleMotion(val blink: androidx.compose.runtime.State<Float>, val look: androidx.compose.runtime.State<Float>, val bob: androidx.compose.runtime.State<Float>)
+
+@Composable
+private fun rememberIdleMotion(): IdleMotion {
+    val t = rememberInfiniteTransition(label = "cloud")
+    val blinkT = t.animateFloat(0f, 1f, infiniteRepeatable(keyframes { durationMillis = 4400; 0f at 0; 0f at 4100; 1f at 4180; 1f at 4260; 0f at 4340 }), label = "blink")
+    // looks around rarely and calmly: every 12 seconds to the left, then right, and back
+    val lookT = t.animateFloat(0f, 0f, infiniteRepeatable(keyframes {
+        durationMillis = 12000
+        0f at 0; 0f at 6000; -1f at 6400 using androidx.compose.animation.core.FastOutSlowInEasing; -1f at 7600
+        1f at 8200 using androidx.compose.animation.core.FastOutSlowInEasing; 1f at 9400; 0f at 9800 using androidx.compose.animation.core.FastOutSlowInEasing
+    }), label = "look")
+    val bob = t.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = androidx.compose.animation.core.FastOutSlowInEasing), RepeatMode.Reverse), label = "bob")
+    return remember { IdleMotion(blinkT, lookT, bob) }
 }
 
 /**
@@ -265,11 +286,19 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
             hearts.removeAll { clock - it.born > it.life }
         }
     }
-    // bored: after 40 s without touches it nods off, after 80 s it falls asleep by itself
-    LaunchedEffect(interactive) {
-        if (!interactive) return@LaunchedEffect
+    // someone started typing: it wakes up (if it dozed off) and looks down at the input
+    val typing by androidx.compose.runtime.rememberUpdatedState(watching)
+    LaunchedEffect(watching) {
+        if (!watching) return@LaunchedEffect
+        lastTouch = System.currentTimeMillis()
+        if (mood == CloudMood.Sleep || mood == CloudMood.Drowsy) { onReact?.invoke("wake"); set(CloudMood.Surprised, 600) }
+    }
+    // bored: after 40 s without touches it nods off, after 80 s it falls asleep by itself (never while you type)
+    app.ocmobile.ui.theme.WhileStarted(interactive) {
+        if (!interactive) return@WhileStarted
         while (true) {
             delay(2000)
+            if (typing) { lastTouch = System.currentTimeMillis(); continue }
             val idle = System.currentTimeMillis() - lastTouch
             if (!prefs.mascotSleepy) continue
             if (mood == CloudMood.Idle && idle > 40_000) mood = CloudMood.Drowsy
@@ -317,8 +346,8 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
         delay(700); mood = CloudMood.Idle
     }
     // holiday: its own things fly around (snow, confetti, leaves, bats); in autumn it "sneezes" by itself; on April 1 it suddenly turns around
-    LaunchedEffect(holiday, interactive) {
-        if (!interactive || holiday == null || !prefs.mascotSeasonal) return@LaunchedEffect
+    app.ocmobile.ui.theme.WhileStarted(holiday, interactive) {
+        if (!interactive || holiday == null || !prefs.mascotSeasonal) return@WhileStarted
         var tick = 0
         while (true) {
             delay(if (holiday.ambient != null) holiday.every else 4000)
@@ -335,11 +364,12 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
     }
     // dictation: while you speak, volume bars hop above its head
     val listening = MascotSignals.listening && interactive
-    // phone shake and tilt
-    androidx.compose.runtime.DisposableEffect(interactive) {
+    // phone shake and tilt (not with motion off: battery saver or animations turned off)
+    val motion = app.ocmobile.ui.theme.rememberMotionEnabled()
+    androidx.compose.runtime.DisposableEffect(interactive, motion) {
         val sm = ctx.getSystemService(android.content.Context.SENSOR_SERVICE) as? android.hardware.SensorManager
         val acc = sm?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)
-        if (!interactive || !prefs.mascotSensors || sm == null || acc == null) return@DisposableEffect onDispose { }
+        if (!interactive || !motion || !prefs.mascotSensors || sm == null || acc == null) return@DisposableEffect onDispose { }
         var lastShake = 0L; var jolts = 0; var gx = 0f
         val l = object : android.hardware.SensorEventListener {
             override fun onSensorChanged(e: android.hardware.SensorEvent) {
@@ -364,18 +394,10 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
         onDispose { sm.unregisterListener(l) }
     }
 
-    val frame = rememberSteps(if (thinking) 130 else 240)
-    val t = rememberInfiniteTransition(label = "cloud")
-    val blinkT by t.animateFloat(0f, 1f, infiniteRepeatable(keyframes { durationMillis = 4400; 0f at 0; 0f at 4100; 1f at 4180; 1f at 4260; 0f at 4340 }), label = "blink")
-    // looks around rarely and calmly: every 12 seconds to the left, then right, and back
-    val lookT by t.animateFloat(0f, 0f, infiniteRepeatable(keyframes {
-        durationMillis = 12000
-        0f at 0; 0f at 6000; -1f at 6400 using androidx.compose.animation.core.FastOutSlowInEasing; -1f at 7600
-        1f at 8200 using androidx.compose.animation.core.FastOutSlowInEasing; 1f at 9400; 0f at 9800 using androidx.compose.animation.core.FastOutSlowInEasing
-    }), label = "look")
+    val frameS = rememberSteps(if (thinking) 130 else 240)
+    val idleMotion = if (motion) rememberIdleMotion() else null
     val down by androidx.compose.animation.core.animateFloatAsState(if (watching) 1f else 0f, tween(200), label = "down")
     val tiltA by androidx.compose.animation.core.animateFloatAsState(tilt, tween(150), label = "tilt")
-    val bob by t.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = androidx.compose.animation.core.FastOutSlowInEasing), RepeatMode.Reverse), label = "bob")
     val night = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) in 0..4 }
 
     Canvas(
@@ -478,13 +500,18 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
             }),
     ) {
         // the cloud is centered; rain, "z" and hearts are drawn beyond the canvas edges
+        val frame = frameS.value
+        val blinkT = idleMotion?.blink?.value ?: 0f
+        val lookT = idleMotion?.look?.value ?: 0f
+        val bob = idleMotion?.bob?.value ?: 0f
         val w = minOf(size.width * 0.9f, size.height * 0.85f * CW / CH)
         val k = w / CW
         val step = floor(26f * k).coerceAtLeast(1f)          // the cloud's "pixel"
         val lift = if (mood == CloudMood.Sleep) 0f else bob * step * 1.5f
         val x = (size.width - w) / 2
         val y = (size.height - CH * k) / 2 + step * 0.75f - lift
-        val shown = if (mood == CloudMood.Idle && (night || lowBattery)) CloudMood.Drowsy else mood
+        // at night or on low battery it's drowsy, but not while you type to it
+        val shown = if (mood == CloudMood.Idle && (night || lowBattery) && !watching) CloudMood.Drowsy else mood
         val tl = touchLook
         val eyeDx = when {
             tl != null -> tl.x * 0.035f
@@ -503,12 +530,13 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
             if (s < 5) drawRect(GREY.copy(alpha = 1f - s * 0.18f), Offset(x + (110f + i * 170f) * k, bottom + (s * 1.4f + 0.6f) * step), Size(step, step * 1.6f))
         }
         // "z" only during real sleep, not when it squints for a moment (peekaboo, sneeze)
-        if (mood == CloudMood.Sleep && calmJob?.isActive != true) for (n in 0..1) {
-            val s = (frame + n * 4) % 8
-            val zx = x + w + (s / 2 - 1) * step
-            val zy = y - (s + 1) * step
-            val col = GREY.copy(alpha = 1f - s / 8f)
-            listOf(0 to 0, 1 to 0, 2 to 0, 1 to 1, 0 to 2, 1 to 2, 2 to 2).forEach { (a, b) -> drawRect(col, Offset(zx + a * step, zy + b * step), Size(step, step)) }
+        if (mood == CloudMood.Sleep && calmJob?.isActive != true) for (n in 0..2) {
+            val s = (frame + n * 4) % 12
+            val glyph = SLEEP_Z[s / 4]
+            val zx = x + w * 0.8f + (s / 2) * step
+            val zy = y - glyph.size * step - s * step
+            val col = GREY.copy(alpha = 1f - (s / 12f) * (s / 12f))
+            glyph.forEachIndexed { r, row -> row.forEachIndexed { cI, ch -> if (ch == 'x') drawRect(col, Offset(zx + cI * step, zy + r * step), Size(step, step)) } }
         }
         // woke up: "!" above its head
         if (mood == CloudMood.Surprised) {
@@ -576,6 +604,12 @@ private val LEAF = listOf(".x", "xx", "x.")
 private val BAT_A = listOf("x...x", "xx.xx", ".xxx.")
 private val BAT_B = listOf(".xxx.", "xx.xx", "x...x")
 private val BOLT = listOf(".x", "xx", "x.")
+// sleeping "Z" in three sizes: a full top and bottom with a clean diagonal, so it doesn't read as "I" or "H"
+private val SLEEP_Z = listOf(
+    listOf("xxxxx", "...x.", "..x..", ".x...", "xxxxx"),
+    listOf("xxxxxx", "....x.", "...x..", "..x...", ".x....", "xxxxxx"),
+    listOf("xxxxxxx", ".....x.", "....x..", "...x...", "..x....", ".x.....", "xxxxxxx"),
+)
 
 // ---------- sky above the top bar ----------
 
@@ -733,7 +767,8 @@ object CloudBackdrop {
         }
     }
 
-    private fun build(gw: Int, gh: Int, bg: Int, dark: Boolean, variant: String, topOnly: Boolean): ImageBitmap {
+    /** [safe] rows at the top hold the bar's buttons (menu, (i), the avatar): no cloud reaches into them. */
+    private fun build(gw: Int, gh: Int, bg: Int, dark: Boolean, variant: String, topOnly: Boolean, safe: Int): ImageBitmap {
         val out = IntArray(gw * gh) { bg }
         val rnd = java.util.Random(variant.hashCode().toLong())
         fun r(a: Float, b: Float) = a + rnd.nextFloat() * (b - a)
@@ -744,9 +779,12 @@ object CloudBackdrop {
         val leftFirst = rnd.nextBoolean()
         val spots = List(n) { i ->
             val left = (i % 2 == 0) == leftFirst
-            val cy = if (topOnly) gh * r(0.07f, 0.17f) + i * gh * 0.05f
-                else gh * ((i + 0.3f + r(0f, 0.5f)) / n)
-            Cumulus(if (left) r(-0.02f, 0.2f) else r(0.75f, 1.02f), cy.toInt(), gw * r(0.26f, 0.44f))
+            val width = gw * r(0.26f, 0.44f)
+            // a cloud rises about a third of its width above its flat bottom
+            val clear = safe + width * 0.36f + 2f
+            val cy = if (topOnly) clear + gh * r(0f, 0.06f) + i * gh * 0.05f
+                else maxOf(clear, gh * ((i + 0.3f + r(0f, 0.5f)) / n))
+            Cumulus(if (left) r(-0.02f, 0.2f) else r(0.75f, 1.02f), cy.toInt(), width)
         }
         spots.forEach { c -> paintCumulus(out, gw, gh, cumulusBillows(rnd, c.cx * gw, c.base, c.width), c.base, tones, false) }
         return out.toImage(gw, gh)
@@ -755,12 +793,15 @@ object CloudBackdrop {
     @Composable
     fun Modifier.backdrop(bg: Color, dark: Boolean, variant: String, topOnly: Boolean): Modifier {
         val bgArgb = bg.toArgb()
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val safeTop = androidx.compose.foundation.layout.WindowInsets.statusBars.getTop(density) + with(density) { 72.dp.roundToPx() }
         return this.drawWithCache {
             val px = 4.dp.toPx().roundToInt().toFloat()
             val gw = ceil(size.width / px).toInt()
             val gh = ceil(size.height / px).toInt()
-            val key = "$gw:$gh:$bgArgb:$variant"
-            val img = synchronized(cache) { cache.getOrPut(key) { build(gw, gh, bgArgb, dark, variant, topOnly) } }
+            val safe = ceil(safeTop / px).toInt()
+            val key = "$gw:$gh:$bgArgb:$variant:$safe"
+            val img = synchronized(cache) { cache.getOrPut(key) { build(gw, gh, bgArgb, dark, variant, topOnly, safe) } }
             onDrawBehind { pixels(img, 0f, 0f, px) }
         }
     }
@@ -908,10 +949,11 @@ private fun DrawScope.cell(x: Int, y: Int, px: Float, col: Color, w: Int = 1, h:
 @Composable
 fun CloudWorkGlyph(work: Work, size: androidx.compose.ui.unit.Dp) {
     val ink = miniInk()
-    val f = rememberSteps(if (work == Work.Wait) 260 else 150)
+    val fS = rememberSteps(if (work == Work.Wait) 260 else 150)
     // "thinking" is a little different every time, like in the other looks
     val variant = remember { kotlin.random.Random.nextInt(2) }
     Canvas(Modifier.size(width = size * 16f / 12f, height = size)) {
+        val f = fS.value
         val px = floor(this.size.height / 12f).coerceAtLeast(1f)
         when (work) {
             // thinking: looks up, thought dots float up above it one by one
@@ -993,7 +1035,7 @@ fun CloudWorkGlyph(work: Work, size: androidx.compose.ui.unit.Dp) {
                 drawMini(ink, 0, 4, px, eyes = 1)
                 val s = f % 8
                 val zx = 12 + s / 3; val zy = 4 - s / 2
-                if (s < 7) listOf(0 to 0, 1 to 0, 2 to 0, 1 to 1, 0 to 2, 1 to 2, 2 to 2).forEach { (a, b) -> cell(zx + a, zy + b - 1, px, ink.dim) }
+                if (s < 7) listOf(0 to 0, 1 to 0, 2 to 0, 3 to 0, 2 to 1, 1 to 2, 0 to 3, 1 to 3, 2 to 3, 3 to 3).forEach { (a, b) -> cell(zx + a, zy + b - 2, px, ink.dim) }
             }
         }
     }
@@ -1003,7 +1045,7 @@ fun CloudWorkGlyph(work: Work, size: androidx.compose.ui.unit.Dp) {
 @Composable
 internal fun CloudThinking(work: Work, modifier: Modifier) {
     val c = Oc.c
-    val dots = rememberSteps(420) % 4
+    val dots = rememberSteps(420).value % 4
     androidx.compose.foundation.layout.Row(modifier.padding(vertical = 2.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         CloudWorkGlyph(work, 32.dp)
         androidx.compose.foundation.layout.Spacer(Modifier.width(10.dp))
