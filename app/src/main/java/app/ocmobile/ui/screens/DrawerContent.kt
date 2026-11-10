@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -59,7 +61,9 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
     fun go(r: Route) { close(); nav.root(r) }
 
     Box(Modifier.fillMaxSize().screenBackdrop("DrawerContent1")) {
-        LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 140.dp)) {
+        // the last row has to clear the bottom panel and the gesture bar
+        val navBar = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 112.dp + navBar)) {
             item { DrawerHeader { go(it) } }
             item {
                 val navs = if (Oc.look.id.kimiLike)
@@ -93,9 +97,11 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
             if (recent.isEmpty() && pinned.isEmpty()) item { Txt("No sessions yet", Modifier.padding(start = 24.dp, top = 8.dp), size = 16.sp, color = c.textDim) }
         }
         Row(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding()
-                .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(c.bg.copy(alpha = 0f), c.bg, c.bg)))
-                .padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 16.dp),
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                // rows fade out under the panel instead of showing through it; the backing reaches below the gesture bar
+                .background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to c.bg.copy(alpha = 0f), 0.42f to c.bg, 1f to c.bg))
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, top = 44.dp, bottom = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (Oc.look.id.kimiLike) {

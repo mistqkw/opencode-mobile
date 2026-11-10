@@ -41,6 +41,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -85,6 +88,10 @@ import app.ocmobile.ui.screens.UsageScreen
 import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private const val DRAWER_WIDTH = 0.94f
+private const val DRAWER_SHRINK = 0.08f
+private const val DRAWER_CORNER = 28f
 
 @Composable
 fun OcRoot() {
@@ -143,6 +150,20 @@ private fun Shell(rt: RuntimeState) {
     }
     val open = { scope.launch { drawer.open() }; Unit }
 
+    // How far the drawer is out, 0..1: the screen behind follows it to the right and shrinks a little.
+    var screenW by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val sheetW = screenW * DRAWER_WIDTH
+    fun drawerProgress(): Float {
+        val off = drawer.currentOffset
+        return if (sheetW <= 0f || off.isNaN()) (if (drawer.isOpen) 1f else 0f) else (1f + off / sheetW).coerceIn(0f, 1f)
+    }
+    // the keyboard goes away as soon as the drawer starts to come out, not after it's open
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    LaunchedEffect(drawer, sheetW) {
+        snapshotFlow { drawerProgress() > 0.02f }.collect { out -> if (out) { keyboard?.hide(); focus.clearFocus(force = true) } }
+    }
+
     // The server starts by itself when the app opens.
     var autostarted by remember { mutableStateOf(false) }
     LaunchedEffect(rt) {
@@ -165,12 +186,24 @@ private fun Shell(rt: RuntimeState) {
         // while a finger is on the mascot, the drawer doesn't open by swipe: it's being petted and pulled
         gesturesEnabled = drawer.isOpen || !app.ocmobile.ui.components.MascotGrab.held,
         drawerContent = {
-            ModalDrawerSheet(drawerContainerColor = c.bg, drawerShape = RectangleShape, windowInsets = WindowInsets(0), modifier = Modifier.fillMaxWidth(0.94f)) {
+            ModalDrawerSheet(drawerContainerColor = c.bg, drawerShape = RectangleShape, windowInsets = WindowInsets(0), modifier = Modifier.fillMaxWidth(DRAWER_WIDTH)) {
                 DrawerContent(nav) { scope.launch { drawer.close() } }
             }
         },
     ) {
-        Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier.fillMaxSize().onSizeChanged { screenW = it.width.toFloat() }.graphicsLayer {
+                val p = drawerProgress()
+                if (p > 0f) {
+                    // pushed right next to the drawer, shrunk from the left edge, with rounded corners
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f)
+                    translationX = sheetW * p
+                    scaleX = 1f - DRAWER_SHRINK * p; scaleY = scaleX
+                    shape = RoundedCornerShape((DRAWER_CORNER * p).dp)
+                    clip = true
+                }
+            },
+        ) {
             AnimatedContent(
                 targetState = nav.current,
                 transitionSpec = {
