@@ -43,11 +43,28 @@ class RuntimeController(
     val log = MutableStateFlow<List<String>>(emptyList())
 
     private val proot = ProotCommand(paths, prefs)
+    private val root = RootCommand(paths, prefs)
     @Volatile private var process: Process? = null
     @Volatile private var stopRequested = false
     @Volatile private var installing = false
 
     fun logLine(s: String) = log.update { (it + s).takeLast(600) }
+
+    // ---------- runtime mode (proot vs real root) ----------
+
+    /** True when the user asked for root mode and KernelSU actually grants it. */
+    fun useRoot(): Boolean = paths.localSupported && prefs.rootRuntime && RootShell.ready()
+
+    /** What the env is actually running under right now, for the UI. */
+    fun modeLabel(): String = if (useRoot()) "root" else "proot"
+
+    /** Re-probe root (triggers the grant prompt); call off the main thread. */
+    fun recheckRoot(): Boolean { RootShell.reset(); return RootShell.recheck() }
+
+    private fun buildCmd(argv: List<String>, cwd: String, extraEnv: Map<String, String>): List<String> =
+        if (useRoot()) root.build(argv, cwd, extraEnv) else proot.build(argv, cwd, extraEnv)
+
+    private fun cmdEnv(): Map<String, String> = if (useRoot()) root.env() else proot.env()
 
     // ---------- install ----------
 
@@ -176,7 +193,7 @@ class RuntimeController(
         var windowStart = System.currentTimeMillis()
         while (isActive && !stopRequested) {
             state.value = RuntimeState.Starting
-            val cmd = proot.build(
+            val cmd = buildCmd(
                 listOf(OC_BIN, "serve", "--hostname", "127.0.0.1", "--port", prefs.serverPort),
                 cwd = "/root/work",
                 extraEnv = mapOf(
@@ -185,7 +202,7 @@ class RuntimeController(
                 ),
             )
             val pb = ProcessBuilder(cmd).redirectErrorStream(true)
-            pb.environment().putAll(proot.env())
+            pb.environment().putAll(cmdEnv())
             val p = try { pb.start() } catch (e: Exception) {
                 state.value = RuntimeState.Crashed("Could not start proot: ${e.message}")
                 return@withContext
@@ -272,8 +289,8 @@ class RuntimeController(
         extraEnv: Map<String, String> = emptyMap(),
         onLine: (String) -> Unit = {},
     ): Int = withContext(Dispatchers.IO) {
-        val pb = ProcessBuilder(proot.build(argv, cwd, extraEnv)).redirectErrorStream(true)
-        pb.environment().putAll(proot.env())
+        val pb = ProcessBuilder(buildCmd(argv, cwd, extraEnv)).redirectErrorStream(true)
+        pb.environment().putAll(cmdEnv())
         val p = pb.start()
         val rd = launch { runCatching { p.inputStream.bufferedReader().forEachLine { onLine(it); logLine(it) } } }
         val done = try { runInterruptible { p.waitFor(timeoutSec, TimeUnit.SECONDS) } } finally { if (p.isAlive) p.destroyForcibly() }

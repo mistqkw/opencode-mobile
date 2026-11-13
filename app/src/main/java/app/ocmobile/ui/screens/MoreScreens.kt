@@ -150,6 +150,7 @@ fun ServerScreen(nav: Nav) {
     var tools by remember { mutableStateOf<List<String>?>(null) }
     var reset by remember { mutableStateOf(false) }
     var updating by remember { mutableStateOf<String?>(null) }
+    var rootGrant by remember { mutableStateOf<Boolean?>(null) }
 
     Column(Modifier.fillMaxSize().screenBackdrop("MoreScreens2")) {
         TopBar("Local server", left = { IconBtn(Ic.Back, { nav.pop() }) })
@@ -162,7 +163,7 @@ fun ServerScreen(nav: Nav) {
                     else -> "Stopped" to c.textDim
                 }
                 Txt(label, size = 19.sp, color = color)
-                Txt("Ubuntu 24.04 (proot) · 127.0.0.1:${prefs.serverPort}", size = 15.sp, color = c.textDim, modifier = Modifier.padding(top = 4.dp))
+                Txt("Ubuntu 24.04 (${if (prefs.rootRuntime) "root" else "proot"}) · 127.0.0.1:${prefs.serverPort}", size = 15.sp, color = c.textDim, modifier = Modifier.padding(top = 4.dp))
                 Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (rt is RuntimeState.Running || rt is RuntimeState.Starting) SmallButton("Stop", { Graph.runtime.stopServer() }, danger = true)
                     else SmallButton("Start", { Graph.runtime.startServer() }, filled = true)
@@ -175,6 +176,33 @@ fun ServerScreen(nav: Nav) {
                 SettingsRow("Start with the app", icon = Ic.Zap, trailing = { OcSwitch(prefs.autoStartServer) { prefs.autoStartServer = it } })
                 SettingsRow("Keep CPU awake while running", icon = Ic.Server, trailing = { OcSwitch(prefs.keepAwake) { prefs.keepAwake = it } })
                 SettingsRow("Compatibility mode", subtitle = "PROOT_NO_SECCOMP — try if crashes happen on your phone", icon = Ic.Shield, trailing = { OcSwitch(prefs.noSeccomp) { prefs.noSeccomp = it } })
+                SettingsRow(
+                    "Root runtime (KernelSU)",
+                    subtitle = "Run Ubuntu as real root (chroot) instead of proot — faster, real /proc. Needs root granted; restart the server to apply." +
+                        (rootGrant?.let { if (it) " · root granted" else " · root unavailable" } ?: ""),
+                    icon = Ic.Terminal,
+                    trailing = {
+                        OcSwitch(prefs.rootRuntime) { on ->
+                            prefs.rootRuntime = on
+                            scope.launch(Dispatchers.IO) {
+                                if (on) {
+                                    val ok = Graph.runtime.recheckRoot()
+                                    rootGrant = ok
+                                    if (!ok) {
+                                        prefs.rootRuntime = false
+                                        Graph.chats.toasts.tryEmit("Root not granted — staying on proot")
+                                        return@launch
+                                    }
+                                } else {
+                                    Graph.runtime.recheckRoot()
+                                }
+                                Graph.runtime.stopServer()
+                                kotlinx.coroutines.delay(1200)
+                                Graph.runtime.startServer()
+                            }
+                        }
+                    },
+                )
                 // Android 12+ kills "extra" child processes of apps (phantom process killer), and proot has many
                 SettingsRow("Server keeps stopping?", subtitle = "Developer options → turn on “Disable child process restrictions”", icon = Ic.Info, onClick = {
                     runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
