@@ -64,10 +64,20 @@ class RuntimeController(
     /** Unmount the root-mode binds (e.g. when the user turns root mode off). Off the main thread. */
     fun teardownRoot() = root.teardown()
 
-    private fun buildCmd(argv: List<String>, cwd: String, extraEnv: Map<String, String>): List<String> =
-        if (useRoot()) root.build(argv, cwd, extraEnv) else proot.build(argv, cwd, extraEnv)
+    /** Whether the server we last launched (or are launching) runs under real root. */
+    @Volatile var lastModeRoot = false
+        private set
+
+    private fun buildCmd(argv: List<String>, cwd: String, extraEnv: Map<String, String>): List<String> {
+        val r = useRoot()
+        lastModeRoot = r
+        return if (r) root.build(argv, cwd, extraEnv) else proot.build(argv, cwd, extraEnv)
+    }
 
     private fun cmdEnv(): Map<String, String> = if (useRoot()) root.env() else proot.env()
+
+    /** Kill a lingering root-launched server (it's reparented out of the app). Off the main thread. */
+    fun killRootServer() = root.killServer()
 
     // ---------- install ----------
 
@@ -280,6 +290,7 @@ class RuntimeController(
     fun stopServer() {
         userStopped = true
         requestStop()
+        if (lastModeRoot) Thread { root.killServer() }.start()  // reparented root server needs an explicit kill
         app.stopService(Intent(app, ServerService::class.java))
         if (state.value !is RuntimeState.NotInstalled) state.value = RuntimeState.Stopped
     }

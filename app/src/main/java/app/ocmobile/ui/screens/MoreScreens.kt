@@ -194,12 +194,16 @@ fun ServerScreen(nav: Nav) {
                                         return@launch
                                     }
                                     Graph.runtime.stopServer()
-                                    kotlinx.coroutines.delay(1200)
+                                    kotlinx.coroutines.delay(800)
+                                    Graph.runtime.killRootServer()   // clear any stale root server on the port
+                                    kotlinx.coroutines.delay(800)
                                     Graph.runtime.startServer()
                                 } else {
                                     Graph.runtime.stopServer()
-                                    kotlinx.coroutines.delay(1500)
-                                    Graph.runtime.teardownRoot()   // unmount the chroot binds
+                                    kotlinx.coroutines.delay(800)
+                                    Graph.runtime.killRootServer()   // the reparented root server needs an explicit kill
+                                    Graph.runtime.teardownRoot()     // unmount the chroot binds
+                                    kotlinx.coroutines.delay(800)
                                     Graph.runtime.startServer()
                                 }
                             }

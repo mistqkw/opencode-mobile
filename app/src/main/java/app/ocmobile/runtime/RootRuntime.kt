@@ -92,6 +92,19 @@ class RootCommand(private val paths: RuntimePaths, @Suppress("unused") private v
         return listOf("su", "-c", "sh ${sq(writeScript("ocroot", script))}")
     }
 
+    /** Kill the chrooted server. A root-launched `opencode` is reparented out of the app, so the
+     *  app's Process.destroy() can't reach it — without this a mode switch leaves it holding the
+     *  port and the next server can't bind. Best-effort, blocking (≤8s); call off the main thread. */
+    fun killServer() {
+        try {
+            val p = ProcessBuilder(
+                "su", "-c",
+                "pkill -TERM -f 'opencode serve' 2>/dev/null; sleep 1; pkill -KILL -f 'opencode serve' 2>/dev/null; exit 0",
+            ).redirectErrorStream(true).start()
+            if (!p.waitFor(8, TimeUnit.SECONDS)) p.destroyForcibly()
+        } catch (_: Exception) {}
+    }
+
     /** Unmount the persistent binds. MUST run before the rootfs is deleted, or a recursive delete
      *  would descend into a live /proc. No-op (and no `su` prompt) when nothing is mounted. */
     fun teardown() {
