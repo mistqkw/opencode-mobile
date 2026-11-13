@@ -6,20 +6,25 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Real-root runtime: when KernelSU (or any `su`) is granted, run the Ubuntu rootfs with an actual
- * `chroot` inside a private mount namespace instead of proot. No syscall emulation / seccomp, a real
- * `/proc`, and genuine root inside the guest. Falls back to proot when root isn't available.
+ * `chroot` instead of proot. No syscall emulation / seccomp, a real `/proc`, and genuine root inside
+ * the guest. Falls back to proot when root isn't available.
+ *
+ * Android's toybox has no private mount-namespace support (`unshare -m` leaks mounts to the global
+ * namespace and `mount --make-rprivate` is unsupported), so — like every Linux-on-Android chroot — we
+ * bind `/dev /proc /sys` into the rootfs once, idempotently, and leave them persistent across
+ * commands. [RootCommand.teardown] unmounts them, and must run before the rootfs is deleted.
  */
 object RootShell {
     @Volatile private var cached: Boolean? = null
 
-    /** True when `su` grants root AND `unshare` exists (needed for a clean, self-cleaning mount ns). */
+    /** True when `su` grants root AND `chroot` exists. */
     fun ready(): Boolean = cached ?: recheck()
 
     /** Re-run the probe (triggers the KernelSU grant prompt the first time). Call off the main thread. */
     fun recheck(): Boolean {
         val rooted = run("id -u").let { (code, out) -> code == 0 && out.trim() == "0" }
-        val hasUnshare = rooted && run("command -v unshare >/dev/null 2>&1").first == 0
-        val ok = rooted && hasUnshare
+        val hasChroot = rooted && run("command -v chroot >/dev/null 2>&1").first == 0
+        val ok = rooted && hasChroot
         cached = ok
         return ok
     }
@@ -61,22 +66,21 @@ class RootCommand(private val paths: RuntimePaths, @Suppress("unused") private v
             "DEBIAN_FRONTEND" to "noninteractive",
         ).apply { putAll(extraEnv) }
 
-        val rf = sq(paths.rootfs.path)
+        val rf = paths.rootfs.path
         val envPairs = guestEnv.entries.joinToString(" ") { sq("${it.key}=${it.value}") }
         val argv = guestArgv.joinToString(" ") { sq(it) }
 
+        // Idempotent binds (grep-guarded so repeated calls don't stack mounts); then chroot + exec.
         // The guest cmd is passed positionally so no inner quoting is needed: $1 = cwd, then argv.
         val script = buildString {
             appendLine("#!/system/bin/sh")
-            appendLine("RF=$rf")
-            // Re-exec into a private mount namespace so our binds don't leak and clean up on exit.
-            appendLine("if [ -z \"\$OCM_NS\" ] && command -v unshare >/dev/null 2>&1; then export OCM_NS=1; exec unshare -m /system/bin/sh \"\$0\"; fi")
+            appendLine("RF=${sq(rf)}")
             appendLine("mkdir -p \"\$RF/dev\" \"\$RF/proc\" \"\$RF/sys\" \"\$RF/dev/pts\" \"\$RF/dev/shm\" \"\$RF/tmp\"")
-            appendLine("mount -o bind /dev \"\$RF/dev\" 2>/dev/null")
-            appendLine("mount -t proc proc \"\$RF/proc\" 2>/dev/null || mount -o bind /proc \"\$RF/proc\" 2>/dev/null")
-            appendLine("mount -o bind /sys \"\$RF/sys\" 2>/dev/null")
-            appendLine("mount -t devpts devpts \"\$RF/dev/pts\" 2>/dev/null")
-            appendLine("mount -t tmpfs tmpfs \"\$RF/dev/shm\" 2>/dev/null")
+            appendLine("grep -qF \" \$RF/dev \" /proc/mounts || mount -o bind /dev \"\$RF/dev\"")
+            appendLine("grep -qF \" \$RF/proc \" /proc/mounts || mount -t proc proc \"\$RF/proc\" || mount -o bind /proc \"\$RF/proc\"")
+            appendLine("grep -qF \" \$RF/sys \" /proc/mounts || mount -o bind /sys \"\$RF/sys\"")
+            appendLine("grep -qF \" \$RF/dev/pts \" /proc/mounts || mount -t devpts devpts \"\$RF/dev/pts\" 2>/dev/null")
+            appendLine("grep -qF \" \$RF/dev/shm \" /proc/mounts || mount -t tmpfs tmpfs \"\$RF/dev/shm\" 2>/dev/null")
             append("exec chroot \"\$RF\" /usr/bin/env -i ")
             append(envPairs)
             append(" /bin/sh -c 'cd \"\$1\" || exit 1; shift; exec \"\$@\"' sh ")
@@ -85,10 +89,36 @@ class RootCommand(private val paths: RuntimePaths, @Suppress("unused") private v
             append(argv)
             append("\n")
         }
+        return listOf("su", "-c", "sh ${sq(writeScript("ocroot", script))}")
+    }
 
-        val f = File.createTempFile("ocroot", ".sh", paths.tmp)
-        f.writeText(script)
-        return listOf("su", "-c", "sh ${sq(f.path)}")
+    /** Unmount the persistent binds. MUST run before the rootfs is deleted, or a recursive delete
+     *  would descend into a live /proc. No-op (and no `su` prompt) when nothing is mounted. */
+    fun teardown() {
+        val rf = paths.rootfs.path
+        val mounted = try {
+            File("/proc/mounts").readLines().any { it.contains(" $rf/") }
+        } catch (_: Exception) { false }
+        if (!mounted) return
+        val script = buildString {
+            appendLine("#!/system/bin/sh")
+            appendLine("RF=${sq(rf)}")
+            // Children first (dev/pts, dev/shm) before their parents.
+            appendLine("for m in dev/pts dev/shm dev proc sys; do")
+            appendLine("  grep -qF \" \$RF/\$m \" /proc/mounts && umount \"\$RF/\$m\" 2>/dev/null")
+            appendLine("done")
+        }
+        try {
+            val p = ProcessBuilder("su", "-c", "sh ${sq(writeScript("ocumount", script))}")
+                .redirectErrorStream(true).start()
+            if (!p.waitFor(15, TimeUnit.SECONDS)) p.destroyForcibly()
+        } catch (_: Exception) {}
+    }
+
+    private fun writeScript(prefix: String, text: String): String {
+        val f = File.createTempFile(prefix, ".sh", paths.tmp)
+        f.writeText(text)
+        return f.path
     }
 
     /** POSIX single-quote: wrap in '…' and escape embedded quotes as '\''. */

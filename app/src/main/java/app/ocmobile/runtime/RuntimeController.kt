@@ -61,6 +61,9 @@ class RuntimeController(
     /** Re-probe root (triggers the grant prompt); call off the main thread. */
     fun recheckRoot(): Boolean { RootShell.reset(); return RootShell.recheck() }
 
+    /** Unmount the root-mode binds (e.g. when the user turns root mode off). Off the main thread. */
+    fun teardownRoot() = root.teardown()
+
     private fun buildCmd(argv: List<String>, cwd: String, extraEnv: Map<String, String>): List<String> =
         if (useRoot()) root.build(argv, cwd, extraEnv) else proot.build(argv, cwd, extraEnv)
 
@@ -308,6 +311,7 @@ class RuntimeController(
     fun resetRuntime() {
         Vault.save()
         stopServer()
+        root.teardown()   // unmount root-mode binds first, or a recursive delete hits a live /proc
         paths.rootfs.deleteRecursively()
         paths.downloads.deleteRecursively()
         prefs.runtimeReady = false

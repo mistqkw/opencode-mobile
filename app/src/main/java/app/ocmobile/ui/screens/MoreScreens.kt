@@ -193,12 +193,15 @@ fun ServerScreen(nav: Nav) {
                                         Graph.chats.toasts.tryEmit("Root not granted — staying on proot")
                                         return@launch
                                     }
+                                    Graph.runtime.stopServer()
+                                    kotlinx.coroutines.delay(1200)
+                                    Graph.runtime.startServer()
                                 } else {
-                                    Graph.runtime.recheckRoot()
+                                    Graph.runtime.stopServer()
+                                    kotlinx.coroutines.delay(1500)
+                                    Graph.runtime.teardownRoot()   // unmount the chroot binds
+                                    Graph.runtime.startServer()
                                 }
-                                Graph.runtime.stopServer()
-                                kotlinx.coroutines.delay(1200)
-                                Graph.runtime.startServer()
                             }
                         }
                     },
