@@ -146,6 +146,8 @@ class Prefs(ctx: Context) {
     var keepAwake by bool("keep_awake", true)
     var autoStartServer by bool("auto_start", true)
     var noSeccomp by bool("no_seccomp", false)
+    /** Run the Ubuntu env as real root (KernelSU chroot) instead of proot, when root is granted. */
+    var rootRuntime by bool("root_runtime", false)
     var runtimeReady by bool("runtime_ready", false)
     var opencodeVersion by str("opencode_version", "")
     /** OpenCode updates: when GitHub was last asked, the version kept to go back to, a version that failed its test, why, and a note for the user. */
