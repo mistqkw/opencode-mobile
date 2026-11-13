@@ -129,6 +129,10 @@ class RootCommand(private val paths: RuntimePaths, @Suppress("unused") private v
     }
 
     private fun writeScript(prefix: String, text: String): String {
+        // Purge previous launchers of this kind so they don't pile up across restarts. The running
+        // server already exec'd off its script, so it no longer holds the file.
+        paths.tmp.listFiles { f -> f.name.startsWith(prefix) && f.name.endsWith(".sh") }
+            ?.forEach { runCatching { it.delete() } }
         val f = File.createTempFile(prefix, ".sh", paths.tmp)
         f.writeText(text)
         return f.path
