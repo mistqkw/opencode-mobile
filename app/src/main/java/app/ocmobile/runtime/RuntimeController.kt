@@ -202,6 +202,9 @@ class RuntimeController(
 
     suspend fun supervise() = withContext(Dispatchers.IO) {
         stopRequested = false
+        // A root-launched server is reparented out of the app and survives force-stop, so a previous
+        // app session can leave one squatting the port. Clear orphans before we try to bind.
+        if (useRoot()) root.killServer()
         var failures = 0
         var windowStart = System.currentTimeMillis()
         while (isActive && !stopRequested) {
