@@ -43,11 +43,41 @@ class RuntimeController(
     val log = MutableStateFlow<List<String>>(emptyList())
 
     private val proot = ProotCommand(paths, prefs)
+    private val root = RootCommand(paths, prefs)
     @Volatile private var process: Process? = null
     @Volatile private var stopRequested = false
     @Volatile private var installing = false
 
     fun logLine(s: String) = log.update { (it + s).takeLast(600) }
+
+    // ---------- runtime mode (proot vs real root) ----------
+
+    /** True when the user asked for root mode and KernelSU actually grants it. */
+    fun useRoot(): Boolean = paths.localSupported && prefs.rootRuntime && RootShell.ready()
+
+    /** What the env is actually running under right now, for the UI. */
+    fun modeLabel(): String = if (useRoot()) "root" else "proot"
+
+    /** Re-probe root (triggers the grant prompt); call off the main thread. */
+    fun recheckRoot(): Boolean { RootShell.reset(); return RootShell.recheck() }
+
+    /** Unmount the root-mode binds (e.g. when the user turns root mode off). Off the main thread. */
+    fun teardownRoot() = root.teardown()
+
+    /** Whether the server we last launched (or are launching) runs under real root. */
+    @Volatile var lastModeRoot = false
+        private set
+
+    private fun buildCmd(argv: List<String>, cwd: String, extraEnv: Map<String, String>): List<String> {
+        val r = useRoot()
+        lastModeRoot = r
+        return if (r) root.build(argv, cwd, extraEnv) else proot.build(argv, cwd, extraEnv)
+    }
+
+    private fun cmdEnv(): Map<String, String> = if (useRoot()) root.env() else proot.env()
+
+    /** Kill a lingering root-launched server (it's reparented out of the app). Off the main thread. */
+    fun killRootServer() = root.killServer()
 
     // ---------- install ----------
 
@@ -172,11 +202,14 @@ class RuntimeController(
 
     suspend fun supervise() = withContext(Dispatchers.IO) {
         stopRequested = false
+        // A root-launched server is reparented out of the app and survives force-stop, so a previous
+        // app session can leave one squatting the port. Clear orphans before we try to bind.
+        if (useRoot()) root.killServer()
         var failures = 0
         var windowStart = System.currentTimeMillis()
         while (isActive && !stopRequested) {
             state.value = RuntimeState.Starting
-            val cmd = proot.build(
+            val cmd = buildCmd(
                 listOf(OC_BIN, "serve", "--hostname", "127.0.0.1", "--port", prefs.serverPort),
                 cwd = "/root/work",
                 extraEnv = mapOf(
@@ -185,7 +218,7 @@ class RuntimeController(
                 ),
             )
             val pb = ProcessBuilder(cmd).redirectErrorStream(true)
-            pb.environment().putAll(proot.env())
+            pb.environment().putAll(cmdEnv())
             val p = try { pb.start() } catch (e: Exception) {
                 state.value = RuntimeState.Crashed("Could not start proot: ${e.message}")
                 return@withContext
@@ -260,6 +293,7 @@ class RuntimeController(
     fun stopServer() {
         userStopped = true
         requestStop()
+        if (lastModeRoot) Thread { root.killServer() }.start()  // reparented root server needs an explicit kill
         app.stopService(Intent(app, ServerService::class.java))
         if (state.value !is RuntimeState.NotInstalled) state.value = RuntimeState.Stopped
     }
@@ -272,8 +306,8 @@ class RuntimeController(
         extraEnv: Map<String, String> = emptyMap(),
         onLine: (String) -> Unit = {},
     ): Int = withContext(Dispatchers.IO) {
-        val pb = ProcessBuilder(proot.build(argv, cwd, extraEnv)).redirectErrorStream(true)
-        pb.environment().putAll(proot.env())
+        val pb = ProcessBuilder(buildCmd(argv, cwd, extraEnv)).redirectErrorStream(true)
+        pb.environment().putAll(cmdEnv())
         val p = pb.start()
         val rd = launch { runCatching { p.inputStream.bufferedReader().forEachLine { onLine(it); logLine(it) } } }
         val done = try { runInterruptible { p.waitFor(timeoutSec, TimeUnit.SECONDS) } } finally { if (p.isAlive) p.destroyForcibly() }
@@ -291,6 +325,7 @@ class RuntimeController(
     fun resetRuntime() {
         Vault.save()
         stopServer()
+        root.teardown()   // unmount root-mode binds first, or a recursive delete hits a live /proc
         paths.rootfs.deleteRecursively()
         paths.downloads.deleteRecursively()
         prefs.runtimeReady = false
