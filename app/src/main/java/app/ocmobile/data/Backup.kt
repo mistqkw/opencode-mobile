@@ -1,5 +1,7 @@
 package app.ocmobile.data
 
+import app.ocmobile.i18n.Lang
+
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -89,7 +91,7 @@ object Backup {
                     put(MediaStore.Downloads.DISPLAY_NAME, name); put(MediaStore.Downloads.MIME_TYPE, "application/gzip")
                     put(MediaStore.Downloads.RELATIVE_PATH, "Download/OpenCode")
                 }
-                val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v) ?: error("Android refused to create the file")
+                val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v) ?: error(Lang.pick("Android refused to create the file", "Android не дал создать файл"))
                 ctx.contentResolver.openOutputStream(uri)!!.use { o -> out.inputStream().use { it.copyTo(o) } }
             } else {
                 @Suppress("DEPRECATION")
@@ -110,7 +112,7 @@ object Backup {
             require(Graph.paths.rootfsReady) { "Set up the environment first, then restore." }
             state.value = State.Working("Copying the backup")
             val tmp = Graph.paths.host(TMP).apply { parentFile?.mkdirs() }
-            ctx.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { i.copyTo(it) } } ?: error("Could not read the file")
+            ctx.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { i.copyTo(it) } } ?: error(Lang.pick("Could not read the file", "Не удалось прочитать файл"))
             state.value = State.Working("Stopping the server")
             withServerStopped {
                 state.value = State.Working("Unpacking")

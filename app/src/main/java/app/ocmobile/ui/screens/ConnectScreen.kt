@@ -1,5 +1,7 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.i18n.Lang
+
 import app.ocmobile.ui.theme.screenBackdrop
 import android.content.ClipboardManager
 import android.content.Context
@@ -169,14 +171,17 @@ fun ConnectScreen(providerId: String, nav: Nav) {
                 } else {
                     Spinner(34.dp)
                     Spacer(Modifier.height(26.dp))
-                    Txt("Sign in with ${fp.title} in your browser", size = 24.sp, weight = FontWeight.Medium, align = TextAlign.Center)
+                    Txt(Lang.pick("Sign in with ${fp.title} in your browser", "Вход через ${fp.title} в браузере"), size = 24.sp, weight = FontWeight.Medium, align = TextAlign.Center)
                     Spacer(Modifier.height(16.dp))
                     Txt(
-                        "1. Sign in on ${fp.where}.\n2. Create an API key if you have none.\n3. Tap the key's copy button and come back — the app picks it up on its own.",
+                        Lang.pick(
+                            "1. Sign in on ${fp.where}.\n2. Create an API key if you have none.\n3. Tap the key's copy button and come back — the app picks it up on its own.",
+                            "1. Войди на ${fp.where}.\n2. Создай API-ключ, если его нет.\n3. Нажми кнопку копирования ключа и вернись — приложение подхватит его само.",
+                        ),
                         size = 16.sp, color = c.textDim, lineHeight = 25.sp,
                     )
                     Spacer(Modifier.height(24.dp))
-                    Box(Modifier.clip(CircleShape).border(1.dp, c.border, CircleShape).tap { open(fp.url) }.padding(horizontal = 22.dp, vertical = 14.dp)) { Txt("Open ${fp.where} again", size = 16.sp) }
+                    Box(Modifier.clip(CircleShape).border(1.dp, c.border, CircleShape).tap { open(fp.url) }.padding(horizontal = 22.dp, vertical = 14.dp)) { Txt(Lang.pick("Open ${fp.where} again", "Открыть ${fp.where} снова"), size = 16.sp) }
                     Spacer(Modifier.height(28.dp))
                     Txt("or paste the key here", size = 14.sp, color = c.textDim)
                     Spacer(Modifier.height(8.dp))
@@ -193,7 +198,7 @@ fun ConnectScreen(providerId: String, nav: Nav) {
                         "saving" -> { Spinner(40.dp); Spacer(Modifier.height(20.dp)); Txt("Connecting…", size = 18.sp, color = c.textDim) }
                         "done" -> {
                             Box(Modifier.size(72.dp).clip(CircleShape).background(c.ok), contentAlignment = Alignment.Center) { Ico(Ic.Check, tint = c.bg, size = 40.dp) }
-                            Spacer(Modifier.height(20.dp)); Txt("${fp.title} connected", size = 22.sp, weight = FontWeight.Medium)
+                            Spacer(Modifier.height(20.dp)); Txt(Lang.pick("${fp.title} connected", "${fp.title} подключён"), size = 22.sp, weight = FontWeight.Medium)
                             Txt(Graph.catalog.selectedLabel(), Modifier.padding(top = 6.dp), size = 15.sp, color = c.textDim)
                         }
                         else -> {

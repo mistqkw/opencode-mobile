@@ -1,5 +1,7 @@
 package app.ocmobile.data
 
+import app.ocmobile.i18n.Lang
+
 import app.ocmobile.Graph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -75,15 +77,15 @@ object GitHub {
             var token: String? = null
             while (token == null) {
                 if (state.value !is State.Code) return@withContext   // cancelled
-                if (System.currentTimeMillis() > until) error("The code expired. Try again.")
+                if (System.currentTimeMillis() > until) error(Lang.pick("The code expired. Try again.", "Код истёк. Попробуйте ещё раз."))
                 delay(interval * 1000L)
                 val r = post("https://github.com/login/oauth/access_token", mapOf("client_id" to CLIENT_ID, "device_code" to device, "grant_type" to "urn:ietf:params:oauth:grant-type:device_code"))
                 token = r.s("access_token")
                 when (r.s("error")) {
                     null, "authorization_pending" -> {}
                     "slow_down" -> interval += 5
-                    "access_denied" -> error("You declined the request on GitHub.")
-                    "expired_token" -> error("The code expired. Try again.")
+                    "access_denied" -> error(Lang.pick("You declined the request on GitHub.", "Вы отклонили запрос на GitHub."))
+                    "expired_token" -> error(Lang.pick("The code expired. Try again.", "Код истёк. Попробуйте ещё раз."))
                     else -> if (token == null) error(r.s("error_description") ?: "GitHub sign-in failed")
                 }
             }
@@ -96,7 +98,7 @@ object GitHub {
     private suspend fun setup(token: String) {
         state.value = State.Working("Checking your account")
         val u = user(token)
-        val login = u.s("login") ?: error("No login in the GitHub answer")
+        val login = u.s("login") ?: error(Lang.pick("No login in the GitHub answer", "В ответе GitHub нет логина"))
         val id = u["id"]?.jsonPrimitive?.long ?: 0
         val name = u.s("name")?.takeIf { it.isNotBlank() } ?: login
         val email = "$id+$login@users.noreply.github.com"
@@ -107,7 +109,7 @@ object GitHub {
         var rc = Graph.runtime.runGuest(listOf("/bin/bash", "-lc", install), timeoutSec = 1200) { line ->
             log.appendLine(line); state.value = State.Working("Installing git and GitHub CLI", line.take(80))
         }
-        if (rc != 0) error("Could not install git and gh:\n" + log.lines().takeLast(4).joinToString("\n"))
+        if (rc != 0) error(Lang.pick("Could not install git and gh:\n", "Не удалось установить git и gh:\n") + log.lines().takeLast(4).joinToString("\n"))
 
         state.value = State.Working("Signing in gh and git")
         val conf = """
@@ -117,7 +119,7 @@ object GitHub {
         """.trimIndent()
         log.clear()
         rc = Graph.runtime.runGuest(listOf("/bin/bash", "-lc", conf), extraEnv = mapOf("GH_T" to token, "GIT_NAME" to name, "GIT_EMAIL" to email)) { log.appendLine(it) }
-        if (rc != 0) error("gh did not accept the sign-in:\n" + log.lines().takeLast(4).joinToString("\n"))
+        if (rc != 0) error(Lang.pick("gh did not accept the sign-in:\n", "gh не принял вход:\n") + log.lines().takeLast(4).joinToString("\n"))
 
         Graph.prefs.githubLogin = login
         Graph.prefs.githubName = name

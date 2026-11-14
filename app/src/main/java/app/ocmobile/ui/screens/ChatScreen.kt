@@ -1,5 +1,7 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.i18n.Lang
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateContentSize
@@ -284,7 +286,7 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
         } else Box(Modifier.navigationBarsPadding()) {
             ComposerHost(
                 state = state, nav = nav, busy = busy || sendingNow, sessionId = id,
-                placeholder = if (sendingNow) "Sending…" else if (editing != null) "Edit your message" else "Reply to ${if (app.ocmobile.data.Persona.on) "cl0udly" else "OpenCode"}…",
+                placeholder = if (sendingNow) "Sending…" else if (editing != null) "Edit your message" else Lang.pick("Reply to ${if (app.ocmobile.data.Persona.on) "cl0udly" else "OpenCode"}…", "Ответить ${if (app.ocmobile.data.Persona.on) "cl0udly" else "OpenCode"}…"),
                 dashed = incognito,
                 onSend = {
                     val text = state.text.trim()
@@ -388,7 +390,7 @@ private fun DiffSheet(id: String, directory: String?, onDismiss: () -> Unit) {
     }
     confirm?.let { f ->
         val name = f.str("file") ?: ""
-        OcDialog("Undo changes to ${name.substringAfterLast('/')}?", { confirm = null }, "Undo", {
+        OcDialog(Lang.pick("Undo changes to ${name.substringAfterLast('/')}?", "Отменить изменения в ${name.substringAfterLast('/')}?"), { confirm = null }, "Undo", {
             confirm = null
             scope.launch {
                 app.ocmobile.data.Review.undo(directory, name, f.str("before"), f.str("patch"))
@@ -422,7 +424,8 @@ private fun RetryCard(r: app.ocmobile.data.RetryInfo, nav: Nav, onStop: () -> Un
             androidx.compose.runtime.LaunchedEffect(at) { while (left > 0) { kotlinx.coroutines.delay(1000); left = at - System.currentTimeMillis() } }
             if (left > 0) {
                 val m = left / 60000
-                Txt("Next attempt in " + (if (m >= 60) "${m / 60} h ${m % 60} min" else if (m >= 1) "$m min" else "${left / 1000} s"), size = 14.sp, color = c.text, modifier = Modifier.padding(top = 8.dp))
+                val wait = if (m >= 60) "${m / 60} h ${m % 60} min" else if (m >= 1) "$m min" else "${left / 1000} s"
+                Txt(Lang.pick("Next attempt in $wait", "Следующая попытка через $wait"), size = 14.sp, color = c.text, modifier = Modifier.padding(top = 8.dp))
             }
         }
         @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)

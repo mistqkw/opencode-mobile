@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+
+import app.ocmobile.i18n.Lang
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -136,9 +139,19 @@ private fun richSummary(parts: List<Part>): androidx.compose.ui.text.AnnotatedSt
         if (files.size == 1) {
             var a = 0; var d = 0
             touched.forEach { p -> if (p.raw.str("tool") == "write") a += p.raw.obj("state")?.obj("input")?.str("content")?.lines()?.size ?: 0 else diffCounts(p).let { (x, y) -> a += x; d += y } }
-            named(if (base.contains("edited a file")) "edited a file" else "Edited a file", files[0], a, d)
+            named(
+                if (Lang.isRu) {
+                    if (base.contains("изменил 1 файл")) "изменил 1 файл" else "Изменил 1 файл"
+                } else if (base.contains("edited a file")) "edited a file" else "Edited a file",
+                files[0], a, d,
+            )
         }
-        if (reads.size == 1) named(if (text.contains("read a file")) "read a file" else "Read a file", reads[0], null, null)
+        if (reads.size == 1) named(
+            if (Lang.isRu) {
+                if (text.contains("прочитал 1 файл")) "прочитал 1 файл" else "Прочитал 1 файл"
+            } else if (text.contains("read a file")) "read a file" else "Read a file",
+            reads[0], null, null,
+        )
         append(text)
     }
 }
@@ -176,18 +189,18 @@ private fun StepRow(p: Part, onImage: (String) -> Unit) {
     val label = androidx.compose.ui.text.buildAnnotatedString {
         fun file(f: String) = withStyle(androidx.compose.ui.text.SpanStyle(color = c.text)) { append(f) }
         when {
-            p.type == "reasoning" -> append(if (live) "Thinking" else "Thought")
+            p.type == "reasoning" -> append(Lang.pick(if (live) "Thinking" else "Thought", if (live) "Думает" else "Подумал"))
             name == "bash" -> append(input?.firstStr("description") ?: input?.firstStr("command")?.lineSequence()?.first().orEmpty())
-            name in EDITS -> { append(if (live) "Editing " else "Edited "); file(fileOf(p) ?: toolSummary(input))
+            name in EDITS -> { append(Lang.pick(if (live) "Editing " else "Edited ", if (live) "Правлю " else "Изменил ")); file(fileOf(p) ?: toolSummary(input))
                 val (a, d) = diffCounts(p)
                 if (a > 0) withStyle(androidx.compose.ui.text.SpanStyle(color = c.ok)) { append(" +$a") }
                 if (d > 0) withStyle(androidx.compose.ui.text.SpanStyle(color = c.danger)) { append(" −$d") } }
-            name == "write" -> { append(if (live) "Writing " else if (st?.obj("metadata")?.str("exists") == "true") "Rewrote " else "Created "); file(fileOf(p).orEmpty())
+            name == "write" -> { append(Lang.pick(if (live) "Writing " else if (st?.obj("metadata")?.str("exists") == "true") "Rewrote " else "Created ", if (live) "Пишу " else if (st?.obj("metadata")?.str("exists") == "true") "Переписал " else "Создал ")); file(fileOf(p).orEmpty())
                 input?.str("content")?.lines()?.size?.let { withStyle(androidx.compose.ui.text.SpanStyle(color = c.ok)) { append(" +$it") } } }
-            name == "read" -> { append("Read "); file(fileOf(p).orEmpty()) }
-            name in setOf("grep", "glob", "list", "codesearch") -> { append("Searched "); file(toolSummary(input)) }
-            name.startsWith("web") -> { append("Opened "); file(input?.firstStr("url")?.substringAfter("://")?.substringBefore('/') ?: toolSummary(input)) }
-            name == "task" -> append("Helper: " + input?.firstStr("description").orEmpty())
+            name == "read" -> { append(Lang.pick("Read ", "Прочитал ")); file(fileOf(p).orEmpty()) }
+            name in setOf("grep", "glob", "list", "codesearch") -> { append(Lang.pick("Searched ", "Искал ")); file(toolSummary(input)) }
+            name.startsWith("web") -> { append(Lang.pick("Opened ", "Открыл ")); file(input?.firstStr("url")?.substringAfter("://")?.substringBefore('/') ?: toolSummary(input)) }
+            name == "task" -> append(Lang.pick("Helper: ", "Помощник: ") + input?.firstStr("description").orEmpty())
             else -> append(name.replaceFirstChar { it.uppercase() } + toolSummary(input).let { if (it.isBlank()) "" else " $it" })
         }
     }

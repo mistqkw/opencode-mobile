@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.ocmobile.i18n.Lang
 import androidx.core.content.FileProvider
 import app.ocmobile.Graph
 import app.ocmobile.ui.theme.Ic
@@ -268,7 +269,7 @@ private fun VideoCard(f: File) {
                 Box(Modifier.size(52.dp).clip(CircleShape).background(Color(0xCC000000)), contentAlignment = Alignment.Center) { Ico(Ic.Play, tint = Color.White, size = 24.dp) }
             }
             Row(Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                TitleBlock(f, "Video · " + OutFiles.human(f.length()), Modifier.weight(1f))
+                TitleBlock(f, Lang.pick("Video · " + OutFiles.human(f.length()), "Видео · " + OutFiles.human(f.length())), Modifier.weight(1f))
                 Actions(f)
             }
         }
@@ -282,7 +283,7 @@ private fun ImageCard(f: File) {
         Column {
             AsyncImage(f, null, Modifier.fillMaxWidth().heightInImage().tap(onClick = { OutFiles.open(ctx, f) }), contentScale = ContentScale.Crop)
             Row(Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                TitleBlock(f, "Image · " + OutFiles.human(f.length()), Modifier.weight(1f))
+                TitleBlock(f, Lang.pick("Image · " + OutFiles.human(f.length()), "Изображение · " + OutFiles.human(f.length())), Modifier.weight(1f))
                 Actions(f)
             }
         }

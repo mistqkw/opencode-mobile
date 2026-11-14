@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
 import app.ocmobile.ui.components.Ico
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.tr
 import app.ocmobile.ui.components.Txt
 import app.ocmobile.ui.components.tap
 import app.ocmobile.ui.theme.Ic
@@ -55,16 +57,31 @@ val lookHomes = setOf("hairline", "notebook", "messenger", "cards", "chatgpt")
 
 private class Idea(val icon: androidx.compose.ui.graphics.vector.ImageVector, val title: String, val sub: String, val prompt: String)
 
+/** Localised suggestion: Russian is picked here, so the text in the input is Russian too. */
+private fun idea(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String, sub: String, prompt: String,
+    ruTitle: String, ruSub: String, ruPrompt: String,
+) = Idea(icon, Lang.pick(title, ruTitle), Lang.pick(sub, ruSub), Lang.pick(prompt, ruPrompt))
+
 private fun ideas(code: Boolean) = if (code) listOf(
-    Idea(Ic.Search, "Explain", "this project", "Look around this project and explain how it is put together."),
-    Idea(Ic.Wrench, "Fix", "a failing build", "Run the build, find what fails and fix it."),
-    Idea(Ic.ListCheck, "Plan", "a new feature", "Help me plan a new feature for this project: "),
-    Idea(Ic.Diff, "Review", "my changes", "Review my uncommitted changes and point out problems."),
+    idea(Ic.Search, "Explain", "this project", "Look around this project and explain how it is put together.",
+        "Объясни", "этот проект", "Изучи этот проект и объясни, как он устроен."),
+    idea(Ic.Wrench, "Fix", "a failing build", "Run the build, find what fails and fix it.",
+        "Почини", "сломанную сборку", "Запусти сборку, найди, что падает, и исправь."),
+    idea(Ic.ListCheck, "Plan", "a new feature", "Help me plan a new feature for this project: ",
+        "Спланируй", "новую фичу", "Помоги спланировать новую фичу для этого проекта: "),
+    idea(Ic.Diff, "Review", "my changes", "Review my uncommitted changes and point out problems.",
+        "Проверь", "мои изменения", "Проверь мои незакоммиченные изменения и укажи на проблемы."),
 ) else listOf(
-    Idea(Ic.Edit, "Write", "or edit a text", "Help me write "),
-    Idea(Ic.Globe, "Search", "the web", "Search the web for "),
-    Idea(Ic.Sparkle, "Brainstorm", "a few ideas", "Brainstorm ideas for "),
-    Idea(Ic.Code, "Code", "a small script", "Write a small script that "),
+    idea(Ic.Edit, "Write", "or edit a text", "Help me write ",
+        "Напиши", "или отредактируй текст", "Помоги написать "),
+    idea(Ic.Globe, "Search", "the web", "Search the web for ",
+        "Поищи", "в интернете", "Найди в интернете "),
+    idea(Ic.Sparkle, "Brainstorm", "a few ideas", "Brainstorm ideas for ",
+        "Придумай", "пару идей", "Придумай идеи для "),
+    idea(Ic.Code, "Code", "a small script", "Write a small script that ",
+        "Напиши", "небольшой скрипт", "Напиши небольшой скрипт, который "),
 )
 
 /** Empty screen for the look: each with its own character; tapping a suggestion puts the text in the input. */
@@ -88,16 +105,16 @@ private fun HairlineHome(code: Boolean, onPick: (String) -> Unit) {
         Spacer(Modifier.height(14.dp))
         Text(
             buildAnnotatedString {
-                append(if (code) "Ship it " else "Ready when ")
-                withStyle(SpanStyle(color = c.accent)) { append(if (code) "today." else "you are.") }
+                append(tr(if (code) "Ship it " else "Ready when "))
+                withStyle(SpanStyle(color = c.accent)) { append(tr(if (code) "today." else "you are.")) }
             },
             fontFamily = Oc.heading, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, lineHeight = 36.sp, color = c.text,
         )
         Spacer(Modifier.height(26.dp))
         ideas(code).forEach { i ->
             Box(Modifier.fillMaxWidth().height(1.dp).background(c.border))
-            Row(Modifier.fillMaxWidth().tap(scale = 0.99f) { onPick(i.prompt) }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Txt(i.title.uppercase(), Modifier.width(110.dp), size = 12.sp, family = Oc.label)
+            Row(Modifier.fillMaxWidth().tap(scale = 0.99f) { onPick(tr(i.prompt)) }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Txt(tr(i.title).uppercase(), Modifier.width(110.dp), size = 12.sp, family = Oc.label)
                 Txt(i.sub, Modifier.weight(1f), size = 15.sp, color = c.textDim, maxLines = 1)
                 Txt("→", size = 15.sp, color = c.textDim, family = Oc.label)
             }
@@ -110,7 +127,7 @@ private fun HairlineHome(code: Boolean, onPick: (String) -> Unit) {
 @Composable
 private fun NotebookHome(code: Boolean, onPick: (String) -> Unit) {
     val c = Oc.c
-    val date = remember { SimpleDateFormat("EEEE, d MMMM", Locale.ENGLISH).format(Date()) }
+    val date = remember(Lang.code) { SimpleDateFormat("EEEE, d MMMM", if (Lang.isRu) Locale("ru") else Locale.ENGLISH).format(Date()) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
         Text(date, fontFamily = Oc.reply, fontStyle = FontStyle.Italic, fontSize = 15.sp, color = c.textDim)
         Spacer(Modifier.height(8.dp))
@@ -119,10 +136,10 @@ private fun NotebookHome(code: Boolean, onPick: (String) -> Unit) {
         Box(Modifier.width(48.dp).height(2.dp).background(c.accent))
         Spacer(Modifier.height(18.dp))
         ideas(code).forEach { i ->
-            Row(Modifier.fillMaxWidth().tap(scale = 0.99f) { onPick(i.prompt) }.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().tap(scale = 0.99f) { onPick(tr(i.prompt)) }.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                 Txt("—", size = 16.sp, color = c.accent, family = Oc.reply)
                 Spacer(Modifier.width(10.dp))
-                Text("${i.title} ${i.sub}", fontFamily = Oc.reply, fontStyle = FontStyle.Italic, fontSize = 17.sp, color = c.textDim)
+                Text(tr(i.title) + " " + tr(i.sub), fontFamily = Oc.reply, fontStyle = FontStyle.Italic, fontSize = 17.sp, color = c.textDim)
             }
         }
     }
@@ -151,7 +168,7 @@ private fun MessengerHome(code: Boolean, onPick: (String) -> Unit) {
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 ideas(code).forEach { i ->
-                    Txt(i.title, Modifier.clip(Oc.round(14.dp)).background(c.userBubble).tap { onPick(i.prompt) }.padding(horizontal = 12.dp, vertical = 7.dp), size = 14.sp)
+                    Txt(tr(i.title), Modifier.clip(Oc.round(14.dp)).background(c.userBubble).tap { onPick(tr(i.prompt)) }.padding(horizontal = 12.dp, vertical = 7.dp), size = 14.sp)
                 }
             }
         }
@@ -173,13 +190,13 @@ private fun CardsHome(code: Boolean, onPick: (String) -> Unit) {
                 row.forEach { i ->
                     Column(
                         Modifier.weight(1f).clip(Oc.round(18.dp)).background(c.surface).border(1.dp, c.border, Oc.round(18.dp))
-                            .tap(scale = 0.97f) { onPick(i.prompt) }.padding(14.dp),
+                            .tap(scale = 0.97f) { onPick(tr(i.prompt)) }.padding(14.dp),
                     ) {
                         Box(Modifier.size(34.dp).clip(Oc.round(10.dp)).background(c.progressTrack), contentAlignment = Alignment.Center) {
                             Ico(i.icon, tint = c.accent, size = 18.dp)
                         }
                         Spacer(Modifier.height(14.dp))
-                        Txt(i.title, size = 16.sp, weight = FontWeight.SemiBold)
+                        Txt(tr(i.title), size = 16.sp, weight = FontWeight.SemiBold)
                         Txt(i.sub, size = 14.sp, color = c.textDim, maxLines = 1)
                     }
                 }
@@ -200,12 +217,12 @@ private fun ChatGptHome(code: Boolean, onPick: (String) -> Unit) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ideas(code).forEach { i ->
                 Row(
-                    Modifier.clip(CircleShape).border(1.dp, c.border, CircleShape).tap { onPick(i.prompt) }.padding(horizontal = 14.dp, vertical = 9.dp),
+                    Modifier.clip(CircleShape).border(1.dp, c.border, CircleShape).tap { onPick(tr(i.prompt)) }.padding(horizontal = 14.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Ico(i.icon, tint = c.textDim, size = 16.dp)
                     Spacer(Modifier.width(8.dp))
-                    Txt("${i.title} ${i.sub}", size = 14.sp, color = c.textDim, maxLines = 1)
+                    Txt(tr(i.title) + " " + tr(i.sub), size = 14.sp, color = c.textDim, maxLines = 1)
                 }
             }
         }

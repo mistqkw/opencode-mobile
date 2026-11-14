@@ -22,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.ocmobile.Graph
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.tr
 import app.ocmobile.ui.Nav
 import app.ocmobile.ui.Route
 import app.ocmobile.ui.components.Holiday
@@ -90,7 +92,7 @@ fun MascotSettings(nav: Nav) {
                 SectionLabel("Together")
                 SettingsGroup {
                     val pets = p.petCount
-                    SettingsRow("Petted", subtitle = "$pets ${if (pets == "1") "time" else "times"}", icon = Ic.Sparkle)
+                    SettingsRow("Petted", subtitle = Lang.pick("$pets ${if (pets == "1") "time" else "times"}", app.ocmobile.i18n.plural(pets.toIntOrNull() ?: 0, "раз", "раза", "раз")), icon = Ic.Sparkle)
                     SettingsRow("Best ping-pong rally", subtitle = p.pongBest, icon = Ic.ListCheck)
                     SettingsRow("Reset", icon = Ic.Refresh, titleColor = c.danger, onClick = { p.petCount = "0"; p.pongBest = "0"; rev++ })
                 }
@@ -107,7 +109,9 @@ fun MascotSettings(nav: Nav) {
 }
 
 private fun outfitLabel(v: String): String = when (v) {
-    "auto" -> "By date" + (Holiday.now()?.let { h -> Holiday.wardrobe.firstOrNull { it.second == h }?.first?.let { " · $it today" } } ?: "")
-    "off" -> "None"
-    else -> Holiday.wardrobe.firstOrNull { it.second.name == v }?.first ?: v
+    "auto" -> tr("By date") + (Holiday.now()?.let { h ->
+        Holiday.wardrobe.firstOrNull { it.second == h }?.first?.let { " · " + tr(it) + Lang.pick(" today", " сегодня") }
+    } ?: "")
+    "off" -> tr("None")
+    else -> Holiday.wardrobe.firstOrNull { it.second.name == v }?.first?.let { tr(it) } ?: v
 }

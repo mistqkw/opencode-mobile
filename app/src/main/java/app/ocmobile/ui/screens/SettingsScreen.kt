@@ -1,5 +1,7 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.i18n.plural
+
 import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.heightIn
@@ -47,6 +49,8 @@ import app.ocmobile.ui.components.OcTextField
 import app.ocmobile.ui.components.OcDialog
 import app.ocmobile.ui.components.Pill
 import app.ocmobile.ui.components.SectionLabel
+import app.ocmobile.ui.components.Segmented
+import app.ocmobile.i18n.Lang
 import app.ocmobile.ui.components.SettingsGroup
 import app.ocmobile.ui.components.SettingsRow
 import app.ocmobile.ui.components.TopBar
@@ -80,10 +84,10 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
     val hasGo = providers.any { it.id == "opencode-go" }
     val modelLabel = Graph.catalog.selectedLabel()
     val serverText = when (rt) {
-        is RuntimeState.Running -> "Running · OpenCode ${(rt as RuntimeState.Running).version}"
-        is RuntimeState.Starting -> "Starting…"
-        is RuntimeState.Crashed -> "Crashed"
-        else -> "Stopped"
+        is RuntimeState.Running -> Lang.pick("Running · OpenCode ${(rt as RuntimeState.Running).version}", "Работает · OpenCode ${(rt as RuntimeState.Running).version}")
+        is RuntimeState.Starting -> Lang.pick("Starting…", "Запуск…")
+        is RuntimeState.Crashed -> Lang.pick("Crashed", "Упал")
+        else -> Lang.pick("Stopped", "Остановлен")
     }
 
     Column(Modifier.fillMaxSize().screenBackdrop("SettingsScreen1")) {
@@ -134,7 +138,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
             }
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
-                SettingsRow("Capabilities", subtitle = listOfNotNull("Memory".takeIf { prefs.memoryEnabled }, modelLabel.takeIf { it.isNotBlank() }).joinToString(" · "), icon = Ic.Sliders, onClick = { nav.push(Route.Capabilities) })
+                SettingsRow("Capabilities", subtitle = listOfNotNull(Lang.pick("Memory", "Память").takeIf { prefs.memoryEnabled }, modelLabel.takeIf { it.isNotBlank() }).joinToString(" · "), icon = Ic.Sliders, onClick = { nav.push(Route.Capabilities) })
                 SettingsRow("OpenCode", subtitle = serverText, icon = Ic.Terminal, onClick = { nav.push(Route.OcSettings) })
                 SettingsRow("Connectors", subtitle = "MCP servers", icon = Ic.Puzzle, onClick = { nav.push(Route.Connectors) })
                 SettingsRow("GitHub", subtitle = if (app.ocmobile.data.GitHub.signedIn) "@" + prefs.githubLogin else "Let OpenCode work with your repos", icon = Ic.GitHub, onClick = { nav.push(Route.GitHub) })
@@ -144,6 +148,10 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
                 SettingsRow("Interface", subtitle = app.ocmobile.ui.theme.Looks.of(prefs.edition).title, icon = Ic.Laptop, onClick = { nav.push(Route.Edition) })
+                SettingsRow(
+                    "Language", subtitle = if (Lang.isRu) "Русский" else "English", icon = Ic.Globe,
+                    trailing = { Segmented(listOf("en" to "EN", "ru" to "RU"), Lang.code, { Lang.set(it) }, Modifier.width(104.dp)) },
+                )
                 // the mascot tab: only in the cl0udly look
                 if (Oc.look.id == "cloud") SettingsRow("cl0udly", subtitle = "Mascot, outfits and games", icon = Ic.Cloud, onClick = { nav.push(Route.MascotSettings) })
                 SettingsRow("Color mode", subtitle = prefs.colorMode.replaceFirstChar { it.uppercase() }, icon = Ic.Moon, onClick = { dialog = "color" })
@@ -208,10 +216,14 @@ fun CapabilitiesScreen(nav: Nav) {
             }
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
-                SettingsRow("Memory", subtitle = if (prefs.memoryEnabled) "${app.ocmobile.data.Memory.shelves().size} shelves" else "Off", icon = Ic.Scroll, onClick = { nav.push(Route.Memory) })
+                SettingsRow("Memory", subtitle = if (prefs.memoryEnabled) Lang.pick("${app.ocmobile.data.Memory.shelves().size} shelves", "${app.ocmobile.data.Memory.shelves().size} " + plural(app.ocmobile.data.Memory.shelves().size, "полка", "полки", "полок")) else Lang.pick("Off", "Выкл"), icon = Ic.Scroll, onClick = { nav.push(Route.Memory) })
                 SettingsRow("Agents", subtitle = prefs.agent.replaceFirstChar { it.uppercase() }, icon = Ic.Bot, onClick = { nav.push(Route.Agents) })
-                SettingsRow("Team", subtitle = when (prefs.teamMode) { "manual" -> "Your team · ${app.ocmobile.data.Team.members.size} helpers"; "auto" -> "Automatic · up to ${app.ocmobile.data.Team.max} helpers"; else -> "Off" }, icon = Ic.Users, onClick = { nav.push(Route.Team) })
-                SettingsRow("Skills", subtitle = "${app.ocmobile.data.Skills.local().size} skills · type / in a chat", icon = Ic.Scroll, onClick = { nav.push(Route.Skills) })
+                SettingsRow("Team", subtitle = when (prefs.teamMode) {
+                    "manual" -> Lang.pick("Your team · ${app.ocmobile.data.Team.members.size} helpers", "Твоя команда · ${app.ocmobile.data.Team.members.size} " + plural(app.ocmobile.data.Team.members.size, "помощник", "помощника", "помощников"))
+                    "auto" -> Lang.pick("Automatic · up to ${app.ocmobile.data.Team.max} helpers", "Автоматически · до ${app.ocmobile.data.Team.max} " + plural(app.ocmobile.data.Team.max, "помощника", "помощников", "помощников"))
+                    else -> Lang.pick("Off", "Выкл")
+                }, icon = Ic.Users, onClick = { nav.push(Route.Team) })
+                SettingsRow("Skills", subtitle = Lang.pick("${app.ocmobile.data.Skills.local().size} skills · type / in a chat", "${app.ocmobile.data.Skills.local().size} " + plural(app.ocmobile.data.Skills.local().size, "навык", "навыка", "навыков") + " · набери / в чате"), icon = Ic.Scroll, onClick = { nav.push(Route.Skills) })
             }
         }
     }
@@ -229,8 +241,8 @@ fun OcSettingsScreen(nav: Nav) {
             SettingsGroup {
                 SettingsRow("Providers", subtitle = "Sign-ins and API keys", icon = Ic.Key, onClick = { nav.push(Route.Providers) })
                 SettingsRow("Local server", subtitle = when (rt) {
-                    is RuntimeState.Running -> "Running · OpenCode ${(rt as RuntimeState.Running).version}"
-                    is RuntimeState.Starting -> "Starting…"; is RuntimeState.Crashed -> "Restarting…"; else -> "Stopped"
+                    is RuntimeState.Running -> Lang.pick("Running · OpenCode ${(rt as RuntimeState.Running).version}", "Работает · OpenCode ${(rt as RuntimeState.Running).version}")
+                    is RuntimeState.Starting -> Lang.pick("Starting…", "Запуск…"); is RuntimeState.Crashed -> Lang.pick("Restarting…", "Перезапуск…"); else -> Lang.pick("Stopped", "Остановлен")
                 }, icon = Ic.Server, onClick = { nav.push(Route.Server) })
                 SettingsRow("Config (opencode.json)", icon = Ic.Code, onClick = { nav.push(Route.ConfigEditor) })
                 SettingsRow("Backup & move", subtitle = "Everything in one file", icon = Ic.Archive, onClick = { nav.push(Route.Backup) })
@@ -276,7 +288,7 @@ private fun BugDialog(onDismiss: () -> Unit) {
     var what by remember { mutableStateOf("") }
     var withLog by remember { mutableStateOf(true) }
     OcDialog("Report a bug", onDismiss, confirmText = "Open GitHub", onConfirm = {
-        app.ocmobile.data.BugReport.open(ctx, "Bug: " + what.trim().lineSequence().firstOrNull().orEmpty().take(70), what, withLog)
+        app.ocmobile.data.BugReport.open(ctx, Lang.pick("Bug: ", "Баг: ") + what.trim().lineSequence().firstOrNull().orEmpty().take(70), what, withLog)
         onDismiss()
     }) {
         Column {

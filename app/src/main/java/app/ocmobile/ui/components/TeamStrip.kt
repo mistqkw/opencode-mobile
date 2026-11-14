@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.ocmobile.Graph
+import app.ocmobile.i18n.Lang
 import app.ocmobile.ui.Nav
 import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
@@ -49,7 +50,7 @@ fun TeamStrip(id: String, nav: Nav) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Ico(Ic.Users, tint = c.textDim, size = 16.dp); Spacer(Modifier.width(8.dp))
-        Txt(if (working > 0) "Team · $working working of ${kids.size}" else "Team · ${kids.size} done", size = 14.sp)
+        Txt(if (working > 0) Lang.pick("Team · $working working of ${kids.size}", "Команда · $working из ${kids.size} работают") else Lang.pick("Team · ${kids.size} done", "Команда · ${kids.size} готовы"), size = 14.sp)
     }
     if (open) PickerFrame("Team", { open = false }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
@@ -64,7 +65,7 @@ fun TeamStrip(id: String, nav: Nav) {
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Txt(s.title.replace(Regex("""\s*\(@[^)]*\)\s*$"""), "").ifBlank { "Helper" }, size = 16.sp, maxLines = 2)
-                        Txt(listOfNotNull(s.agent?.removePrefix("team-")?.replace('-', ' '), model, if (busy) "working" else "done").joinToString(" · "), size = 13.sp, color = c.textDim, maxLines = 1)
+                        Txt(listOfNotNull(s.agent?.removePrefix("team-")?.replace('-', ' '), model, if (busy) Lang.pick("working", "работает") else Lang.pick("done", "готов")).joinToString(" · "), size = 13.sp, color = c.textDim, maxLines = 1)
                     }
                     Ico(Ic.ChevronRight, tint = c.textDim, size = 18.dp)
                 }

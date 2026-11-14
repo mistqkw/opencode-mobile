@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.plural
+
 import app.ocmobile.ui.theme.screenBackdrop
 import android.content.Intent
 import android.net.Uri
@@ -85,7 +88,7 @@ fun ProvidersScreen(nav: Nav) {
                 if (connected.isEmpty()) Txt("Nothing connected yet", Modifier.padding(horizontal = 20.dp), size = 16.sp, color = c.textDim)
                 else SettingsGroup {
                     connected.forEach { p ->
-                        SettingsRow(p.name.ifBlank { p.id }, subtitle = "${p.models.size} models", icon = Ic.Key, trailing = {
+                        SettingsRow(p.name.ifBlank { p.id }, subtitle = Lang.pick("${p.models.size} models", "${p.models.size} " + plural(p.models.size, "модель", "модели", "моделей")), icon = Ic.Key, trailing = {
                             if (p.id == "opencode-go") Chip("Go", color = c.bg, bg = c.text)
                             SmallButton("Disconnect", { disconnect = p.id }, danger = true)
                         })
@@ -112,7 +115,7 @@ fun ProvidersScreen(nav: Nav) {
         ConnectSheet(p, onDone = { connect = null; scope.launch { load() } })
     }
     disconnect?.let { id ->
-        OcDialog("Disconnect $id?", { disconnect = null }, "Disconnect", {
+        OcDialog(Lang.pick("Disconnect $id?", "Отключить $id?"), { disconnect = null }, "Disconnect", {
             disconnect = null
             scope.launch {
                 if (id == app.ocmobile.data.FreeModels.COPILOT_ID || id == app.ocmobile.data.FreeModels.POLLINATIONS_ID) app.ocmobile.data.FreeModels.disable(id)

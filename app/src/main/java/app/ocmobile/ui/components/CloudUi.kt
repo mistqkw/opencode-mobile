@@ -50,6 +50,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import app.ocmobile.i18n.tr
 import app.ocmobile.Graph
 import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.delay
@@ -1007,7 +1008,7 @@ internal fun CloudThinking(work: Work, modifier: Modifier) {
     androidx.compose.foundation.layout.Row(modifier.padding(vertical = 2.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         CloudWorkGlyph(work, 32.dp)
         androidx.compose.foundation.layout.Spacer(Modifier.width(10.dp))
-        Txt(work.label + ".".repeat(dots), size = 15.sp, color = c.textDim)
+        Txt(tr(work.label) + ".".repeat(dots), size = 15.sp, color = c.textDim)
     }
 }
 

@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.plural
+
 import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -47,15 +50,16 @@ import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.launch
 
 private fun resetText(w: UsageWindow): String {
-    val at = w.resetAt ?: return "No usage in this window"
+    val at = w.resetAt ?: return Lang.pick("No usage in this window", "В этом окне нет использования")
     val ms = at - System.currentTimeMillis()
-    if (ms <= 0) return "Resetting now"
+    if (ms <= 0) return Lang.pick("Resetting now", "Сброс сейчас")
     val min = ms / 60_000
-    return "Frees up in " + when {
-        min < 60 -> "$min min"
-        min < 60 * 48 -> "${min / 60} hr ${min % 60} min"
-        else -> "${min / 1440} d ${(min % 1440) / 60} hr"
+    val left = when {
+        min < 60 -> Lang.pick("$min min", "$min мин")
+        min < 60 * 48 -> Lang.pick("${min / 60} hr ${min % 60} min", "${min / 60} ч ${min % 60} мин")
+        else -> Lang.pick("${min / 1440} d ${(min % 1440) / 60} hr", "${min / 1440} д ${(min % 1440) / 60} ч")
     }
+    return Lang.pick("Frees up in ", "Освободится через ") + left
 }
 
 private fun money(x: Double) = if (x >= 100) "$%.0f".format(x) else "$%.2f".format(x)
@@ -67,7 +71,7 @@ private fun UsageCard(title: String, w: UsageWindow) {
     Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)).background(c.surface).padding(horizontal = 20.dp, vertical = 18.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Txt(title, size = 21.sp, modifier = Modifier.weight(1f))
-            Txt(if (pct > 0 && pct < 1) "<1% used" else "%.0f%% used".format(pct), size = 17.sp, color = c.textDim)
+            Txt(if (pct > 0 && pct < 1) Lang.pick("<1% used", "<1% использовано") else Lang.pick("%.0f%% used".format(pct), "%.0f%% использовано".format(pct)), size = 17.sp, color = c.textDim)
         }
         Spacer(Modifier.height(14.dp))
         UsageBar(w.fraction.toFloat(), warn = pct >= 85)
@@ -109,7 +113,11 @@ fun UsageScreen(nav: Nav) {
                 SettingsGroup {
                     snap.byModel.take(12).forEach { m ->
                         SettingsRow(
-                            title = m.model.ifBlank { "unknown" }, subtitle = "${m.provider} · ${m.messages} replies · ${"%.1f".format(m.tokens / 1000.0)}k tokens",
+                            title = m.model.ifBlank { Lang.pick("unknown", "неизвестно") },
+                            subtitle = Lang.pick(
+                                "${m.provider} · ${m.messages} replies · ${"%.1f".format(m.tokens / 1000.0)}k tokens",
+                                "${m.provider} · ${m.messages} " + plural(m.messages, "ответ", "ответа", "ответов") + " · ${"%.1f".format(m.tokens / 1000.0)} тыс. токенов",
+                            ),
                             trailing = { Txt(money(m.cost), size = 17.sp) },
                         )
                     }
@@ -121,7 +129,10 @@ fun UsageScreen(nav: Nav) {
                 if (refreshing) Spinner(18.dp, stroke = 2.dp)
             }
             Txt(
-                "Tracked from ${snap.tracked} replies on this device. Totals for the last 30 days: ${money(snap.totalMonth)}.",
+                Lang.pick(
+                    "Tracked from ${snap.tracked} replies on this device. Totals for the last 30 days: ${money(snap.totalMonth)}.",
+                    "Учтено ${snap.tracked} " + plural(snap.tracked, "ответ", "ответа", "ответов") + " на этом устройстве. Итог за последние 30 дней: ${money(snap.totalMonth)}.",
+                ),
                 size = 14.sp, color = c.textDim, modifier = Modifier.padding(horizontal = 20.dp), lineHeight = 20.sp,
             )
         }
@@ -129,9 +140,10 @@ fun UsageScreen(nav: Nav) {
 
     if (info) OcDialog("How this is counted", { info = false }) {
         Txt(
-            "OpenCode has no public API for the remaining Go allowance, so the app adds up the cost of every reply that passed through this phone's server " +
-                "over rolling windows of 5 hours, 7 days and 30 days, and compares it with the limits you set (defaults are the published Go limits: " +
-                "\$12 / \$30 / \$60). Usage from other devices or the website is not included — the official numbers live at opencode.ai/console.",
+            Lang.pick(
+                "OpenCode has no public API for the remaining Go allowance, so the app adds up the cost of every reply that passed through this phone's server over rolling windows of 5 hours, 7 days and 30 days, and compares it with the limits you set (defaults are the published Go limits: \$12 / \$30 / \$60). Usage from other devices or the website is not included — the official numbers live at opencode.ai/console.",
+                "У OpenCode нет публичного API для остатка лимита Go, поэтому приложение складывает стоимость каждого ответа, прошедшего через сервер этого телефона, в скользящих окнах 5 часов, 7 дней и 30 дней и сравнивает с лимитами, которые ты задал (по умолчанию — опубликованные лимиты Go: \$12 / \$30 / \$60). Использование с других устройств и с сайта не учитывается — официальные цифры на opencode.ai/console.",
+            ),
             size = 15.sp, color = Oc.c.textDim, lineHeight = 22.sp,
         )
     }

@@ -1,5 +1,8 @@
 package app.ocmobile.ui
 
+
+import app.ocmobile.i18n.Lang
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -256,7 +259,7 @@ private fun ConnectPrompt(nav: Nav) {
                     nav.root(Route.Code)
                     Graph.chats.toasts.tryEmit("Connected to ${o.name.ifBlank { "your computer" }}")
                 } catch (e: Exception) {
-                    error = e.message?.takeIf { it.isNotBlank() } ?: "Can't reach the computer"
+                    error = e.message?.takeIf { it.isNotBlank() } ?: Lang.pick("Can't reach the computer", "Нет связи с компьютером")
                 } finally { busy = false }
             }
         },
@@ -285,7 +288,7 @@ private fun ServerBanner(rt: RuntimeState) {
                     }.padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (remoteId.isNotEmpty()) Txt("Can't reach ${Graph.devices.active()?.name ?: "device"}…", size = 14.sp, color = c.warn) else when (rt) {
+                if (remoteId.isNotEmpty()) Txt(Lang.pick("Can't reach ${Graph.devices.active()?.name ?: "device"}…", "Нет связи с ${Graph.devices.active()?.name ?: "устройством"}…"), size = 14.sp, color = c.warn) else when (rt) {
                     is RuntimeState.Starting -> { Spinner(16.dp, stroke = 2.dp); Spacer(Modifier.width(10.dp)); Txt("Starting local server…", size = 14.sp) }
                     is RuntimeState.Crashed -> Txt("Server crashed — tap to restart", size = 14.sp, color = c.danger)
                     else -> if (!Graph.paths.localSupported) Txt("This phone can't run OpenCode — tap to connect a computer", size = 14.sp, color = c.textDim)

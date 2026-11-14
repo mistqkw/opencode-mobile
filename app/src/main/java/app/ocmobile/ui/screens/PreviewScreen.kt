@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+
+import app.ocmobile.i18n.Lang
+
 import app.ocmobile.ui.theme.screenBackdrop
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -119,7 +122,7 @@ fun PreviewScreen(url: String, sessionId: String?, nav: Nav) {
                 Column(Modifier.fillMaxSize().screenBackdrop("PreviewScreen2").padding(28.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                     Txt("The page didn't open", size = 20.sp)
                     Spacer(Modifier.height(8.dp))
-                    Txt(if (url.contains(":${PhoneBridge.PORT}/")) msg else "$msg\n\nIs the dev server still running? Ask OpenCode to start it again.", size = 15.sp, color = c.textDim, lineHeight = 21.sp, align = androidx.compose.ui.text.style.TextAlign.Center)
+                    Txt(if (url.contains(":${PhoneBridge.PORT}/")) msg else Lang.pick("$msg\n\nIs the dev server still running? Ask OpenCode to start it again.", "$msg\n\nСервер разработки ещё работает? Попроси OpenCode запустить его снова."), size = 15.sp, color = c.textDim, lineHeight = 21.sp, align = androidx.compose.ui.text.style.TextAlign.Center)
                     Spacer(Modifier.height(18.dp))
                     Pill("Try again", { failed = null; web?.reload() })
                 }
@@ -128,7 +131,7 @@ fun PreviewScreen(url: String, sessionId: String?, nav: Nav) {
         if (sessionId != null) Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).clip(CircleShape).background(if (reloads > 0) c.ok else c.textDim))
             Spacer(Modifier.size(8.dp))
-            Txt(if (reloads > 0) "Live · reloaded $reloads×" else "Live · reloads when OpenCode edits files", Modifier.weight(1f), size = 13.sp, color = c.textDim, maxLines = 1)
+            Txt(if (reloads > 0) Lang.pick("Live · reloaded $reloads×", "Live · перезагрузок: $reloads") else Lang.pick("Live · reloads when OpenCode edits files", "Live · перезагружается, когда OpenCode правит файлы"), Modifier.weight(1f), size = 13.sp, color = c.textDim, maxLines = 1)
             // one button: ask the agent to publish the site and send the link
             Pill("Publish", {
                 scope.launch { runCatching { Graph.chats.send(ctx, sessionId, "Publish this site to GitHub Pages (create the repo if needed) and send me the link.", emptyList()) } }

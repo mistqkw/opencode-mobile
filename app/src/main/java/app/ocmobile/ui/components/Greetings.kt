@@ -1,5 +1,7 @@
 package app.ocmobile.ui.components
 
+import app.ocmobile.i18n.tr
+
 /**
  * cl0udly greetings on home: cloud puns, developer jokes and short nods
  * to films and games (retold in our own words, no quotes longer than a couple of words).
@@ -80,7 +82,7 @@ object Greetings {
     fun pick(name: String, code: Boolean): String {
         val pool = if (code) any + codeOnly + codeOnly else any
         val (a, b) = pool.random()
-        val who = name.ifBlank { "friend" }
-        return a.replace("{name}", who) + "\n" + b.replace("{name}", who)
+        val who = name.ifBlank { tr("friend") }
+        return tr(a).replace("{name}", who) + "\n" + tr(b).replace("{name}", who)
     }
 }

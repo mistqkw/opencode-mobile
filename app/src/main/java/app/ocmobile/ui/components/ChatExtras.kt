@@ -1,5 +1,8 @@
 package app.ocmobile.ui.components
 
+
+import app.ocmobile.i18n.Lang
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -81,7 +84,10 @@ fun InterruptedBanner(onOpen: (String) -> Unit) {
     ) {
         Ico(Ic.Warning, tint = c.warn, size = 17.dp); Spacer(Modifier.width(10.dp))
         Txt(
-            if (ids.size == 1) "Interrupted: " + (Graph.chats.session(ids.first())?.displayTitle ?: "a task") else "${ids.size} tasks were interrupted",
+            if (ids.size == 1) Lang.pick(
+                "Interrupted: " + (Graph.chats.session(ids.first())?.displayTitle ?: "a task"),
+                "Прервано: " + (Graph.chats.session(ids.first())?.displayTitle ?: "задача"),
+            ) else Lang.pick("${ids.size} tasks were interrupted", "Прервано задач: ${ids.size}"),
             Modifier.weight(1f), size = 14.sp, maxLines = 1,
         )
         Txt("Open", size = 14.sp, color = c.accent)
@@ -102,7 +108,7 @@ fun PreviewChips(chat: Chat, id: String, nav: Nav) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Ico(Ic.Play, tint = c.accent, size = 15.dp); Spacer(Modifier.width(7.dp))
-                Txt("Preview $label", size = 14.sp, maxLines = 1)
+                Txt(Lang.pick("Preview $label", "Просмотр $label"), size = 14.sp, maxLines = 1)
             }
         }
     }
@@ -130,13 +136,13 @@ fun CostHint(chat: Chat?, text: String, attachments: Int) {
         val counted = prefs.limitProviders.split(',').map { it.trim() }.let { it.isEmpty() || prefs.providerId in it }
         val share = if (counted && prefs.limit5h > 0) usd / prefs.limit5h * 100 else null
         "≈ " + (if (usd < 0.01) "<$0.01" else "$%.2f".format(java.util.Locale.US, usd)) +
-            (share?.let { " · " + (if (it < 0.1) "<0.1" else "%.1f".format(java.util.Locale.US, it)) + "% of 5h" } ?: "")
+            (share?.let { " · " + (if (it < 0.1) "<0.1" else "%.1f".format(java.util.Locale.US, it)) + Lang.pick("% of 5h", "% от 5ч") } ?: "")
     }
     val mod = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 2.dp)
     when (look) {
         "hairline" -> Txt(hint.uppercase(), mod, size = 10.sp, color = c.textDim, family = Oc.label, align = androidx.compose.ui.text.style.TextAlign.End)
         "terminal" -> Txt("~ " + hint.removePrefix("≈ "), mod, size = 12.sp, color = c.textDim, family = Oc.mono, align = androidx.compose.ui.text.style.TextAlign.End)
-        "notebook" -> androidx.compose.material3.Text(hint, mod, fontSize = 13.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = FontStyle.Italic, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+        "notebook" -> androidx.compose.material3.Text(app.ocmobile.i18n.tr(hint), mod, fontSize = 13.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = FontStyle.Italic, textAlign = androidx.compose.ui.text.style.TextAlign.End)
         else -> Txt(hint, mod, size = 12.sp, color = c.textDim, align = androidx.compose.ui.text.style.TextAlign.End)
     }
 }

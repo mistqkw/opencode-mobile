@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+
+import app.ocmobile.i18n.Lang
+
 import app.ocmobile.ui.theme.screenBackdrop
 import android.content.Intent
 import android.net.Uri
@@ -156,10 +159,10 @@ fun ServerScreen(nav: Nav) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)).background(c.surface).padding(20.dp)) {
                 val (label, color) = when (val s = rt) {
-                    is RuntimeState.Running -> "Running · OpenCode ${s.version}" to c.ok
-                    is RuntimeState.Starting -> "Starting…" to c.warn
+                    is RuntimeState.Running -> Lang.pick("Running · OpenCode ${s.version}", "Работает · OpenCode ${s.version}") to c.ok
+                    is RuntimeState.Starting -> Lang.pick("Starting…", "Запуск…") to c.warn
                     is RuntimeState.Crashed -> s.message to c.danger
-                    else -> "Stopped" to c.textDim
+                    else -> Lang.pick("Stopped", "Остановлен") to c.textDim
                 }
                 Txt(label, size = 19.sp, color = color)
                 Txt("Ubuntu 24.04 (proot) · 127.0.0.1:${prefs.serverPort}", size = 15.sp, color = c.textDim, modifier = Modifier.padding(top = 4.dp))
@@ -183,12 +186,12 @@ fun ServerScreen(nav: Nav) {
             }
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
-                SettingsRow("Update OpenCode", subtitle = updating ?: "Installed: ${prefs.opencodeVersion.ifBlank { "?" }}", icon = Ic.Download, onClick = {
-                    if (updating == null) { updating = "Checking…"; scope.launch {
-                        updating = runCatching { "Updated to " + Graph.runtime.updateOpencode() }.getOrElse { it.message }
+                SettingsRow("Update OpenCode", subtitle = updating ?: Lang.pick("Installed: ${prefs.opencodeVersion.ifBlank { "?" }}", "Установлено: ${prefs.opencodeVersion.ifBlank { "?" }}"), icon = Ic.Download, onClick = {
+                    if (updating == null) { updating = Lang.pick("Checking…", "Проверка…"); scope.launch {
+                        updating = runCatching { Lang.pick("Updated to ", "Обновлено до ") + Graph.runtime.updateOpencode() }.getOrElse { it.message }
                     } }
                 })
-                SettingsRow("Install dev tools", subtitle = "git, ripgrep, curl, python3, build-essential", icon = Ic.Terminal, onClick = {
+                SettingsRow("Install dev tools", subtitle = Lang.pick("git, ripgrep, curl, python3, build-essential", "git, ripgrep, curl, python3, build-essential"), icon = Ic.Terminal, onClick = {
                     val lines = mutableStateListOf<String>(); tools = lines
                     scope.launch {
                         val code = Graph.runtime.installDevTools { l -> scope.launch(Dispatchers.Main) { lines.add(l) } }
@@ -201,7 +204,10 @@ fun ServerScreen(nav: Nav) {
                 SettingsRow("Reset environment", subtitle = "Deletes Ubuntu and everything inside it", icon = Ic.Trash, titleColor = c.danger, onClick = { reset = true })
             }
             Txt(
-                "Android 12+ may kill background child processes. If the server dies when the screen is off, run once from a computer:\n" +
+                Lang.pick(
+                    "Android 12+ may kill background child processes. If the server dies when the screen is off, run once from a computer:\n",
+                    "Android 12+ может убивать фоновые дочерние процессы. Если сервер умирает при выключенном экране, выполни один раз с компьютера:\n",
+                ) +
                     "adb shell device_config put activity_manager max_phantom_processes 2147483647\n" +
                     "adb shell settings put global settings_enable_monitor_phantom_procs false",
                 size = 13.sp, color = c.textDim, modifier = Modifier.padding(20.dp), lineHeight = 19.sp, family = Oc.mono,
@@ -316,7 +322,7 @@ fun AboutScreen(nav: Nav) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             SettingsGroup {
                 SettingsRow("OpenCode mobile", subtitle = "v${BuildConfig.VERSION_NAME}", icon = Ic.Info)
-                if (app.ocmobile.ui.theme.Oc.look.id == "cloud") SettingsRow("cl0udly", subtitle = Graph.prefs.petCount.let { "Petted $it ${if (it == "1") "time" else "times"}" }, icon = Ic.Cloud, chevron = true, onClick = { nav.push(app.ocmobile.ui.Route.MascotSettings) })
+                if (app.ocmobile.ui.theme.Oc.look.id == "cloud") SettingsRow("cl0udly", subtitle = Graph.prefs.petCount.toIntOrNull().let { n -> Lang.pick("Petted $n ${if (n == 1) "time" else "times"}", "Погладили $n " + app.ocmobile.i18n.plural(n ?: 0, "раз", "раза", "раз")) }, icon = Ic.Cloud, chevron = true, onClick = { nav.push(app.ocmobile.ui.Route.MascotSettings) })
                 SettingsRow("Source on GitHub", subtitle = "mistqkw/opencode-mobile", icon = Ic.GitHub, onClick = { open("https://github.com/mistqkw/opencode-mobile") })
                 SettingsRow("OpenCode (in container)", subtitle = Graph.prefs.opencodeVersion.ifBlank { "not installed" }, icon = Ic.Terminal)
                 SettingsRow("OpenCode documentation", icon = Ic.External, onClick = { open("https://opencode.ai/docs") })
@@ -330,11 +336,11 @@ fun AboutScreen(nav: Nav) {
                     subtitle = when (val u = upd) {
                         is app.ocmobile.data.Updater.State.Checking -> "Checking GitHub…"
                         is app.ocmobile.data.Updater.State.UpToDate -> "You're on the newest version"
-                        is app.ocmobile.data.Updater.State.Available -> "${u.r.name} is out — tap to install"
-                        is app.ocmobile.data.Updater.State.Downloading -> "Downloading ${(u.progress * 100).toInt()}%"
+                        is app.ocmobile.data.Updater.State.Available -> Lang.pick("${u.r.name} is out - tap to install", "Вышла ${u.r.name} - нажми, чтобы установить")
+                        is app.ocmobile.data.Updater.State.Downloading -> Lang.pick("Downloading ${(u.progress * 100).toInt()}%", "Загрузка ${(u.progress * 100).toInt()}%")
                         is app.ocmobile.data.Updater.State.Installing -> "Installing…"
                         is app.ocmobile.data.Updater.State.Failed -> u.message
-                        else -> "From releases of ${app.ocmobile.data.Updater.REPO}"
+                        else -> Lang.pick("From releases of ${app.ocmobile.data.Updater.REPO}", "Из релизов ${app.ocmobile.data.Updater.REPO}")
                     },
                     onClick = {
                         if (upd !is app.ocmobile.data.Updater.State.Available) app.ocmobile.data.Updater.check()

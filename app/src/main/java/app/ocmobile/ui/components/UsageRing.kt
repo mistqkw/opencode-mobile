@@ -150,10 +150,13 @@ private fun k(n: Long) = when {
 private fun money(x: Double) = if (x >= 100) "$%.0f".format(java.util.Locale.US, x) else "$%.2f".format(java.util.Locale.US, x)
 
 private fun resets(w: UsageWindow): String {
-    val at = w.resetAt ?: return "No usage yet"
-    if (at <= System.currentTimeMillis()) return "Resetting now"
+    val at = w.resetAt ?: return app.ocmobile.i18n.Lang.pick("No usage yet", "Пока нет использования")
+    if (at <= System.currentTimeMillis()) return app.ocmobile.i18n.Lang.pick("Resetting now", "Сброс сейчас")
     val soon = at - System.currentTimeMillis() < 24 * 3600_000L
-    return "Resets " + java.text.SimpleDateFormat(if (soon) "'at' h:mm a" else "EEE h:mm a", java.util.Locale.ENGLISH).format(java.util.Date(at))
+    val ru = app.ocmobile.i18n.Lang.isRu
+    val locale = if (ru) java.util.Locale("ru") else java.util.Locale.ENGLISH
+    val pattern = if (soon) (if (ru) "'в' H:mm" else "'at' h:mm a") else (if (ru) "EEE H:mm" else "EEE h:mm a")
+    return app.ocmobile.i18n.Lang.pick("Resets ", "Сброс ") + java.text.SimpleDateFormat(pattern, locale).format(java.util.Date(at))
 }
 
 /** Colors of the context slices: flat, no glow. */
@@ -187,7 +190,7 @@ private fun fonts(): PanelFonts = when (Oc.look.id) {
 @Composable
 private fun Label(text: String, modifier: Modifier = Modifier, size: TextUnit = 15.sp, color: Color = Oc.c.text, weight: FontWeight? = null, align: TextAlign? = null) {
     val f = fonts()
-    if (f.italic) androidx.compose.material3.Text(text, modifier, color = color, fontSize = size, fontFamily = f.label, fontStyle = FontStyle.Italic, textAlign = align, maxLines = 1)
+    if (f.italic) androidx.compose.material3.Text(app.ocmobile.i18n.tr(text), modifier, color = color, fontSize = size, fontFamily = f.label, fontStyle = FontStyle.Italic, textAlign = align, maxLines = 1)
     else Txt(if (f.upper) text.uppercase() else text, modifier, size = if (f.upper) (size.value - 3).sp else size, color = color, weight = weight, family = f.label, maxLines = 1, align = align)
 }
 
@@ -244,9 +247,9 @@ private fun UsagePanel(chat: Chat?, nav: Nav, onDismiss: () -> Unit) {
                         when (look) {
                             "terminal" -> Txt("$ usage --limits", Modifier.weight(1f), size = 13.sp, family = Oc.mono, color = c.textDim)
                             "kimi", "cloud" -> Txt("Usage", Modifier.weight(1f), size = 20.sp, weight = FontWeight.SemiBold)
-                            "notebook" -> androidx.compose.material3.Text("Usage so far", Modifier.weight(1f), fontSize = 20.sp, fontFamily = Oc.reply, fontStyle = FontStyle.Italic, color = c.text)
+                            "notebook" -> androidx.compose.material3.Text(app.ocmobile.i18n.tr("Usage so far"), Modifier.weight(1f), fontSize = 20.sp, fontFamily = Oc.reply, fontStyle = FontStyle.Italic, color = c.text)
                             "claude" -> Heading("Usage", Modifier.weight(1f), size = 20.sp)
-                            else -> Label("Plan usage limits · $plan", Modifier.weight(1f), size = 14.sp, color = c.textDim)
+                            else -> Label(app.ocmobile.i18n.Lang.pick("Plan usage limits · $plan", "Лимиты тарифа · $plan"), Modifier.weight(1f), size = 14.sp, color = c.textDim)
                         }
                         Label(if (look == "terminal") "all →" else "See all →", Modifier.clip(CircleShape).tap { onDismiss(); nav.push(Route.Usage) }.padding(6.dp), size = 14.sp)
                     }
@@ -302,7 +305,7 @@ private fun LimitRow(label: String, w: UsageWindow) {
     if (look == "terminal") {
         val n = 18; val filled = (f * n).toInt()
         Txt("%-8s".format(label.substringBefore(" ").replace("-hour", "h").lowercase()) + "█".repeat(filled) + "░".repeat(n - filled) + "  %3d%%".format((f * 100).toInt()), size = 13.sp, family = Oc.mono, color = col, maxLines = 1)
-        Txt("        ${money(w.used)} of ${money(w.limit)} · ${resets(w).lowercase()}", size = 12.sp, family = Oc.mono, color = c.textDim, maxLines = 1)
+        Txt("        ${money(w.used)} " + app.ocmobile.i18n.Lang.pick("of", "из") + " ${money(w.limit)} · ${resets(w).lowercase()}", size = 12.sp, family = Oc.mono, color = c.textDim, maxLines = 1)
         return
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -318,7 +321,7 @@ private fun LimitRow(label: String, w: UsageWindow) {
         if (f > 0.004f) Box(Modifier.fillMaxWidth(f.coerceAtMost(1f)).height(h).clip(shape).background(col))
     }
     Spacer(Modifier.height(5.dp))
-    Label("${money(w.used)} of ${money(w.limit)}", size = 12.sp, color = c.textDim)
+    Label("${money(w.used)} " + app.ocmobile.i18n.Lang.pick("of", "из") + " ${money(w.limit)}", size = 12.sp, color = c.textDim)
 }
 
 /** Kimi: three rings side by side: 5 h, week, month. */
@@ -462,7 +465,7 @@ private fun ChatStats(ctx: ContextInfo?) {
                     }
                 }
             }
-            if (ctx != null && ctx.yours > 0) { Spacer(Modifier.height(8.dp)); Label("${ctx.yours} from you, ${ctx.messages - ctx.yours} from OpenCode", size = 12.sp, color = c.textDim) }
+            if (ctx != null && ctx.yours > 0) { Spacer(Modifier.height(8.dp)); Label(app.ocmobile.i18n.Lang.pick("${ctx.yours} from you, ${ctx.messages - ctx.yours} from OpenCode", "${ctx.yours} от тебя, ${ctx.messages - ctx.yours} от OpenCode"), size = 12.sp, color = c.textDim) }
         }
     }
 }

@@ -1,6 +1,7 @@
 package app.ocmobile.data
 
 import app.ocmobile.Graph
+import app.ocmobile.i18n.Lang
 import java.io.File
 
 /** Directories for "regular" chats and memory inside the environment (proot). Everything outside CHAT_DIR is the Code tab. */
@@ -72,16 +73,16 @@ The user talks to you from a phone app. It cannot see your terminal or your disk
     fun shelves(): List<File> =
         dir().listFiles { f -> f.isFile && f.extension == "md" && f.name != "MEMORY.md" }?.sortedBy { it.name }.orEmpty()
 
-    /** Shelf topics that can be picked in settings: file, title, what goes on it. */
-    val topics = listOf(
-        Triple("about-me", "About me", "name, city, language, how to talk to me"),
-        Triple("work", "Work", "job, schedule, tools, colleagues"),
-        Triple("projects", "Projects", "what I build and where it stands"),
-        Triple("people", "People", "family, friends, who is who"),
-        Triple("routines", "Routines", "habits, daily plans, reminders"),
-        Triple("health", "Health", "sleep, sport, food, wellbeing"),
-        Triple("ideas", "Ideas", "plans, wishes, things to try"),
-        Triple("music", "Music", "taste, tracks, gear"),
+    /** Shelf topics that can be picked in settings: file, title, what goes on it. Rebuilt per read for the language. */
+    val topics: List<Triple<String, String, String>> get() = listOf(
+        Triple("about-me", Lang.pick("About me", "Обо мне"), Lang.pick("name, city, language, how to talk to me", "имя, город, язык, как со мной общаться")),
+        Triple("work", Lang.pick("Work", "Работа"), Lang.pick("job, schedule, tools, colleagues", "работа, график, инструменты, коллеги")),
+        Triple("projects", Lang.pick("Projects", "Проекты"), Lang.pick("what I build and where it stands", "что я строю и на каком это этапе")),
+        Triple("people", Lang.pick("People", "Люди"), Lang.pick("family, friends, who is who", "семья, друзья, кто есть кто")),
+        Triple("routines", Lang.pick("Routines", "Рутина"), Lang.pick("habits, daily plans, reminders", "привычки, планы на день, напоминания")),
+        Triple("health", Lang.pick("Health", "Здоровье"), Lang.pick("sleep, sport, food, wellbeing", "сон, спорт, еда, самочувствие")),
+        Triple("ideas", Lang.pick("Ideas", "Идеи"), Lang.pick("plans, wishes, things to try", "планы, желания, что попробовать")),
+        Triple("music", Lang.pick("Music", "Музыка"), Lang.pick("taste, tracks, gear", "вкусы, треки, техника")),
     )
 
     fun prompt(): String {

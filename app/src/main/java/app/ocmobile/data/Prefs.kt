@@ -42,6 +42,7 @@ class Prefs(ctx: Context) {
     }
 
     // Appearance
+    var language by str("language", if (java.util.Locale.getDefault().language == "ru") "ru" else "en") // en | ru
     var recentModels by str("recent_models", "")      // provider/model, comma-separated, most recent first
     var edition by str("edition", "cloud")           // claude | terminal | desktop
     var colorMode by str("color_mode", "system")      // system | light | dark

@@ -75,7 +75,7 @@ fun SelectionBarHost(bar: ChatTextToolbar, onReply: (String) -> Unit, onRead: (S
     ) {
         Row(Modifier.clip(Oc.round(12.dp)).background(c.surfaceHigh).border(1.dp, c.border, Oc.round(12.dp))) {
             @Composable fun item(label: String, onClick: () -> Unit) {
-                Box(Modifier.tap(scale = 1f, onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp)) { Txt(label, size = 15.sp) }
+                Box(Modifier.tap(scale = 1f, onClick = onClick).padding(horizontal = 10.dp, vertical = 12.dp)) { Txt(label, size = 14.sp, maxLines = 1) }
             }
             bar.copy?.let { cp -> item("Copy") { cp(); bar.hide(); app.ocmobile.Graph.chats.toasts.tryEmit("Copied") } }
             bar.selectAll?.let { sa -> item("Select all") { sa() } }

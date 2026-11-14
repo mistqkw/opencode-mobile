@@ -1,5 +1,9 @@
 package app.ocmobile.ui.screens
 
+
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.plural
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -143,7 +147,7 @@ fun UserBubble(m: ChatMessage, onImage: (String) -> Unit, onSelect: () -> Unit, 
                 }
                 // Notebook: no bubble, a label and text with a bar on the left
                 "plain" -> Column(Modifier.fillMaxWidth().longPress(onLong)) {
-                    Txt("YOU · " + hhmm(m.info.time.created), size = 11.sp, color = c.textDim, family = Oc.label)
+                    Txt(Lang.pick("YOU · " + hhmm(m.info.time.created), "ТЫ · " + hhmm(m.info.time.created)), size = 11.sp, color = c.textDim, family = Oc.label)
                     Row(Modifier.padding(top = 4.dp).height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
                         Box(Modifier.width(2.dp).fillMaxHeight().background(c.accent)); Spacer(Modifier.width(12.dp))
                         Text(text, color = c.text, fontSize = 17.sp, lineHeight = 25.sp, fontFamily = Oc.body, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
@@ -225,7 +229,7 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
                 }
                 if (bits.isNotEmpty()) Txt(bits.joinToString(" · "), size = 13.sp, color = c.textDim)
             }
-            if (last) Txt((if (app.ocmobile.data.Persona.on) "cl0udly" else "OpenCode") + " can make mistakes. Check important changes.", size = 13.sp, color = c.textDim, modifier = Modifier.padding(top = 2.dp))
+            if (last) Txt((if (app.ocmobile.data.Persona.on) "cl0udly" else "OpenCode") + Lang.pick(" can make mistakes. Check important changes.", " может ошибаться. Проверяй важные изменения."), size = 13.sp, color = c.textDim, modifier = Modifier.padding(top = 2.dp))
         } }
     }
     Column(Modifier.fillMaxWidth()) {
@@ -256,7 +260,7 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
                 "reasoning" -> if (p.text.isNotBlank()) ReasoningBlock(p)
                 "tool" -> ToolCard(p, onImage)
                 "file" -> if (isImagePart(p)) p.raw.str("url")?.let { u -> ImageThumb(u, 220.dp, { onImage(u) }) }
-                "subtask" -> InfoLine(Ic.Bot, "Subtask: " + (p.raw.str("description") ?: p.raw.str("prompt") ?: ""))
+                "subtask" -> InfoLine(Ic.Bot, Lang.pick("Subtask: ", "Подзадача: ") + (p.raw.str("description") ?: p.raw.str("prompt") ?: ""))
                 "patch" -> InfoLine(Ic.Diff, "Patch · ${p.raw.arr("files")?.size ?: 0} files")
                 "compaction" -> InfoLine(Ic.Sparkle, "Context compacted")
                 "retry" -> InfoLine(Ic.Refresh, "Retrying…")
@@ -332,7 +336,7 @@ private fun ReasoningBlock(p: Part) {
         Row(Modifier.clip(Oc.round(10.dp)).clickable { open = !open }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (Oc.look.id == "cloud") app.ocmobile.ui.components.MiniCloudIcon(16.dp) else Ico(Ic.Cloud, tint = c.textDim, size = 16.dp)
             Spacer(Modifier.width(8.dp))
-            Txt("Thinking", size = 14.sp, color = c.textDim)
+            Txt(Lang.pick("Thinking", "Размышление"), size = 14.sp, color = c.textDim)
             Spacer(Modifier.width(4.dp))
             Ico(if (open) Ic.ChevronDown else Ic.ChevronRight, tint = c.textDim, size = 16.dp)
         }
@@ -391,17 +395,18 @@ internal fun stepsSummary(parts: List<Part>): String {
         }
     }
     fun n(k: Int, one: String, many: String) = if (k == 1) one else "$k $many"
+    fun ru(k: Int, one: String, few: String, many: String) = "$k " + plural(k, one, few, many)
     val bits = buildList {
-        if (thought) add("thought")
-        if (team > 0) add("asked " + n(team, "a helper", "helpers"))
-        if (cmd > 0) add("ran " + n(cmd, "a command", "commands"))
-        if (reads.isNotEmpty()) add("read " + n(reads.size, "a file", "files"))
-        if (edits.isNotEmpty()) add("edited " + n(edits.size, "a file", "files"))
-        if (search > 0) add("searched " + n(search, "once", "times"))
-        if (web > 0) add("browsed " + n(web, "a page", "pages"))
-        if (other > 0) add("used " + n(other, "a tool", "tools"))
+        if (thought) add(Lang.pick("thought", "подумал"))
+        if (team > 0) add(Lang.pick("asked " + n(team, "a helper", "helpers"), "спросил " + ru(team, "помощника", "помощников", "помощников")))
+        if (cmd > 0) add(Lang.pick("ran " + n(cmd, "a command", "commands"), "выполнил " + ru(cmd, "команду", "команды", "команд")))
+        if (reads.isNotEmpty()) add(Lang.pick("read " + n(reads.size, "a file", "files"), "прочитал " + ru(reads.size, "файл", "файла", "файлов")))
+        if (edits.isNotEmpty()) add(Lang.pick("edited " + n(edits.size, "a file", "files"), "изменил " + ru(edits.size, "файл", "файла", "файлов")))
+        if (search > 0) add(Lang.pick("searched " + n(search, "once", "times"), "искал " + ru(search, "раз", "раза", "раз")))
+        if (web > 0) add(Lang.pick("browsed " + n(web, "a page", "pages"), "открыл " + ru(web, "страницу", "страницы", "страниц")))
+        if (other > 0) add(Lang.pick("used " + n(other, "a tool", "tools"), "использовал " + ru(other, "инструмент", "инструмента", "инструментов")))
     }
-    return bits.joinToString(", ").replaceFirstChar { it.uppercase() } + if (failed > 0) " · $failed failed" else ""
+    return bits.joinToString(", ").replaceFirstChar { it.uppercase() } + if (failed > 0) Lang.pick(" · $failed failed", " · ошибок: $failed") else ""
 }
 
 // ---------- tools ----------
@@ -630,7 +635,7 @@ fun PermissionPanel(r: PermissionReq, directory: String?) {
     Column(Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(Oc.round(22.dp)).background(c.surface).border(1.dp, c.border, Oc.round(22.dp)).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Ico(Ic.Shield, tint = c.warn, size = 20.dp); Spacer(Modifier.width(10.dp))
-            Txt("Allow ${r.permission}?", size = 16.sp, weight = FontWeight.Medium)
+            Txt(Lang.pick("Allow ${r.permission}?", "Разрешить ${r.permission}?"), size = 16.sp, weight = FontWeight.Medium)
         }
         r.patterns.take(3).forEach { Txt(it, size = 14.sp, family = Oc.mono, maxLines = 2, color = c.textDim, modifier = Modifier.padding(top = 6.dp)) }
         Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -1,5 +1,9 @@
 package app.ocmobile.ui.screens
 
+
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.plural
+
 import app.ocmobile.ui.theme.screenBackdrop
 import android.annotation.SuppressLint
 import android.content.ClipboardManager
@@ -415,13 +419,13 @@ private fun Done(onStart: () -> Unit) {
         Column(Modifier.fillMaxWidth().clip(Oc.round(20.dp)).background(c.surface).border(1.dp, c.border, Oc.round(20.dp))) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Ico(Ic.Sparkle, tint = c.accent, size = 20.dp); Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) { Txt("Zen", size = 16.sp, weight = FontWeight.Medium); Txt(if (zen > 0) "$zen models · pay as you go" else "Pay as you go", size = 13.sp, color = c.textDim) }
+                Column(Modifier.weight(1f)) { Txt("Zen", size = 16.sp, weight = FontWeight.Medium); Txt(if (zen > 0) Lang.pick("$zen models · pay as you go", "$zen " + plural(zen, "модель", "модели", "моделей") + " · оплата по мере использования") else Lang.pick("Pay as you go", "Оплата по мере использования"), size = 13.sp, color = c.textDim) }
                 Ico(Ic.Check, tint = c.ok, size = 18.dp)
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(c.border))
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Ico(Ic.Zap, tint = c.accent, size = 20.dp); Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) { Txt("Go", size = 16.sp, weight = FontWeight.Medium); Txt(if (go > 0) "$go models · with the Go plan" else "Works with the Go plan", size = 13.sp, color = c.textDim) }
+                Column(Modifier.weight(1f)) { Txt("Go", size = 16.sp, weight = FontWeight.Medium); Txt(if (go > 0) Lang.pick("$go models · with the Go plan", "$go " + plural(go, "модель", "модели", "моделей") + " · с тарифом Go") else Lang.pick("Works with the Go plan", "Работает с тарифом Go"), size = 13.sp, color = c.textDim) }
                 Txt("Plan", Modifier.clip(Oc.pill).tap { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://opencode.ai/go")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.padding(horizontal = 10.dp, vertical = 6.dp), size = 14.sp, color = c.accent)
             }
         }

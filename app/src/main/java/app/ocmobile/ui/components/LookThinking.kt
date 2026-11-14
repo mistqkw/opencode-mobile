@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.ocmobile.i18n.tr
 import app.ocmobile.ui.theme.Oc
 import kotlinx.coroutines.delay
 import kotlin.math.PI
@@ -104,7 +105,7 @@ private fun TerminalThinking(work: Work, modifier: Modifier) {
         Txt(frames[f.toInt().coerceIn(0, frames.length - 1)].toString(), size = 15.sp, color = c.accent, family = Oc.mono)
         Spacer(Modifier.width(10.dp))
         Txt(work.label, size = 15.sp, family = Oc.mono)
-        Txt("  ${s}s · stop to interrupt", size = 13.sp, color = c.textDim, family = Oc.mono, maxLines = 1)
+        Txt("  ${s}s " + app.ocmobile.i18n.Lang.pick("· stop to interrupt", "· останови, чтобы прервать"), size = 13.sp, color = c.textDim, family = Oc.mono, maxLines = 1)
     }
 }
 
@@ -185,7 +186,7 @@ private fun MessengerThinking(work: Work, modifier: Modifier) {
             }
         }
         Spacer(Modifier.width(10.dp))
-        Txt("OpenCode is ${work.verb}…", Modifier.padding(bottom = 10.dp), size = 13.sp, color = c.link)
+        Txt(app.ocmobile.i18n.Lang.pick("OpenCode is ${work.verb}…", "OpenCode " + app.ocmobile.i18n.tr(work.verb) + "…"), Modifier.padding(bottom = 10.dp), size = 13.sp, color = c.link)
     }
 }
 
@@ -251,7 +252,7 @@ private fun ChatGptThinking(work: Work, modifier: Modifier) {
             Spacer(Modifier.width(12.dp))
             val w = 240f
             Text(
-                work.label,
+                app.ocmobile.i18n.tr(work.label),
                 style = TextStyle(
                     fontSize = 15.sp, fontFamily = Oc.body,
                     brush = Brush.linearGradient(0f to c.textDim, 0.5f to c.text, 1f to c.textDim, start = Offset(x * w - w / 2, 0f), end = Offset(x * w + w / 2, 0f)),
@@ -272,7 +273,7 @@ private fun KimiThinking(work: Work, modifier: Modifier) {
         KimiMascot(Modifier.size(28.dp), c.accent, thinking = true)
         Spacer(Modifier.width(10.dp))
         Box(Modifier.clip(CircleShape).background(c.surfaceHigh).padding(horizontal = 14.dp, vertical = 7.dp)) {
-            Txt(work.label + ".".repeat(dots.toInt().coerceAtMost(3)), size = 14.sp, color = c.textDim)
+            Txt(tr(work.label) + ".".repeat(dots.toInt().coerceAtMost(3)), size = 14.sp, color = c.textDim)
         }
     }
 }

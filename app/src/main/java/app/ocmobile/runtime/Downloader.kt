@@ -1,5 +1,7 @@
 package app.ocmobile.runtime
 
+import app.ocmobile.i18n.Lang
+
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -42,10 +44,10 @@ object Downloader {
             val got = md.digest().joinToString("") { "%02x".format(it) }
             if (sha256 != null && got != sha256) {
                 part.delete()
-                error("Checksum mismatch for ${dest.name}: $got")
+                error(Lang.pick("Checksum mismatch for ${dest.name}: $got", "Несовпадение контрольной суммы для ${dest.name}: $got"))
             }
             dest.delete()
-            if (!part.renameTo(dest)) error("Could not rename ${part.name}")
+            if (!part.renameTo(dest)) error(Lang.pick("Could not rename ${part.name}", "Не удалось переименовать ${part.name}"))
             onProgress(done, total.takeIf { it > 0 } ?: done)
         }
     }

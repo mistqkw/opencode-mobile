@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+
+import app.ocmobile.i18n.Lang
+
 import app.ocmobile.ui.theme.screenBackdrop
 import app.ocmobile.ui.theme.kimiLike
 import androidx.compose.foundation.Image
@@ -175,7 +178,7 @@ private fun DrawerHeader(go: (Route) -> Unit) {
                 IconBtn(Ic.Search, { go(Route.Recents) })
             }
             androidx.compose.material3.Text(
-                java.text.SimpleDateFormat("EEEE, d MMMM", java.util.Locale.ENGLISH).format(java.util.Date()),
+                java.text.SimpleDateFormat("EEEE, d MMMM", if (Lang.isRu) java.util.Locale("ru") else java.util.Locale.ENGLISH).format(java.util.Date()),
                 fontFamily = Oc.reply, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 15.sp, color = c.textDim,
             )
         }
@@ -191,7 +194,7 @@ private fun NavItem(label: String, icon: androidx.compose.ui.graphics.vector.Ima
     val c = Oc.c
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = if (Oc.look.id == "messenger") 13.dp else 15.dp), verticalAlignment = Alignment.CenterVertically) {
         when (Oc.look.id) {
-            "hairline" -> { Ico(icon, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(18.dp)); Txt(label.uppercase(), Modifier.weight(1f), size = 13.sp, family = Oc.label); Txt("→", size = 13.sp, color = c.textDim, family = Oc.label) }
+            "hairline" -> { Ico(icon, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(18.dp)); Txt(app.ocmobile.i18n.tr(label).uppercase(), Modifier.weight(1f), size = 13.sp, family = Oc.label); Txt("→", size = 13.sp, color = c.textDim, family = Oc.label) }
             "messenger" -> { Ico(icon, tint = c.textDim, size = 24.dp); Spacer(Modifier.width(28.dp)); Txt(label, size = 16.sp) }
             "notebook" -> { Ico(icon, tint = c.accent, size = 22.dp); Spacer(Modifier.width(18.dp)); Txt(label, size = 18.sp, family = Oc.reply) }
             "kimi", "cloud" -> { Ico(icon, tint = c.text, size = 23.dp); Spacer(Modifier.width(20.dp)); Txt(label, size = 18.sp) }

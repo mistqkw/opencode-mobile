@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.plural
+
 import app.ocmobile.ui.theme.screenBackdrop
 import app.ocmobile.ui.theme.kimiLike
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -109,7 +112,7 @@ fun SkillsScreen(nav: Nav) {
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
             runCatching { Skills.import(ctx, uri) }
-                .onSuccess { names -> reload++; Graph.chats.toasts.tryEmit("Added " + names.joinToString { "/$it" }) }
+                .onSuccess { names -> reload++; Graph.chats.toasts.tryEmit(Lang.pick("Added ", "Добавлено ") + names.joinToString { "/$it" }) }
                 .onFailure { Graph.chats.toasts.tryEmit(it.message ?: "Could not import") }
         }
     }
@@ -286,7 +289,7 @@ fun SkillEditScreen(arg: String, nav: Nav) {
             Label("Instructions")
             OcTextField(body, { body = it }, placeholder = "Step by step: what to do, what to avoid, the format of the result…", singleLine = false, minLines = 10, mono = true)
             if (existing != null && existing.files > 1)
-                Txt("Plus ${existing.files - 1} more files in ${Skills.DIR}/${existing.name}", size = 13.sp, color = c.textDim)
+                Txt(Lang.pick("Plus ${existing.files - 1} more files in ${Skills.DIR}/${existing.name}", "Ещё ${existing.files - 1} " + plural(existing.files - 1, "файл", "файла", "файлов") + " в ${Skills.DIR}/${existing.name}"), size = 13.sp, color = c.textDim)
         }
         if (!builtIn) Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (!isNew) SmallButton("Try in chat", {
@@ -302,7 +305,7 @@ fun SkillEditScreen(arg: String, nav: Nav) {
                 if (dirty) save { go(it) } else go(name)
             })
             Spacer(Modifier.weight(1f))
-            Pill(if (isNew) "Create" else "Save", { save { Graph.chats.toasts.tryEmit("Saved /$it"); nav.pop() } }, enabled = name.isNotBlank() && body.isNotBlank() && (dirty || isNew))
+            Pill(if (isNew) "Create" else "Save", { save { Graph.chats.toasts.tryEmit(Lang.pick("Saved /$it", "Сохранено /$it")); nav.pop() } }, enabled = name.isNotBlank() && body.isNotBlank() && (dirty || isNew))
         }
     }
     if (confirmDelete) app.ocmobile.ui.components.OcDialog(
