@@ -57,17 +57,17 @@ class RuntimeController(
         if (installing || !paths.localSupported) return@withContext
         installing = true
         try {
-            step(Lang.pick("Preparing", "Подготовка"), null)
+            step(Lang.pick("Preparing", "РџРѕРґРіРѕС‚РѕРІРєР°"), null)
             paths.libDir.mkdirs()
             File(paths.nativeDir, "libtalloc.so").copyTo(File(paths.libDir, "libtalloc.so.2"), overwrite = true)
 
             if (!paths.rootfsReady) {
                 val tgz = File(paths.downloads, "ubuntu-base.tar.gz")
-                step(Lang.pick("Downloading Ubuntu", "Скачиваю Ubuntu"), 0f)
-                Downloader.fetch(ROOTFS_URL, tgz, ROOTFS_SHA) { d, t -> step(Lang.pick("Downloading Ubuntu", "Скачиваю Ubuntu"), frac(d, t), mb(d, t)) }
-                step(Lang.pick("Unpacking Ubuntu", "Распаковываю Ubuntu"), 0f)
+                step(Lang.pick("Downloading Ubuntu", "РЎРєР°С‡РёРІР°СЋ Ubuntu"), 0f)
+                Downloader.fetch(ROOTFS_URL, tgz, ROOTFS_SHA) { d, t -> step(Lang.pick("Downloading Ubuntu", "РЎРєР°С‡РёРІР°СЋ Ubuntu"), frac(d, t), mb(d, t)) }
+                step(Lang.pick("Unpacking Ubuntu", "Р Р°СЃРїР°РєРѕРІС‹РІР°СЋ Ubuntu"), 0f)
                 paths.rootfs.deleteRecursively()
-                val r = TarExtractor.extract(tgz, paths.rootfs) { d, t -> step(Lang.pick("Unpacking Ubuntu", "Распаковываю Ubuntu"), frac(d, t)) }
+                val r = TarExtractor.extract(tgz, paths.rootfs) { d, t -> step(Lang.pick("Unpacking Ubuntu", "Р Р°СЃРїР°РєРѕРІС‹РІР°СЋ Ubuntu"), frac(d, t)) }
                 logLine("rootfs: ${r.files} files, skipped ${r.skipped}")
                 configureRootfs()
                 tgz.delete()
@@ -93,8 +93,8 @@ class RuntimeController(
     suspend fun updateOpencode(): String = withContext(Dispatchers.IO) {
         val wasRunning = state.value is RuntimeState.Running
         val latest = Regex("\"version\":\\s*\"([0-9.]+)\"").find(Downloader.getText("https://registry.npmjs.org/opencode-ai/latest"))?.groupValues?.get(1)
-            ?: error(Lang.pick("Could not determine the latest version", "Не удалось определить последнюю версию"))
-        if (!latest.startsWith("1.")) error(Lang.pick("Latest version $latest is not on the 1.x line; this client was only verified against 1.x", "Версия $latest не из ветки 1.x; клиент проверен только с 1.x"))
+            ?: error(Lang.pick("Could not determine the latest version", "РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РїРѕСЃР»РµРґРЅСЋСЋ РІРµСЂСЃРёСЋ"))
+        if (!latest.startsWith("1.")) error(Lang.pick("Latest version $latest is not on the 1.x line; this client was only verified against 1.x", "Р’РµСЂСЃРёСЏ $latest РЅРµ РёР· РІРµС‚РєРё 1.x; РєР»РёРµРЅС‚ РїСЂРѕРІРµСЂРµРЅ С‚РѕР»СЊРєРѕ СЃ 1.x"))
         if (latest == prefs.opencodeVersion) return@withContext latest
         requestStop(); delay(1500)
         installOpencode(latest, ocUrl(latest), null)
@@ -105,13 +105,13 @@ class RuntimeController(
 
     private fun installOpencode(version: String, url: String, sha: String?) {
         val tgz = File(paths.downloads, "opencode-$version.tar.gz")
-        step(Lang.pick("Downloading OpenCode ", "Скачиваю OpenCode ") + version, 0f)
-        Downloader.fetch(url, tgz, sha) { d, t -> step(Lang.pick("Downloading OpenCode ", "Скачиваю OpenCode ") + version, frac(d, t), mb(d, t)) }
-        step(Lang.pick("Installing OpenCode", "Устанавливаю OpenCode"), 0f)
+        step(Lang.pick("Downloading OpenCode ", "РЎРєР°С‡РёРІР°СЋ OpenCode ") + version, 0f)
+        Downloader.fetch(url, tgz, sha) { d, t -> step(Lang.pick("Downloading OpenCode ", "РЎРєР°С‡РёРІР°СЋ OpenCode ") + version, frac(d, t), mb(d, t)) }
+        step(Lang.pick("Installing OpenCode", "РЈСЃС‚Р°РЅР°РІР»РёРІР°СЋ OpenCode"), 0f)
         val tmp = File(paths.downloads, "oc-extract")
         tmp.deleteRecursively()
-        TarExtractor.extract(tgz, tmp) { d, t -> step(Lang.pick("Installing OpenCode", "Устанавливаю OpenCode"), frac(d, t)) }
-        val bin = tmp.walkTopDown().firstOrNull { it.isFile && it.name == "opencode" } ?: error(Lang.pick("No opencode binary in the archive", "В архиве нет бинарника opencode"))
+        TarExtractor.extract(tgz, tmp) { d, t -> step(Lang.pick("Installing OpenCode", "РЈСЃС‚Р°РЅР°РІР»РёРІР°СЋ OpenCode"), frac(d, t)) }
+        val bin = tmp.walkTopDown().firstOrNull { it.isFile && it.name == "opencode" } ?: error(Lang.pick("No opencode binary in the archive", "Р’ Р°СЂС…РёРІРµ РЅРµС‚ Р±РёРЅР°СЂРЅРёРєР° opencode"))
         paths.opencodeBin.parentFile?.mkdirs()
         paths.opencodeBin.delete()
         bin.copyTo(paths.opencodeBin, overwrite = true)
@@ -122,7 +122,7 @@ class RuntimeController(
     }
 
     private suspend fun smokeTest() {
-        step(Lang.pick("Checking startup", "Проверяю запуск"), null)
+        step(Lang.pick("Checking startup", "РџСЂРѕРІРµСЂСЏСЋ Р·Р°РїСѓСЃРє"), null)
         suspend fun once(): Pair<Int, String> {
             val out = StringBuilder()
             val code = runGuest(listOf(OC_BIN, "--version"), timeoutSec = 120) { out.appendLine(it) }
@@ -136,7 +136,7 @@ class RuntimeController(
             code = second.first; out = second.second
             if (code != 0 || !Regex("\\d+\\.\\d+\\.\\d+").containsMatchIn(out)) {
                 prefs.noSeccomp = false
-                error(Lang.pick("opencode does not start in proot (code $code): ", "opencode не запускается через proot (код $code): ") + out.trim().takeLast(400))
+                error(Lang.pick("opencode does not start in proot (code $code): ", "opencode РЅРµ Р·Р°РїСѓСЃРєР°РµС‚СЃСЏ С‡РµСЂРµР· proot (РєРѕРґ $code): ") + out.trim().takeLast(400))
             }
         }
         logLine("opencode: ${out.trim()}")
@@ -189,7 +189,7 @@ class RuntimeController(
             val pb = ProcessBuilder(cmd).redirectErrorStream(true)
             pb.environment().putAll(proot.env())
             val p = try { pb.start() } catch (e: Exception) {
-                state.value = RuntimeState.Crashed(Lang.pick("Could not start proot: ", "Не удалось запустить proot: ") + e.message)
+                state.value = RuntimeState.Crashed(Lang.pick("Could not start proot: ", "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСѓСЃС‚РёС‚СЊ proot: ") + e.message)
                 return@withContext
             }
             process = p

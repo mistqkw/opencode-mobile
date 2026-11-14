@@ -44,10 +44,10 @@ object Downloader {
             val got = md.digest().joinToString("") { "%02x".format(it) }
             if (sha256 != null && got != sha256) {
                 part.delete()
-                error(Lang.pick("Checksum mismatch for ${dest.name}: $got", "Íåñîâïàäåíèå êîíòðîëüíîé ñóììû äëÿ ${dest.name}: $got"))
+                error(Lang.pick("Checksum mismatch for ${dest.name}: $got", "ÐÐµÑÐ¾Ð²Ð¿Ð°Ð´ÐµÐ½Ð¸Ðµ ÐºÐ¾Ð½Ñ‚Ñ€Ð¾Ð»ÑŒÐ½Ð¾Ð¹ ÑÑƒÐ¼Ð¼Ñ‹ Ð´Ð»Ñ ${dest.name}: $got"))
             }
             dest.delete()
-            if (!part.renameTo(dest)) error(Lang.pick("Could not rename ${part.name}", "Íå óäàëîñü ïåðåèìåíîâàòü ${part.name}"))
+            if (!part.renameTo(dest)) error(Lang.pick("Could not rename ${part.name}", "ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð¿ÐµÑ€ÐµÐ¸Ð¼ÐµÐ½Ð¾Ð²Ð°Ñ‚ÑŒ ${part.name}"))
             onProgress(done, total.takeIf { it > 0 } ?: done)
         }
     }

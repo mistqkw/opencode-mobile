@@ -91,7 +91,7 @@ object Backup {
                     put(MediaStore.Downloads.DISPLAY_NAME, name); put(MediaStore.Downloads.MIME_TYPE, "application/gzip")
                     put(MediaStore.Downloads.RELATIVE_PATH, "Download/OpenCode")
                 }
-                val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v) ?: error(Lang.pick("Android refused to create the file", "Android ÌÂ ‰‡Î ÒÓÁ‰‡Ú¸ Ù‡ÈÎ"))
+                val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v) ?: error(Lang.pick("Android refused to create the file", "Android –Ω–µ –¥–∞–ª —Å–æ–∑–¥–∞—Ç—å —Ñ–∞–π–ª"))
                 ctx.contentResolver.openOutputStream(uri)!!.use { o -> out.inputStream().use { it.copyTo(o) } }
             } else {
                 @Suppress("DEPRECATION")
@@ -112,7 +112,7 @@ object Backup {
             require(Graph.paths.rootfsReady) { "Set up the environment first, then restore." }
             state.value = State.Working("Copying the backup")
             val tmp = Graph.paths.host(TMP).apply { parentFile?.mkdirs() }
-            ctx.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { i.copyTo(it) } } ?: error(Lang.pick("Could not read the file", "ÕÂ Û‰‡ÎÓÒ¸ ÔÓ˜ËÚ‡Ú¸ Ù‡ÈÎ"))
+            ctx.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { i.copyTo(it) } } ?: error(Lang.pick("Could not read the file", "–ù–µ —É–¥–∞–ª–æ—Å—å –ø—Ä–æ—á–∏—Ç–∞—Ç—å —Ñ–∞–π–ª"))
             state.value = State.Working("Stopping the server")
             withServerStopped {
                 state.value = State.Working("Unpacking")
