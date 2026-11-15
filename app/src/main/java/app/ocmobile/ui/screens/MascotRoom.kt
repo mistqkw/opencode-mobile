@@ -51,6 +51,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.ocmobile.Graph
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.plural
 import app.ocmobile.ui.Nav
 import app.ocmobile.ui.components.CH
 import app.ocmobile.ui.components.CW
@@ -129,7 +131,7 @@ private fun Room(onPlay: () -> Unit) {
             say(CloudTalk.of(e))
         })
         Spacer(Modifier.height(40.dp))
-        Txt("Petted $pets ${if (pets == 1) "time" else "times"} · best rally ${Graph.prefs.pongBest}", size = 13.sp, color = c.textDim)
+        Txt(Lang.pick("Petted $pets ${if (pets == 1) "time" else "times"} · best rally ${Graph.prefs.pongBest}", "Погладил $pets " + plural(pets, "раз", "раза", "раз") + " · лучшая серия ${Graph.prefs.pongBest}"), size = 13.sp, color = c.textDim)
         Spacer(Modifier.height(14.dp))
         Box(Modifier.clip(CircleShape).background(c.text).tap(scale = 0.96f, onClick = onPlay).padding(horizontal = 22.dp, vertical = 12.dp)) {
             Txt("Play ping-pong", size = 16.sp, color = c.bg, weight = FontWeight.Medium)
@@ -255,7 +257,7 @@ private fun Pong() {
             Txt("$you", size = 28.sp, color = c.text, weight = FontWeight.SemiBold)
         }
         Column(Modifier.align(Alignment.CenterEnd).padding(end = 20.dp), horizontalAlignment = Alignment.End) {
-            Txt("rally $rally", size = 13.sp, color = c.textDim)
+            Txt(Lang.pick("rally $rally", "серия $rally"), size = 13.sp, color = c.textDim)
         }
         AnimatedContent(line, label = "pong-say", modifier = Modifier.align(Alignment.Center).padding(top = 120.dp), transitionSpec = { fadeIn(tween(90)) togetherWith fadeOut(tween(60)) }) { t ->
             Txt(t, size = 15.sp, color = c.textDim)

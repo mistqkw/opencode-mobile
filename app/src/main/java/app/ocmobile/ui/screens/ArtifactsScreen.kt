@@ -1,5 +1,7 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.i18n.Lang
+
 import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -118,7 +120,7 @@ fun ArtifactsScreen(nav: Nav, onMenu: () -> Unit) {
                                 Txt(a.sessionTitle, size = 16.sp, color = c.textDim, maxLines = 1)
                             }
                             Spacer(Modifier.height(4.dp))
-                            Txt("Edited ${ago(a.updated)} · +${a.adds} −${a.dels}", size = 15.sp, color = c.textDim, maxLines = 1)
+                            Txt(Lang.pick("Edited ${ago(a.updated)} · +${a.adds} −${a.dels}", "Изменено ${ago(a.updated)} · +${a.adds} −${a.dels}"), size = 15.sp, color = c.textDim, maxLines = 1)
                         }
                     }
                 }

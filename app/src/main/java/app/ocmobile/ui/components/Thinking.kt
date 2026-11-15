@@ -325,7 +325,7 @@ private fun ShimmerText(text: String) {
     val x by t.animateFloat(-0.4f, 1.4f, infiniteRepeatable(tween(1300, easing = LinearEasing), RepeatMode.Restart), label = "x")
     val w = 260f
     Text(
-        text,
+        app.ocmobile.i18n.tr(text),
         style = TextStyle(
             // like in Claude: the work label is serif (in their own editions, their font)
             fontSize = 15.sp, fontFamily = Oc.reply,

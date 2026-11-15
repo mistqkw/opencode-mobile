@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+
+import app.ocmobile.i18n.Lang
+
 import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -47,8 +50,10 @@ fun SetupScreen(rt: RuntimeState) {
         Heading("OpenCode on this phone", size = 30.sp, align = TextAlign.Center)
         Spacer(Modifier.height(14.dp))
         Txt(
-            "The agent runs in a Linux container (Ubuntu via proot) right on your device — no computer needed. " +
-                "Setup downloads about 110 MB once.",
+            Lang.pick(
+                "The agent runs in a Linux container (Ubuntu via proot) right on your device — no computer needed. Setup downloads about 110 MB once.",
+                "Агент работает в Linux-контейнере (Ubuntu через proot) прямо на устройстве — компьютер не нужен. Настройка один раз скачает около 110 МБ.",
+            ),
             size = 16.sp, color = c.textDim, align = TextAlign.Center, lineHeight = 23.sp,
         )
         Spacer(Modifier.height(32.dp))

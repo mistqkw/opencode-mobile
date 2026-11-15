@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.i18n.Lang
 import app.ocmobile.ui.theme.screenBackdrop
 import android.Manifest
 import android.content.pm.PackageManager
@@ -67,11 +68,11 @@ fun PhoneToolsScreen(nav: Nav) {
                 SettingsRow(
                     "Let OpenCode use this phone", icon = Ic.Phone,
                     subtitle = when {
-                        Graph.devices.isRemote -> "Only for the server on this phone"
-                        !prefs.phoneTools -> "Off"
-                        status == "connected" -> "Connected · ${PhoneBridge.enabledTools().size} tools"
-                        status == null -> "Starts with the server"
-                        else -> "Status: $status"
+                        Graph.devices.isRemote -> Lang.pick("Only for the server on this phone", "Только для сервера на этом телефоне")
+                        !prefs.phoneTools -> Lang.pick("Off", "Выкл")
+                        status == "connected" -> Lang.pick("Connected · ${PhoneBridge.enabledTools().size} tools", "Подключено · ${PhoneBridge.enabledTools().size} " + app.ocmobile.i18n.plural(PhoneBridge.enabledTools().size, "инструмент", "инструмента", "инструментов"))
+                        status == null -> Lang.pick("Starts with the server", "Запускается вместе с сервером")
+                        else -> Lang.pick("Status: $status", "Статус: $status")
                     },
                     trailing = { OcSwitch(prefs.phoneTools) { prefs.phoneTools = it; scope.launch { PhoneBridge.register(); rev++ } } },
                 )

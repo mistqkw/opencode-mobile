@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.plural
+
 import app.ocmobile.ui.theme.kimiLike
 import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
@@ -58,11 +61,11 @@ import kotlinx.coroutines.launch
 fun ago(ms: Long): String {
     val d = (System.currentTimeMillis() - ms) / 1000
     return when {
-        d < 60 -> "just now"
-        d < 3600 -> "${d / 60} minute${if (d / 60 == 1L) "" else "s"} ago"
-        d < 86400 -> "${d / 3600} hour${if (d / 3600 == 1L) "" else "s"} ago"
-        d < 172800 -> "Yesterday"
-        else -> "${d / 86400} days ago"
+        d < 60 -> Lang.pick("just now", "только что")
+        d < 3600 -> Lang.pick("${d / 60} minute${if (d / 60 == 1L) "" else "s"} ago", "${d / 60} " + plural((d / 60).toInt(), "минуту", "минуты", "минут") + " назад")
+        d < 86400 -> Lang.pick("${d / 3600} hour${if (d / 3600 == 1L) "" else "s"} ago", "${d / 3600} " + plural((d / 3600).toInt(), "час", "часа", "часов") + " назад")
+        d < 172800 -> Lang.pick("Yesterday", "Вчера")
+        else -> Lang.pick("${d / 86400} days ago", "${d / 86400} " + plural((d / 86400).toInt(), "день", "дня", "дней") + " назад")
     }
 }
 
@@ -184,7 +187,7 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
                         val h = hits[i]
                         Column(Modifier.fillMaxWidth().tap(scale = 1f) { nav.openChat(h.sessionId) }.padding(horizontal = 20.dp, vertical = 11.dp)) {
                             Txt(h.title.ifBlank { "Untitled" } + " · " + ago(h.time), size = 14.sp, color = c.textDim, maxLines = 1)
-                            Txt((if (h.user) "You: " else "") + h.snippet, size = 16.sp, maxLines = 3, lineHeight = 22.sp)
+                            Txt(Lang.pick((if (h.user) "You: " else "") + h.snippet, (if (h.user) "Ты: " else "") + h.snippet), size = 16.sp, maxLines = 3, lineHeight = 22.sp)
                         }
                     }
                 }
@@ -203,7 +206,7 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
         Box(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp)) { Pill("New session", { nav.root(Route.Home) }, icon = Ic.Plus) }
     }
     if (confirm) {
-        OcDialog("Delete ${selected.size} session${if (selected.size == 1) "" else "s"}?", { confirm = false }, "Delete", {
+        OcDialog(Lang.pick("Delete ${selected.size} session${if (selected.size == 1) "" else "s"}?", "Удалить " + selected.size + " " + plural(selected.size, "сессию", "сессии", "сессий") + "?"), { confirm = false }, "Delete", {
             val ids = selected.toList(); confirm = false; selecting = false; selected.clear()
             scope.launch {
                 ids.forEach { id -> runCatching { Graph.api.deleteSession(id, Graph.chats.session(id)?.directory) }; Graph.chats.forget(id) }

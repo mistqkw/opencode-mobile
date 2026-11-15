@@ -34,8 +34,8 @@ object LiveNotify {
     private val nm get() = ctx.getSystemService(NotificationManager::class.java)
 
     fun start() {
-        if (nm.getNotificationChannel(CH_LIVE) == null) nm.createNotificationChannel(NotificationChannel(CH_LIVE, "Agent at work", NotificationManager.IMPORTANCE_DEFAULT).apply { setSound(null, null); enableVibration(false) })
-        if (nm.getNotificationChannel(CH_ASK) == null) nm.createNotificationChannel(NotificationChannel(CH_ASK, "Agent needs your OK", NotificationManager.IMPORTANCE_HIGH).apply { lockscreenVisibility = Notification.VISIBILITY_PUBLIC })
+        if (nm.getNotificationChannel(CH_LIVE) == null) nm.createNotificationChannel(NotificationChannel(CH_LIVE, app.ocmobile.i18n.Lang.pick("Agent at work", "Агент работает"), NotificationManager.IMPORTANCE_DEFAULT).apply { setSound(null, null); enableVibration(false) })
+        if (nm.getNotificationChannel(CH_ASK) == null) nm.createNotificationChannel(NotificationChannel(CH_ASK, app.ocmobile.i18n.Lang.pick("Agent needs your OK", "Агенту нужно разрешение"), NotificationManager.IMPORTANCE_HIGH).apply { lockscreenVisibility = Notification.VISIBILITY_PUBLIC })
         Graph.scope.launch { Graph.events.events.collect { runCatching { handle(it) } } }
     }
 
@@ -93,17 +93,20 @@ object LiveNotify {
     private fun base(name: String) = name.substringAfterLast('/')
 
     private fun label(tool: String, input: kotlinx.serialization.json.JsonObject?): String = when {
-        tool == "bash" -> input?.str("description")?.let { it.replaceFirstChar { c -> c.uppercase() } } ?: "Running a command"
-        tool == "read" -> "Reading " + (input?.str("filePath")?.let(::base) ?: "a file")
-        tool in setOf("edit", "write", "apply_patch", "patch", "multiedit") -> "Editing " + (input?.str("filePath")?.let(::base) ?: "files")
-        tool in setOf("glob", "grep", "list") -> "Searching the code"
-        tool == "webfetch" -> "Reading a web page"
-        tool == "websearch" -> "Searching the web"
-        tool == "task" -> "Working with a subagent"
-        tool == "todowrite" -> "Planning the steps"
-        tool == "skill" -> "Using a skill"
-        tool.startsWith("${PhoneBridge.NAME}_") -> "Using the phone"
-        else -> "Using $tool"
+        tool == "bash" -> input?.str("description")?.let { it.replaceFirstChar { c -> c.uppercase() } }
+            ?: app.ocmobile.i18n.Lang.pick("Running a command", "Выполняю команду")
+        tool == "read" -> app.ocmobile.i18n.Lang.pick("Reading ", "Читаю ") + (input?.str("filePath")?.let(::base)
+            ?: app.ocmobile.i18n.Lang.pick("a file", "файл"))
+        tool in setOf("edit", "write", "apply_patch", "patch", "multiedit") -> app.ocmobile.i18n.Lang.pick("Editing ", "Редактирую ") + (input?.str("filePath")?.let(::base)
+            ?: app.ocmobile.i18n.Lang.pick("files", "файлы"))
+        tool in setOf("glob", "grep", "list") -> app.ocmobile.i18n.Lang.pick("Searching the code", "Ищу в коде")
+        tool == "webfetch" -> app.ocmobile.i18n.Lang.pick("Reading a web page", "Читаю веб-страницу")
+        tool == "websearch" -> app.ocmobile.i18n.Lang.pick("Searching the web", "Ищу в интернете")
+        tool == "task" -> app.ocmobile.i18n.Lang.pick("Working with a subagent", "Работаю с субагентом")
+        tool == "todowrite" -> app.ocmobile.i18n.Lang.pick("Planning the steps", "Планирую шаги")
+        tool == "skill" -> app.ocmobile.i18n.Lang.pick("Using a skill", "Использую навык")
+        tool.startsWith("${PhoneBridge.NAME}_") -> app.ocmobile.i18n.Lang.pick("Using the phone", "Использую телефон")
+        else -> app.ocmobile.i18n.Lang.pick("Using ", "Использую ") + tool
     }
 
     private fun openChat(sid: String) = PendingIntent.getActivity(
@@ -122,21 +125,21 @@ object LiveNotify {
         if (!Graph.prefs.liveNotify || Graph.chats.foreground || Graph.chats.isIncognito(sid)) { nm.cancel(liveId(sid)); return }
         val title = Graph.chats.session(sid)?.displayTitle?.ifBlank { null } ?: "OpenCode"
         val counts = listOfNotNull(
-            "${r.steps} ${if (r.steps == 1) "step" else "steps"}",
-            r.files.size.takeIf { it > 0 }?.let { "$it ${if (it == 1) "file" else "files"}" },
+            "${r.steps} " + app.ocmobile.i18n.plural(r.steps, "шаг", "шага", "шагов"),
+            r.files.size.takeIf { it > 0 }?.let { "$it " + app.ocmobile.i18n.plural(it, "файл", "файла", "файлов") },
         ).joinToString(" · ")
         val b = Notification.Builder(ctx, CH_LIVE)
             .setSmallIcon(R.drawable.ic_stat).setContentTitle(r.step).setContentText(title).setSubText(counts)
             .setOngoing(true).setOnlyAlertOnce(true).setCategory(Notification.CATEGORY_PROGRESS)
             .setUsesChronometer(true).setWhen(r.started).setShowWhen(true)
             .setContentIntent(openChat(sid))
-            .addAction(Notification.Action.Builder(null, "Stop", action("stop", "", sid, Graph.chats.session(sid)?.directory)).build())
-            .setPublicVersion(Notification.Builder(ctx, CH_LIVE).setSmallIcon(R.drawable.ic_stat).setContentTitle("OpenCode is working").setContentText(counts).build())
+            .addAction(Notification.Action.Builder(null, app.ocmobile.i18n.Lang.pick("Stop", "Остановить"), action("stop", "", sid, Graph.chats.session(sid)?.directory)).build())
+            .setPublicVersion(Notification.Builder(ctx, CH_LIVE).setSmallIcon(R.drawable.ic_stat).setContentTitle(app.ocmobile.i18n.Lang.pick("OpenCode is working", "OpenCode работает")).setContentText(counts).build())
             .setProgress(0, 0, true)
         if (Build.VERSION.SDK_INT >= 36) {
             // Android 16: Live Update, a chip in the status bar and a spot at the top of the shade
             b.setStyle(Notification.ProgressStyle().setProgressIndeterminate(true))
-            b.setShortCriticalText(if (r.files.isNotEmpty()) "${r.files.size} files" else "Working")
+            b.setShortCriticalText(if (r.files.isNotEmpty()) "${r.files.size} " + app.ocmobile.i18n.plural(r.files.size, "файл", "файла", "файлов") else app.ocmobile.i18n.Lang.pick("Working", "Работаю"))
             runCatching { b.javaClass.getMethod("setRequestPromotedOngoing", Boolean::class.javaPrimitiveType).invoke(b, true) }
         }
         nm.notify(liveId(sid), b.build())
@@ -145,30 +148,30 @@ object LiveNotify {
     private fun ask(req: app.ocmobile.api.PermissionReq, eventDir: String?) {
         val dir = eventDir ?: Graph.chats.session(req.sessionID)?.directory
         val what = when (req.permission) {
-            "bash" -> "Run: " + (req.metadata.str("command") ?: req.patterns.joinToString(" "))
-            "edit", "write" -> "Edit " + req.patterns.joinToString(", ") { base(it) }
-            "webfetch" -> "Open " + req.patterns.joinToString(", ")
-            "external_directory" -> "Work outside the project: " + req.patterns.joinToString(", ")
+            "bash" -> app.ocmobile.i18n.Lang.pick("Run: ", "Выполнить: ") + (req.metadata.str("command") ?: req.patterns.joinToString(" "))
+            "edit", "write" -> app.ocmobile.i18n.Lang.pick("Edit ", "Изменить ") + req.patterns.joinToString(", ") { base(it) }
+            "webfetch" -> app.ocmobile.i18n.Lang.pick("Open ", "Открыть ") + req.patterns.joinToString(", ")
+            "external_directory" -> app.ocmobile.i18n.Lang.pick("Work outside the project: ", "Работа вне проекта: ") + req.patterns.joinToString(", ")
             else -> req.permission.replaceFirstChar { it.uppercase() } + " " + req.patterns.joinToString(", ")
         }.take(300)
         val title = Graph.chats.session(req.sessionID)?.displayTitle?.ifBlank { null } ?: "OpenCode"
         nm.notify(askId(req.id), Notification.Builder(ctx, CH_ASK)
-            .setSmallIcon(R.drawable.ic_stat).setContentTitle("OpenCode needs your OK").setContentText(what).setSubText(title)
+            .setSmallIcon(R.drawable.ic_stat).setContentTitle(app.ocmobile.i18n.Lang.pick("OpenCode needs your OK", "OpenCode просит разрешение")).setContentText(what).setSubText(title)
             .setStyle(Notification.BigTextStyle().bigText(what))
             .setCategory(Notification.CATEGORY_REMINDER).setVisibility(Notification.VISIBILITY_PRIVATE)
-            .setPublicVersion(Notification.Builder(ctx, CH_ASK).setSmallIcon(R.drawable.ic_stat).setContentTitle("OpenCode needs your OK").build())
+            .setPublicVersion(Notification.Builder(ctx, CH_ASK).setSmallIcon(R.drawable.ic_stat).setContentTitle(app.ocmobile.i18n.Lang.pick("OpenCode needs your OK", "OpenCode просит разрешение")).build())
             .setContentIntent(openChat(req.sessionID)).setAutoCancel(true)
-            .addAction(Notification.Action.Builder(null, "Allow", action("once", req.id, req.sessionID, dir)).build())
-            .addAction(Notification.Action.Builder(null, "Always", action("always", req.id, req.sessionID, dir)).build())
-            .addAction(Notification.Action.Builder(null, "Deny", action("reject", req.id, req.sessionID, dir)).build())
+            .addAction(Notification.Action.Builder(null, app.ocmobile.i18n.Lang.pick("Allow", "Разрешить"), action("once", req.id, req.sessionID, dir)).build())
+            .addAction(Notification.Action.Builder(null, app.ocmobile.i18n.Lang.pick("Always", "Всегда"), action("always", req.id, req.sessionID, dir)).build())
+            .addAction(Notification.Action.Builder(null, app.ocmobile.i18n.Lang.pick("Deny", "Отклонить"), action("reject", req.id, req.sessionID, dir)).build())
             .build())
     }
 
     private fun question(p: kotlinx.serialization.json.JsonObject) {
         val q = app.ocmobile.api.parseQuestion(p)
-        val text = q.questions.firstOrNull()?.question ?: "OpenCode has a question"
+        val text = q.questions.firstOrNull()?.question ?: app.ocmobile.i18n.Lang.pick("OpenCode has a question", "У OpenCode есть вопрос")
         nm.notify(askId(q.id), Notification.Builder(ctx, CH_ASK)
-            .setSmallIcon(R.drawable.ic_stat).setContentTitle("OpenCode is asking you").setContentText(text)
+            .setSmallIcon(R.drawable.ic_stat).setContentTitle(app.ocmobile.i18n.Lang.pick("OpenCode is asking you", "OpenCode спрашивает"))
             .setStyle(Notification.BigTextStyle().bigText(text)).setVisibility(Notification.VISIBILITY_PRIVATE)
             .setContentIntent(openChat(q.sessionID)).setAutoCancel(true).build())
     }

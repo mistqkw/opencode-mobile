@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.ocmobile.Graph
+import app.ocmobile.i18n.Lang
 import app.ocmobile.api.ModelInfo
 import app.ocmobile.ui.Nav
 import app.ocmobile.ui.Route
@@ -339,12 +340,15 @@ private fun KimiBackRow(title: String, onBack: () -> Unit) {
     }
 }
 
-private fun describe(m: ModelInfo): String = buildList {
-    if (m.id.contains("free") || m.name.contains("Free", true)) add("Free")
-    m.limit?.context?.takeIf { it > 0 }?.let { add(if (it >= 1_000_000) "${it / 1_000_000}M context" else "${it / 1000}k context") }
-    if (m.reasoning) add("thinks before answering")
-    if (m.supportsImages) add("sees images")
-}.joinToString(" · ").replaceFirstChar { it.uppercase() }
+private fun describe(m: ModelInfo): String {
+    val parts = buildList {
+        if (m.id.contains("free") || m.name.contains("Free", true)) add(Lang.pick("Free", "Бесплатно"))
+        m.limit?.context?.takeIf { it > 0 }?.let { add(if (it >= 1_000_000) Lang.pick("${it / 1_000_000}M context", "${it / 1_000_000} млн контекст") else Lang.pick("${it / 1000}k context", "${it / 1000}k контекст")) }
+        if (m.reasoning) add(Lang.pick("thinks before answering", "сначала думает"))
+        if (m.supportsImages) add(Lang.pick("sees images", "видит фото"))
+    }.joinToString(" · ")
+    return if (Lang.code == "ru") parts else parts.replaceFirstChar { it.uppercase() }
+}
 
 @Composable
 private fun KimiPanelRow(title: String, sub: String?, selected: Boolean, onClick: () -> Unit) {
@@ -459,9 +463,12 @@ fun KimiHero(code: Boolean, typing: Boolean = false, onMore: () -> Unit) {
         Spacer(Modifier.height(22.dp))
         // cl0udly: a new greeting every time
         val cloud = Oc.look.id == "cloud"
-        val hello = remember(code, cloud) { if (cloud) Greetings.pick(name, code) else null }
+        val hello = remember(code, cloud, Lang.code) { if (cloud) Greetings.pick(name, code) else null }
         Txt(
-            hello ?: ((if (name.isBlank()) "Hi." else "Hi, $name.") + "\n" + (if (code) "What are we building today?" else "What shall we do today?")),
+            hello ?: Lang.pick(
+                (if (name.isBlank()) "Hi." else "Hi, $name.") + "\n" + (if (code) "What are we building today?" else "What shall we do today?"),
+                (if (name.isBlank()) "Привет." else "Привет, $name.") + "\n" + (if (code) "Что строим сегодня?" else "Чем займёмся сегодня?"),
+            ),
             size = 25.sp, weight = FontWeight.SemiBold, align = TextAlign.Center, lineHeight = 34.sp,
         )
         Spacer(Modifier.height(18.dp))

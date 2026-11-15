@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+
+import app.ocmobile.i18n.Lang
+
 import app.ocmobile.ui.theme.kimiLike
 import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
@@ -137,7 +140,8 @@ fun CodeScreen(nav: Nav, onMenu: () -> Unit) {
                 }
                 if (list.isEmpty()) item {
                     Txt(
-                        if (!connected && remote != null) "Can't reach ${remote.name}. Check that it is on and that opencode serve is running." else "No code sessions yet. Chats are in the menu; pick a project to start coding.",
+                        if (!connected && remote != null) Lang.pick("Can't reach ${remote.name}. Check that it is on and that opencode serve is running.", "Нет связи с ${remote.name}. Проверь, что он включён и opencode serve запущен.")
+                        else Lang.pick("No code sessions yet. Chats are in the menu; pick a project to start coding.", "Пока нет сессий кода. Чаты — в меню; выбери проект, чтобы начать кодить."),
                         Modifier.padding(horizontal = 8.dp, vertical = 24.dp), size = 16.sp, color = c.textDim,
                     )
                 }
@@ -204,7 +208,7 @@ private fun SessionCard(s: Session, status: String?, needInput: Set<String>, que
                     if (remote != null) {
                         Ico(Ic.Laptop, tint = if (connected) c.ok else c.textDim, size = 20.dp); Spacer(Modifier.width(8.dp))
                         Txt(if (connected) "Connected" else "Disconnected", size = 16.sp, color = if (connected) c.ok else c.textDim)
-                        Txt("  •  Remote control", size = 16.sp, color = c.textDim)
+                        Txt(Lang.pick("  •  Remote control", "  •  Удалённое управление"), size = 16.sp, color = c.textDim)
                     } else {
                         Ico(Ic.Folder, tint = c.textDim, size = 20.dp); Spacer(Modifier.width(8.dp))
                         Txt(dir, size = 16.sp, color = c.textDim, maxLines = 1)
@@ -286,7 +290,7 @@ private fun AddDeviceSheet(onDismiss: () -> Unit) {
                             Graph.devices.select(d.id)
                             onDismiss()
                         } catch (e: Exception) {
-                            error = e.message?.takeIf { it.isNotBlank() } ?: "Can't reach the server"
+                            error = e.message?.takeIf { it.isNotBlank() } ?: Lang.pick("Can't reach the server", "Нет связи с сервером")
                         } finally { busy = false }
                     }
                 }, filled = true)

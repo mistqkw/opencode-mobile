@@ -179,7 +179,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
                 val st = p.obj("status")
                 if (t == "retry" && st != null) {
                     val a = st.obj("action")
-                    retries.update { it + (id to RetryInfo(st.str("message") ?: "Retrying…", a?.str("label"), a?.str("link"), a?.str("title"), st.str("next")?.toLongOrNull())) }
+                    retries.update { it + (id to RetryInfo(st.str("message") ?: app.ocmobile.i18n.Lang.pick("Retrying…", "Повторяю…"), a?.str("label"), a?.str("link"), a?.str("title"), st.str("next")?.toLongOrNull())) }
                     if (st.str("message")?.contains("Free usage", ignoreCase = true) == true && prefs.providerId != FreeModels.POLLINATIONS_ID) fallToPollinations(id)
                 } else retries.update { it - id }
             }
@@ -341,11 +341,11 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             delay(400)
             val msg = chats[id]?.messages?.lastOrNull { !it.info.isUser }
             val text = msg?.parts?.filter { it.type == "text" }?.joinToString(" ") { it.text }?.replace(Regex("[`*#>_]"), "")?.trim()
-                ?.takeIf { it.isNotBlank() } ?: msg?.info?.errorMessage ?: "The task is done"
+                ?.takeIf { it.isNotBlank() } ?: msg?.info?.errorMessage ?: app.ocmobile.i18n.Lang.pick("The task is done", "Задача выполнена")
             val title = session(id)?.displayTitle?.ifBlank { null } ?: "OpenCode"
             runCatching {
                 val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
-                if (nm.getNotificationChannel("replies") == null) nm.createNotificationChannel(android.app.NotificationChannel("replies", "Replies", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+                if (nm.getNotificationChannel("replies") == null) nm.createNotificationChannel(android.app.NotificationChannel("replies", app.ocmobile.i18n.Lang.pick("Replies", "Ответы"), android.app.NotificationManager.IMPORTANCE_DEFAULT))
                 val open = android.app.PendingIntent.getActivity(
                     ctx, id.hashCode(), android.content.Intent(ctx, app.ocmobile.MainActivity::class.java).putExtra("session", id).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP),
                     android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
@@ -370,10 +370,10 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
                 val text = last.parts.filter { it.type == "text" && it.raw.str("synthetic") != "true" }.joinToString("\n") { it.text }
                 if (text.isBlank()) return@launch
                 FreeModels.enablePollinations()
-                toasts.tryEmit("Zen is capped — switched to GPT-OSS 20B (Pollinations)")
+                toasts.tryEmit(app.ocmobile.i18n.Lang.pick("Zen is capped — switched to GPT-OSS 20B (Pollinations)", "Лимит Zen исчерпан — переключил на GPT-OSS 20B (Pollinations)"))
                 edit(Graph.app, id, last, text, emptyList())
             } catch (e: Exception) {
-                toasts.tryEmit(e.message ?: "Could not switch the model")
+                toasts.tryEmit(e.message ?: app.ocmobile.i18n.Lang.pick("Could not switch the model", "Не удалось сменить модель"))
             } finally { switching = false }
         }
     }

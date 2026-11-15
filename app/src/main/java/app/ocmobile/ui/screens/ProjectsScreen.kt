@@ -26,6 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.ocmobile.Graph
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.plural
 import app.ocmobile.ui.Nav
 import app.ocmobile.ui.components.ChoiceRow
 import app.ocmobile.ui.components.EmptyState
@@ -70,7 +72,7 @@ fun ProjectsScreen(nav: Nav, onMenu: () -> Unit) {
                     SettingsGroup {
                         projects.forEach { (dir, n) ->
                             SettingsRow(
-                                title = dir.removePrefix("/root/").ifBlank { "/" }, subtitle = "$n session${if (n == 1) "" else "s"}", icon = Ic.Folder,
+                                title = dir.removePrefix("/root/").ifBlank { "/" }, subtitle = Lang.pick("$n session${if (n == 1) "" else "s"}", "$n " + plural(n, "сессия", "сессии", "сессий")), icon = Ic.Folder,
                                 trailing = { if (Graph.prefs.currentDir == dir) Txt("Active", size = 14.sp, color = c.link) },
                                 onClick = { Graph.prefs.currentDir = dir; nav.root(app.ocmobile.ui.Route.Home) },
                             )
@@ -110,7 +112,7 @@ fun ProjectPicker(onDismiss: () -> Unit) {
     OcSheet(onDismiss, "Project", skipHalf = false) {
         LazyColumn(Modifier.padding(bottom = 24.dp)) {
             items(projects) { (dir, n) ->
-                ChoiceRow(dir.removePrefix("/root/").ifBlank { "/" }, Graph.prefs.currentDir == dir, { Graph.prefs.currentDir = dir; onDismiss() }, icon = Ic.Folder, subtitle = "$n sessions")
+                ChoiceRow(dir.removePrefix("/root/").ifBlank { "/" }, Graph.prefs.currentDir == dir, { Graph.prefs.currentDir = dir; onDismiss() }, icon = Ic.Folder, subtitle = Lang.pick("$n sessions", "$n " + plural(n, "сессия", "сессии", "сессий")))
             }
             item { ChoiceRow("New project…", false, { create = true }, icon = Ic.Plus) }
         }

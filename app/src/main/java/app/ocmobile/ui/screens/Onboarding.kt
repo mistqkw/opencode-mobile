@@ -71,6 +71,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.ocmobile.Graph
+import app.ocmobile.i18n.Lang
 import app.ocmobile.runtime.RuntimeState
 import app.ocmobile.ui.components.Heading
 import app.ocmobile.ui.components.Ico
@@ -143,8 +144,17 @@ fun Onboarding() {
                     }
                 }
             }
-            Box(Modifier.size(width = 56.dp, height = 44.dp), contentAlignment = Alignment.Center) {
-                if (step < STEPS.lastIndex) Txt("Skip", Modifier.clip(CircleShape).tap { go(if (step < TOUR) TOUR else STEPS.lastIndex) }.padding(8.dp), size = 15.sp, color = c.textDim)
+            Box(Modifier.size(width = 72.dp, height = 44.dp), contentAlignment = Alignment.Center) {
+                if (step == 0) Row(verticalAlignment = Alignment.CenterVertically) {
+                    // EN/RU on the first screen: the tour is readable in either language right away
+                    listOf("en" to "EN", "ru" to "RU").forEach { (code, label) ->
+                        Txt(
+                            label, Modifier.clip(CircleShape).tap { Lang.set(code) }.padding(horizontal = 4.dp, vertical = 8.dp),
+                            size = 14.sp, color = if (Lang.code == code) c.text else c.textDim,
+                            weight = if (Lang.code == code) FontWeight.SemiBold else null,
+                        )
+                    }
+                } else if (step < STEPS.lastIndex) Txt("Skip", Modifier.clip(CircleShape).tap { go(if (step < TOUR) TOUR else STEPS.lastIndex) }.padding(8.dp), size = 15.sp, color = c.textDim)
             }
         }
 
@@ -185,7 +195,10 @@ fun Onboarding() {
 private fun SetupLine(rt: RuntimeState) {
     val c = Oc.c
     val (text, dot, p) = when (rt) {
-        is RuntimeState.Installing -> Triple("Setting up OpenCode · ${rt.step}" + (rt.progress?.let { " · ${(it * 100).toInt()}%" } ?: ""), c.accent, rt.progress)
+        is RuntimeState.Installing -> {
+            val step = "Setting up OpenCode · ${rt.step}" + (rt.progress?.let { " · ${(it * 100).toInt()}%" } ?: "")
+            Triple(Lang.pick(step, "Настройка OpenCode · ${rt.step}" + (rt.progress?.let { " · ${(it * 100).toInt()}%" } ?: "")), c.accent, rt.progress)
+        }
         is RuntimeState.InstallFailed -> Triple("Setup stopped — you can retry on the last step", c.danger, null)
         is RuntimeState.Running -> Triple("OpenCode is ready", c.ok, 1f)
         is RuntimeState.NotInstalled -> Triple("Preparing…", c.textDim, null)

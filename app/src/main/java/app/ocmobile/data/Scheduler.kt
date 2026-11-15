@@ -1,5 +1,7 @@
 package app.ocmobile.data
 
+import app.ocmobile.i18n.Lang
+
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -76,7 +78,7 @@ object Scheduler {
                     runCatching {
                         val s = Graph.chats.createSession(t.directory)
                         Graph.chats.send(app, s.id, t.prompt, emptyList())
-                    }.onFailure { Graph.chats.toasts.tryEmit("Scheduled task failed: ${it.message}") }
+                    }.onFailure { Graph.chats.toasts.tryEmit(Lang.pick("Scheduled task failed: ", "Запланированная задача не удалась: ") + it.message) }
                     val done = t.copy(lastRun = System.currentTimeMillis(), enabled = t.repeat != "once")
                     upsert(app, done)
                 } finally { pr.finish() }

@@ -7,8 +7,9 @@ import java.util.Locale
 
 /** Speech language for dictation, voice mode and "Read aloud": picked in Settings → Voice. */
 object Speech {
-    val languages = listOf(
-        "" to "Auto (phone language)", "ru-RU" to "Русский", "en-US" to "English", "uk-UA" to "Українська",
+    /** Rebuilt on every read, so the "Auto" entry follows the interface language. */
+    val languages: List<Pair<String, String>> get() = listOf(
+        "" to app.ocmobile.i18n.Lang.pick("Auto (phone language)", "Авто (язык телефона)"), "ru-RU" to "Русский", "en-US" to "English", "uk-UA" to "Українська",
         "be-BY" to "Беларуская", "kk-KZ" to "Қазақ", "de-DE" to "Deutsch", "fr-FR" to "Français", "es-ES" to "Español",
         "it-IT" to "Italiano", "pl-PL" to "Polski", "pt-BR" to "Português", "tr-TR" to "Türkçe", "zh-CN" to "中文", "ja-JP" to "日本語",
     )

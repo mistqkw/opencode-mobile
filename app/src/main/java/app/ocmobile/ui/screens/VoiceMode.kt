@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+
+import app.ocmobile.i18n.Lang
+
 import app.ocmobile.ui.theme.screenBackdrop
 import android.Manifest
 import android.content.Intent
@@ -200,7 +203,10 @@ fun VoiceMode(sessionId: String?, onClose: (String?) -> Unit) {
                 AnimatedContent(talk, label = "talk", transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(80)) }) { t ->
                     Txt(
                         when (t) {
-                            Talk.Idle -> if (session == null) "Let's talk" + Graph.prefs.userName.takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty() else "Tap to talk"
+                            Talk.Idle -> if (session == null) Lang.pick(
+                                "Let's talk" + Graph.prefs.userName.takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty(),
+                                "Давай поговорим" + Graph.prefs.userName.takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty(),
+                            ) else Lang.pick("Tap to talk", "Нажми, чтобы говорить")
                             Talk.Listening -> "Listening…"
                             Talk.Thinking -> "Thinking…"
                             Talk.Speaking -> "Tap to interrupt"

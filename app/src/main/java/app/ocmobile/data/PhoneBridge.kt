@@ -321,14 +321,14 @@ object PhoneBridge {
 
     fun notify(title: String, text: String, id: Int) {
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        if (nm.getNotificationChannel("phone") == null) nm.createNotificationChannel(NotificationChannel("phone", "From OpenCode", NotificationManager.IMPORTANCE_HIGH))
+        if (nm.getNotificationChannel("phone") == null) nm.createNotificationChannel(NotificationChannel("phone", app.ocmobile.i18n.Lang.pick("From OpenCode", "От OpenCode"), NotificationManager.IMPORTANCE_HIGH))
         val open = PendingIntent.getActivity(ctx, 0, Intent(ctx, app.ocmobile.MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         nm.notify(id, Notification.Builder(ctx, "phone").setSmallIcon(R.drawable.ic_stat).setContentTitle(title).setContentText(text)
             .setStyle(Notification.BigTextStyle().bigText(text)).setContentIntent(open).setAutoCancel(true).build())
     }
 
     class Reminder : BroadcastReceiver() {
-        override fun onReceive(c: Context, i: Intent) = notify("Reminder", i.getStringExtra("text").orEmpty(), i.getIntExtra("id", 1))
+        override fun onReceive(c: Context, i: Intent) = notify(app.ocmobile.i18n.Lang.pick("Reminder", "Напоминание"), i.getStringExtra("text").orEmpty(), i.getIntExtra("id", 1))
     }
 
     private suspend fun location(): String {

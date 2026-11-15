@@ -1,5 +1,7 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.i18n.Lang
+
 import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -112,9 +114,9 @@ internal fun LookPreview(l: Look) {
             Column {
                 Txt(if (l.id == "terminal") "opencode" else "OpenCode", size = 14.sp, color = p.text, family = head, weight = if (l.id == "hairline" || l.id == "terminal") FontWeight.Bold else null)
                 Spacer(Modifier.height(6.dp))
-                val msg = "make it blue"
+                val msg = Lang.pick("make it blue", "сделай синим")
                 when (l.user) {
-                    "plain" -> Txt("You — $msg", size = 10.sp, color = p.textDim, family = font)
+                    "plain" -> Txt(Lang.pick("You — $msg", "Ты — $msg"), size = 10.sp, color = p.textDim, family = font)
                     "line" -> Box(Modifier.align(Alignment.End).border(1.dp, p.border, r(10.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) { Txt(msg, size = 10.sp, color = p.text, family = font) }
                     "card" -> Box(Modifier.align(Alignment.End).clip(r(10.dp)).background(p.surface).border(1.dp, p.border, r(10.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) { Txt(msg, size = 10.sp, color = p.text, family = font) }
                     else -> if (l.id == "terminal") Row(Modifier.fillMaxWidth().height(22.dp).background(p.surface)) {

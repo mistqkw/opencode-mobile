@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.ocmobile.Graph
+import app.ocmobile.i18n.tr
 import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
 
@@ -87,7 +88,7 @@ fun Txt(
     lineHeight: TextUnit = TextUnit.Unspecified,
 ) {
     Text(
-        text, modifier = modifier, color = color, fontSize = size, fontWeight = weight,
+        tr(text), modifier = modifier, color = color, fontSize = size, fontWeight = weight,
         fontFamily = family ?: Oc.body, maxLines = maxLines,
         overflow = if (maxLines == Int.MAX_VALUE) TextOverflow.Clip else TextOverflow.Ellipsis,
         textAlign = align, lineHeight = lineHeight,
@@ -143,7 +144,7 @@ fun TopBar(
         Box(Modifier.align(Alignment.CenterStart)) { androidx.compose.runtime.CompositionLocalProvider(LocalInTopBar provides true) { left?.invoke() } }
         if (title != null) when (Oc.look.id) {
             // Hairline: mono uppercase title; Messenger: title on the left, like in Telegram
-            "hairline" -> Txt(title.uppercase(), Modifier.align(Alignment.Center).padding(horizontal = 56.dp), size = 13.sp, family = Oc.label, maxLines = 1)
+            "hairline" -> Txt(tr(title).uppercase(), Modifier.align(Alignment.Center).padding(horizontal = 56.dp), size = 13.sp, family = Oc.label, maxLines = 1)
             "kimi", "cloud" -> Txt(title, Modifier.align(Alignment.Center).padding(horizontal = 64.dp), size = 20.sp, weight = FontWeight.SemiBold, maxLines = 1)
             "messenger" -> Txt(title, Modifier.align(Alignment.CenterStart).padding(start = if (left != null) 60.dp else 12.dp, end = 56.dp), size = 20.sp, weight = FontWeight.SemiBold, maxLines = 1)
             else -> if (serif) Heading(title, Modifier.align(Alignment.Center).padding(horizontal = 56.dp), size = 22.sp)
@@ -211,7 +212,7 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     val m = modifier.padding(start = 20.dp, top = 22.dp, bottom = 10.dp)
     when (Oc.look.id) {
         "hairline" -> Txt(text.uppercase(), m, size = 11.sp, color = c.textDim, family = Oc.label)
-        "notebook" -> Text(text, m.padding(start = 8.dp), fontSize = 16.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+        "notebook" -> Text(tr(text), m.padding(start = 8.dp), fontSize = 16.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
         "messenger" -> Txt(text, m, size = 15.sp, color = c.link, weight = FontWeight.SemiBold)
         "cards" -> Txt(text, m, size = 13.sp, color = c.textDim, weight = FontWeight.SemiBold)
         else -> Txt(text, m, size = 15.sp, color = c.textDim)
@@ -289,11 +290,11 @@ fun SettingsRow(
             when (look) {
                 "hairline" -> {
                     Txt(title, size = 15.sp, color = titleColor)
-                    if (subtitle != null) Txt(subtitle.uppercase(), size = 10.sp, color = c.textDim, family = Oc.label, modifier = Modifier.padding(top = 3.dp), maxLines = 1)
+                    if (subtitle != null) Txt(tr(subtitle).uppercase(), size = 10.sp, color = c.textDim, family = Oc.label, modifier = Modifier.padding(top = 3.dp), maxLines = 1)
                 }
                 "notebook" -> {
                     Txt(title, size = 17.sp, color = titleColor, family = Oc.reply)
-                    if (subtitle != null) Text(subtitle, Modifier.padding(top = 1.dp), fontSize = 14.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                    if (subtitle != null) Text(tr(subtitle), Modifier.padding(top = 1.dp), fontSize = 14.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                 }
                 "messenger" -> {
                     Txt(title, size = 16.sp, color = titleColor)
@@ -492,7 +493,7 @@ fun Segmented(options: List<Pair<String, String>>, selected: String, onSelect: (
                 Modifier.weight(1f).clip(Oc.pill).then(if (sel) Modifier.background(c.bg) else Modifier)
                     .clickable { onSelect(key) }.padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center,
-            ) { Txt(label, size = 14.sp, color = if (sel) c.text else c.textDim, weight = if (sel) FontWeight.Medium else null) }
+            ) { Txt(label, size = 14.sp, color = if (sel) c.text else c.textDim, weight = if (sel) FontWeight.Medium else null, maxLines = 1) }
         }
     }
 }

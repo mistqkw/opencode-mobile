@@ -1,5 +1,8 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.plural
+
 import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -64,7 +67,7 @@ fun ModelsScreen(nav: Nav) {
             }
             SectionLabel("Available")
             SettingsGroup {
-                providers.forEach { p -> SettingsRow(p.name.ifBlank { p.id }, subtitle = "${p.models.size} models", icon = Ic.Server) }
+                providers.forEach { p -> SettingsRow(p.name.ifBlank { p.id }, subtitle = Lang.pick("${p.models.size} models", "${p.models.size} " + plural(p.models.size, "модель", "модели", "моделей")), icon = Ic.Server) }
             }
         }
     }

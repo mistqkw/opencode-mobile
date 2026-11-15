@@ -36,6 +36,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.ocmobile.Graph
+import app.ocmobile.i18n.Lang
+import app.ocmobile.i18n.plural
 import app.ocmobile.data.Memory
 import app.ocmobile.ui.Nav
 import app.ocmobile.ui.components.Ico
@@ -106,16 +108,16 @@ fun MemoryScreen(nav: Nav) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Txt("$total", size = 40.sp, family = Oc.heading, weight = FontWeight.SemiBold, lineHeight = 44.sp)
                     Spacer(Modifier.width(10.dp))
-                    Txt(if (total == 1) "fact" else "facts", Modifier.padding(bottom = 6.dp), size = 17.sp, color = c.textDim)
+                    Txt(plural(total, "факт", "факта", "фактов"), Modifier.padding(bottom = 6.dp), size = 17.sp, color = c.textDim)
                     Spacer(Modifier.weight(1f))
-                    Txt("${shelves.size} ${if (shelves.size == 1) "shelf" else "shelves"}", Modifier.padding(bottom = 6.dp), size = 15.sp, color = c.textDim)
+                    Txt("${shelves.size} " + plural(shelves.size, "полка", "полки", "полок"), Modifier.padding(bottom = 6.dp), size = 15.sp, color = c.textDim)
                 }
                 Spacer(Modifier.height(12.dp))
                 UsageBar((bytes / 24_000f).coerceIn(0f, 1f))
                 Spacer(Modifier.height(8.dp))
                 Txt(
-                    if (enabled) "${kb(bytes)} · loaded into every chat, so OpenCode answers without opening files"
-                    else "Memory is off — OpenCode neither reads nor saves it",
+                    if (enabled) Lang.pick("${kb(bytes)} · loaded into every chat, so OpenCode answers without opening files", "${kb(bytes)} · загружено в каждый чат, OpenCode отвечает не открывая файлы")
+                    else Lang.pick("Memory is off — OpenCode neither reads nor saves it", "Память выключена — OpenCode её не читает и не сохраняет"),
                     size = 13.sp, color = c.textDim, lineHeight = 18.sp,
                 )
             }
@@ -185,7 +187,7 @@ fun MemoryScreen(nav: Nav) {
 
             val notes = remember(rev) { Memory.projectNotes() }
             if (notes.isNotEmpty()) {
-                SectionLabel("Project notes · ${notes.size}")
+                SectionLabel(Lang.pick("Project notes · ${notes.size}", "Заметки проекта · ${notes.size}"))
                 Txt("Not loaded into every chat — OpenCode opens a note when the project comes up.", Modifier.padding(start = 20.dp, end = 20.dp, bottom = 10.dp), size = 13.sp, color = c.textDim, lineHeight = 18.sp)
                 SettingsGroup {
                     notes.forEach { f ->
@@ -267,7 +269,7 @@ private fun ShelfSheet(f: File, onClose: () -> Unit, onChanged: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.height(4.dp))
-                OcTextField(add, { add = it }, placeholder = "Add a fact to ${pretty(f).lowercase()}", singleLine = false)
+                OcTextField(add, { add = it }, placeholder = Lang.pick("Add a fact to ${pretty(f).lowercase()}", "Добавить факт в ${pretty(f).lowercase()}"), singleLine = false)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     if (f.name != "MEMORY.md") SmallButton("Delete shelf", { f.delete(); onChanged(); onClose() }, danger = true)
                     SmallButton("Edit as text", { raw = true })

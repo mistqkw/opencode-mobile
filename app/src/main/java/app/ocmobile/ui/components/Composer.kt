@@ -1,5 +1,6 @@
 package app.ocmobile.ui.components
 
+import app.ocmobile.i18n.Lang
 import app.ocmobile.ui.theme.kimiLike
 import android.content.Intent
 import android.net.Uri
@@ -222,8 +223,8 @@ fun ComposerHost(
                 Txt(listOf(state.text, dict.text).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "Listening…" }, size = 17.sp, color = if (dict.text.isBlank()) c.textDim else c.text, maxLines = 8)
             } else {
             if (state.text.isEmpty()) when (look) {
-                "hairline" -> Txt(placeholder.uppercase().removeSuffix("…") + " _", size = 13.sp, color = c.textDim, family = Oc.label, modifier = Modifier.padding(top = 2.dp))
-                "notebook" -> androidx.compose.material3.Text(placeholder, fontSize = 18.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                "hairline" -> Txt(app.ocmobile.i18n.tr(placeholder).uppercase().removeSuffix("…") + " _", size = 13.sp, color = c.textDim, family = Oc.label, modifier = Modifier.padding(top = 2.dp))
+                "notebook" -> androidx.compose.material3.Text(app.ocmobile.i18n.tr(placeholder), fontSize = 18.sp, color = c.textDim, fontFamily = Oc.reply, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                 else -> Txt(placeholder, size = 17.sp, color = c.textDim)
             }
             BasicTextField(
@@ -502,9 +503,9 @@ fun ModelSheet(start: String = "main", onDismiss: () -> Unit) {
                     items(ms, key = { p.id + "/" + it.id }) { m ->
                         val sel = prefs.providerId == p.id && prefs.modelId == m.id
                         val meta = buildList {
-                            m.limit?.context?.takeIf { it > 0 }?.let { add("${it / 1000}k ctx") }
-                            if (m.supportsImages) add("images")
-                            if (m.reasoning) add("reasoning")
+                            m.limit?.context?.takeIf { it > 0 }?.let { add(Lang.pick("${it / 1000}k ctx", "${it / 1000}k конт.")) }
+                            if (m.supportsImages) add(Lang.pick("images", "изображения"))
+                            if (m.reasoning) add(Lang.pick("reasoning", "рассуждения"))
                         }.joinToString(" · ")
                         PickRow(m.name.ifBlank { m.id }, {
                             pickModel(p.id, m)
@@ -561,9 +562,9 @@ private fun ClaudeModelMain(current: app.ocmobile.api.ModelInfo?, onDismiss: () 
             featured.forEach { (pid, m) ->
                 val sel = prefs.providerId == pid && prefs.modelId == m.id
                 val meta = buildList {
-                    m.limit?.context?.takeIf { it > 0 }?.let { add("${it / 1000}k context") }
-                    if (m.supportsImages) add("images")
-                    if (m.reasoning) add("reasoning")
+                    m.limit?.context?.takeIf { it > 0 }?.let { add(Lang.pick("${it / 1000}k context", "${it / 1000}k контекст")) }
+                    if (m.supportsImages) add(Lang.pick("images", "изображения"))
+                    if (m.reasoning) add(Lang.pick("reasoning", "рассуждения"))
                 }.joinToString(" · ")
                 Row(
                     Modifier.fillMaxWidth().background(c.surface).tap(scale = 1f) {

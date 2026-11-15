@@ -73,7 +73,7 @@ fun ScheduledScreen(nav: Nav, onMenu: () -> Unit) {
                         Column(Modifier.weight(1f)) {
                             Txt(t.title, size = 19.sp, maxLines = 1)
                             Spacer(Modifier.height(4.dp))
-                            Txt("%02d:%02d · %s".format(t.hour, t.minute, when (t.repeat) { "daily" -> "every day"; "weekly" -> "every week"; else -> "once" }), size = 16.sp, color = c.textDim)
+                            Txt("%02d:%02d · %s".format(t.hour, t.minute, when (t.repeat) { "daily" -> app.ocmobile.i18n.Lang.pick("every day", "каждый день"); "weekly" -> app.ocmobile.i18n.Lang.pick("every week", "каждую неделю"); else -> app.ocmobile.i18n.Lang.pick("once", "один раз") }), size = 16.sp, color = c.textDim)
                         }
                         OcSwitch(t.enabled) { Scheduler.upsert(ctx, t.copy(enabled = it)) }
                     }

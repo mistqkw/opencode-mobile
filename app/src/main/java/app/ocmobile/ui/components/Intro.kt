@@ -1,5 +1,8 @@
 package app.ocmobile.ui.components
 
+
+import app.ocmobile.i18n.Lang
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -231,8 +234,8 @@ private fun TerminalIntro(t: Float) {
             val info = seg(t, 0.72f, 0.86f)
             Text(
                 buildAnnotatedString {
-                    withStyle(SpanStyle(color = Color(0xFFFAB283))) { append("Build ") }
-                    withStyle(SpanStyle(color = Color(0xFF808080))) { append("· starting the server on this phone…") }
+                    withStyle(SpanStyle(color = Color(0xFFFAB283))) { append(Lang.pick("Build ", "Сборка ")) }
+                    withStyle(SpanStyle(color = Color(0xFF808080))) { append(Lang.pick("· starting the server on this phone…", "· запускаю сервер на этом телефоне…")) }
                 },
                 Modifier.graphicsLayer { alpha = info; translationX = (1 - info) * -12.dp.toPx() },
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 13.sp,
@@ -444,7 +447,7 @@ private fun NotebookIntro(t: Float) {
             Spacer(Modifier.height(10.dp))
             val d = seg(t, 0.74f, 0.9f)
             Text(
-                java.text.SimpleDateFormat("EEEE, d MMMM", java.util.Locale.ENGLISH).format(java.util.Date()),
+                java.text.SimpleDateFormat("EEEE, d MMMM", if (Lang.isRu) java.util.Locale("ru") else java.util.Locale.ENGLISH).format(java.util.Date()),
                 Modifier.graphicsLayer { alpha = d }, fontFamily = Oc.reply, fontStyle = FontStyle.Italic, fontSize = 16.sp, color = c.textDim,
             )
         }

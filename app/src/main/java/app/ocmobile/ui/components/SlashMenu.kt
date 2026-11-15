@@ -1,5 +1,8 @@
 package app.ocmobile.ui.components
 
+
+import app.ocmobile.i18n.Lang
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -60,7 +63,7 @@ fun SlashMenu(state: ComposerState, nav: Nav) {
                 .background(if (lined) c.bg else c.surface).border(1.dp, c.border, shape)
                 .heightIn(max = 300.dp).verticalScroll(rememberScrollState()).padding(vertical = 6.dp),
         ) {
-            if (items.isEmpty()) Txt(if (all.isEmpty()) "Loading skills…" else "No skill named /$q", Modifier.padding(horizontal = 18.dp, vertical = 12.dp), size = 15.sp, color = c.textDim, family = mono)
+            if (items.isEmpty()) Txt(if (all.isEmpty()) Lang.pick("Loading skills…", "Загрузка навыков…") else Lang.pick("No skill named /$q", "Нет навыка /$q"), Modifier.padding(horizontal = 18.dp, vertical = 12.dp), size = 15.sp, color = c.textDim, family = mono)
             items.forEach { it ->
                 Row(
                     Modifier.fillMaxWidth().tap { state.pickSlash(it.name) }.padding(horizontal = 14.dp, vertical = 9.dp),

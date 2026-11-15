@@ -76,7 +76,7 @@ class ServerService : Service() {
     private fun createChannel() {
         val nm = getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL) == null) {
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, "OpenCode server", NotificationManager.IMPORTANCE_LOW))
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, app.ocmobile.i18n.Lang.pick("OpenCode server", "Сервер OpenCode"), NotificationManager.IMPORTANCE_LOW))
         }
     }
 
@@ -91,7 +91,7 @@ class ServerService : Service() {
             .setContentText(text)
             .setContentIntent(open)
             .setOngoing(true)
-            .addAction(Notification.Action.Builder(null, "Stop", stop).build())
+            .addAction(Notification.Action.Builder(null, app.ocmobile.i18n.Lang.pick("Stop", "Остановить"), stop).build())
             .build()
     }
 }

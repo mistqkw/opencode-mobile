@@ -1,5 +1,8 @@
 package app.ocmobile.ui.components
 
+
+import app.ocmobile.i18n.Lang
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -112,7 +115,7 @@ fun UpdateHost() {
                         Box(Modifier.fillMaxWidth(s.progress.coerceIn(0.02f, 1f)).height(6.dp).clip(CircleShape).background(c.accent))
                     }
                     Spacer(Modifier.height(10.dp))
-                    Txt("Downloading… ${(s.progress * 100).toInt()}%" + if (s.r.size > 0) "  ·  ${s.r.size / 1_048_576} MB" else "", size = 14.sp, color = c.textDim)
+                    Txt(Lang.pick("Downloading… ${(s.progress * 100).toInt()}%" + if (s.r.size > 0) "  ·  ${s.r.size / 1_048_576} MB" else "", "Загрузка… ${(s.progress * 100).toInt()}%" + if (s.r.size > 0) "  ·  ${s.r.size / 1_048_576} МБ" else ""), size = 14.sp, color = c.textDim)
                 }
                 is State.Installing -> Txt("Opening the installer…", size = 14.sp, color = c.textDim)
                 is State.Available, is State.Failed -> if (r == null) Pill("Try again", { Updater.check() }, Modifier.fillMaxWidth())
