@@ -87,7 +87,10 @@ The user talks to you from a phone app. It cannot see your terminal or your disk
     fun prompt(): String {
         val p = Graph.prefs
         val extra = buildList {
-            if (!p.memoryAuto) add("- Save to memory ONLY when the user explicitly asks you to remember something. Otherwise only read it.")
+            when (p.memoryMode) {
+                "off" -> add("- Save to memory ONLY when the user explicitly asks you to remember something. Otherwise only read it.")
+                "ask" -> add("- When the user asks you to remember something, save it yourself. When they mention something lasting about themselves without asking (preferences, people, projects, goals, routines, decisions), do not save it yourself: call the remember tool with the fact (one short line in the user's language) and a shelf (a shelf file name without .md). The user sees a \"Remember this?\" card and decides. At most two per reply, never something already remembered, never one-off details or sensitive things.")
+            }
             val t = p.memoryTopics.split(',').map { it.trim() }.filter { it.isNotEmpty() }
             if (t.isNotEmpty()) add("- Keep only these shelves: " + t.joinToString(", ") { "$it.md" } + ". Do not create other shelves; put anything else in the closest one or skip it.")
         }
@@ -152,7 +155,33 @@ The user talks to you from a phone app. It cannot see your terminal or your disk
     }
 
     /** How to use memory and what's in it: sent as the system part of every request in a chat with memory on. */
-    fun systemBlock(): String = prompt() + "\n\n" + snapshot()
+    fun systemBlock(): String {
+        // too big to send every time: the map (from the graph) instead, the agent opens what it needs
+        val size = shelves().sumOf { it.length() }
+        return prompt() + "\n\n" + if (size > MAP_LIMIT) MemoryIO.map(dir(), MEMORY_DIR) else snapshot()
+    }
+    private const val MAP_LIMIT = 12_000
+
+    /** A zip or .md files from the user (a memory export from Claude, say) onto the shelves. */
+    fun importUris(ctx: android.content.Context, uris: List<android.net.Uri>): Int {
+        val tmp = File(ctx.cacheDir, "mem-import").apply { deleteRecursively(); mkdirs() }
+        uris.forEachIndexed { i, u ->
+            val name = runCatching {
+                ctx.contentResolver.query(u, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+            }.getOrNull() ?: "note$i.md"
+            ctx.contentResolver.openInputStream(u)?.use { input ->
+                if (name.lowercase().endsWith(".zip")) MemoryIO.unzip(input, tmp) else File(tmp, name).outputStream().use { input.copyTo(it) }
+            }
+        }
+        val n = MemoryIO.import(tmp, dir())
+        tmp.deleteRecursively()
+        sync()
+        return n
+    }
+
+    /** All shelves as a zip in the cache, for sharing or saving. */
+    fun exportZip(ctx: android.content.Context): File =
+        File(ctx.cacheDir, "cl0udly-memory-${java.time.LocalDate.now()}.zip").also { f -> f.outputStream().use { MemoryIO.zip(dir(), it) } }
 
     /** The user's rules: AGENTS.md without the memory service block (the app maintains that). */
     fun userRules(): String {

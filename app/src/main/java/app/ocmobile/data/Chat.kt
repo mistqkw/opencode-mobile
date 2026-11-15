@@ -39,7 +39,8 @@ class Chat(val id: String, private val api: OpenCodeApi) {
     var live = false
 
     /** Shows a sent message right away, before the server confirms it. */
-    fun addLocalUser(text: String): String {
+    /** Our message shown at once, before the server has it; with its pictures, so text and images arrive together. */
+    fun addLocalUser(text: String, atts: List<Attachment> = emptyList()): String {
         val id = "zzzz-local-" + System.nanoTime()
         val raw = kotlinx.serialization.json.buildJsonObject {
             put("id", kotlinx.serialization.json.JsonPrimitive("$id-p")); put("messageID", kotlinx.serialization.json.JsonPrimitive(id))
@@ -47,6 +48,13 @@ class Chat(val id: String, private val api: OpenCodeApi) {
         }
         val m = ChatMessage(id, MessageInfo(id = id, sessionID = this.id, role = "user", time = TimeInfo(created = System.currentTimeMillis())))
         m.parts.add(Part(raw))
+        atts.forEachIndexed { i, a ->
+            m.parts.add(Part(kotlinx.serialization.json.buildJsonObject {
+                put("id", kotlinx.serialization.json.JsonPrimitive("$id-f$i")); put("messageID", kotlinx.serialization.json.JsonPrimitive(id))
+                put("type", kotlinx.serialization.json.JsonPrimitive("file")); put("mime", kotlinx.serialization.json.JsonPrimitive(a.mime))
+                put("filename", kotlinx.serialization.json.JsonPrimitive(a.name)); put("url", kotlinx.serialization.json.JsonPrimitive(a.uri.toString()))
+            }))
+        }
         messages.add(m)
         return id
     }

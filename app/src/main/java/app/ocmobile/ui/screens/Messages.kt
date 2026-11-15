@@ -1,5 +1,7 @@
 package app.ocmobile.ui.screens
 
+import androidx.compose.animation.animateContentSize
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -104,8 +106,20 @@ fun UserBubble(m: ChatMessage, onImage: (String) -> Unit, onSelect: () -> Unit, 
     val onLong = { menu = true }
     val clip = LocalClipboardManager.current
     val images = m.parts.filter(::isImagePart)
-    val files = m.parts.filter { it.type == "file" && !isImagePart(it) }.map { (it.raw.str("filename") ?: "file") to null as String? } +
-        m.parts.filter { it.type == "text" }.mapNotNull { app.ocmobile.data.Attachments.parseAttached(it.text) }
+    // what a tap opens: the copy in the environment, the file inside the message, or (remote) the file on the computer
+    val files: List<Pair<String, app.ocmobile.ui.components.ViewSrc?>> =
+        m.parts.filter { it.type == "file" && !isImagePart(it) }.map { p ->
+            val name = p.raw.str("filename") ?: "file"
+            val url = p.raw.str("url").orEmpty()
+            name to when {
+                url.startsWith("data:") -> app.ocmobile.ui.components.ViewSrc.Data(url, name)
+                url.startsWith("file:") && Graph.devices.isRemote -> app.ocmobile.ui.components.ViewSrc.Remote(Uri.parse(url).path ?: "", Graph.chats.session(m.info.sessionID)?.directory)
+                url.startsWith("file:") -> app.ocmobile.ui.components.OutFiles.host(Uri.parse(url).path ?: "")?.let { app.ocmobile.ui.components.ViewSrc.Local(it) }
+                else -> null
+            }
+        } + m.parts.filter { it.type == "text" }.mapNotNull { app.ocmobile.data.Attachments.parseAttached(it.text) }.map { (name, path) ->
+            name to path?.let { app.ocmobile.ui.components.OutFiles.host(it) }?.let { app.ocmobile.ui.components.ViewSrc.Local(it) }
+        }
     val text = m.parts.filter { it.type == "text" && it.raw.str("synthetic") != "true" }.joinToString("\n") { it.text }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalAlignment = Alignment.End) {
@@ -114,11 +128,11 @@ fun UserBubble(m: ChatMessage, onImage: (String) -> Unit, onSelect: () -> Unit, 
                 images.forEach { p -> p.raw.str("url")?.let { u -> ImageThumb(u, 132.dp, { onImage(u) }) } }
             }
         }
-        files.forEach { (name, path) ->
-            val host = path?.let { app.ocmobile.ui.components.OutFiles.host(it) }
+        files.forEach { (name, src) ->
+            val host = (src as? app.ocmobile.ui.components.ViewSrc.Local)?.file
             Row(
                 Modifier.padding(bottom = 8.dp).clip(Oc.round(14.dp)).background(c.userBubble)
-                    .then(if (host != null) Modifier.clickable { app.ocmobile.ui.components.OutFiles.open(ctx, host) } else Modifier)
+                    .then(if (src != null) Modifier.clickable { app.ocmobile.ui.components.FileView.open(src) } else Modifier)
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -247,11 +261,13 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
             val p = seg[0]
             when (p.type) {
                 "text" -> if (p.text.isNotBlank()) androidx.compose.runtime.key(p.id) {
-                    androidx.compose.foundation.text.selection.SelectionContainer { Markdown(smoothText(p.text, running)) }
+                    // while it's typed, the block grows smoothly instead of jumping a line at a time
+                    androidx.compose.foundation.text.selection.SelectionContainer(if (running) Modifier.animateContentSize(androidx.compose.animation.core.spring(stiffness = 900f)) else Modifier) { Markdown(smoothText(p.text, running)) }
                 }
                 "reasoning" -> if (p.text.isNotBlank()) ReasoningBlock(p)
                 "tool" -> ToolCard(p, onImage)
-                "file" -> if (isImagePart(p)) p.raw.str("url")?.let { u -> ImageThumb(u, 220.dp, { onImage(u) }) }
+                "file" -> if (isImagePart(p)) p.raw.str("url")?.let { u -> ImageThumb(u, app.ocmobile.ui.components.TILE, { onImage(u) }, Modifier.clip(Oc.round(18.dp))) }
+                    else PartFileChip(p)
                 "subtask" -> InfoLine(Ic.Bot, "Subtask: " + (p.raw.str("description") ?: p.raw.str("prompt") ?: ""))
                 "patch" -> InfoLine(Ic.Diff, "Patch · ${p.raw.arr("files")?.size ?: 0} files")
                 "compaction" -> InfoLine(Ic.Sparkle, "Context compacted")
@@ -259,10 +275,14 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
             }
         }
         val outFiles = remember(parts.size, parts.lastOrNull()?.text?.length, info.time.completed) {
-            app.ocmobile.ui.components.OutFiles.find(parts.filter { it.type == "text" }.joinToString("\n") { it.text })
+            app.ocmobile.ui.components.OutFiles.find(parts.filter { it.type == "text" }.joinToString("\n") { it.text } + "\n" + app.ocmobile.ui.components.OutFiles.written(parts.map { it.raw }))
         }
         if (outFiles.isNotEmpty()) app.ocmobile.ui.components.FileCards(outFiles)
-        info.errorMessage?.let { ErrorCard(info.errorName, it) }
+        val remoteFiles = remember(parts.size, info.time.completed) {
+            if (info.time.completed == null) emptyList() else app.ocmobile.ui.components.OutFiles.findRemote(parts.filter { it.type == "text" }.joinToString("\n") { it.text } + "\n" + app.ocmobile.ui.components.OutFiles.written(parts.map { it.raw }))
+        }
+        if (remoteFiles.isNotEmpty()) app.ocmobile.ui.components.RemoteFileCards(remoteFiles, Graph.chats.session(info.sessionID)?.directory)
+        info.errorMessage?.let { ErrorCard(info.errorName, it, info.sessionID) }
         if (boxed) {
             if (look.reply == "bubble" && info.time.completed != null)
                 Txt(hhmm(info.time.created), Modifier.align(Alignment.End).offset(y = (-4).dp), size = 12.sp, color = c.textDim)
@@ -309,8 +329,9 @@ private fun InfoLine(icon: ImageVector, text: String) {
 }
 
 @Composable
-private fun ErrorCard(name: String?, message: String) {
+private fun ErrorCard(name: String?, message: String, sessionId: String) {
     val c = Oc.c
+    if (app.ocmobile.data.Limits.isLimit(name, message)) { LimitCard(message, sessionId); return }
     Row(Modifier.fillMaxWidth().clip(Oc.round(18.dp)).background(c.danger.copy(alpha = .12f)).border(1.dp, c.danger.copy(alpha = .35f), Oc.round(18.dp)).padding(14.dp)) {
         Ico(Ic.Warning, tint = c.danger, size = 22.dp); Spacer(Modifier.width(12.dp))
         Column {
@@ -346,7 +367,7 @@ private fun ReasoningBlock(p: Part) {
 /** A step is a thought or a tool call (except questions and todo lists: those are shown separately). */
 private fun isStep(p: Part): Boolean = when (p.type) {
     "reasoning" -> p.text.isNotBlank()
-    "tool" -> p.raw.str("tool") !in setOf("question", "todowrite", "todoread")
+    "tool" -> p.raw.str("tool") !in setOf("question", "todowrite", "todoread", "remember")
     else -> false
 }
 
@@ -427,6 +448,7 @@ fun ToolCard(p: Part, onImage: (String) -> Unit) {
     val name = p.raw.str("tool") ?: "tool"
     val state = p.raw.obj("state")
     if (name == "question") { QuestionResult(state?.obj("input"), state); return }
+    if (name == "remember") { RememberCard(p); return }
     if (name == "todowrite" && state?.obj("input")?.arr("todos").isNullOrEmpty()) return
     val status = state?.str("status") ?: "pending"
     val input = state?.obj("input")
@@ -697,4 +719,95 @@ private fun smoothText(target: String, live: Boolean): String {
         }
     }
     return words
+}
+
+/** A file the agent put into its reply (not a picture): its name; a tap opens it in the app's viewer. */
+@Composable
+private fun PartFileChip(p: Part) {
+    val c = Oc.c
+    val name = p.raw.str("filename") ?: "file"
+    val url = p.raw.str("url").orEmpty()
+    val src = when {
+        url.startsWith("data:") -> app.ocmobile.ui.components.ViewSrc.Data(url, name)
+        url.startsWith("file:") && Graph.devices.isRemote -> app.ocmobile.ui.components.ViewSrc.Remote(Uri.parse(url).path ?: "", null)
+        url.startsWith("file:") -> app.ocmobile.ui.components.OutFiles.host(Uri.parse(url).path ?: "")?.let { app.ocmobile.ui.components.ViewSrc.Local(it) }
+        else -> null
+    }
+    Row(
+        Modifier.clip(Oc.round(14.dp)).border(1.dp, c.border, Oc.round(14.dp))
+            .then(if (src != null) Modifier.clickable { app.ocmobile.ui.components.FileView.open(src) } else Modifier)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) { Ico(Ic.File, tint = c.textDim, size = 20.dp); Spacer(Modifier.width(8.dp)); Txt(name, size = 15.sp, maxLines = 1) }
+}
+
+/**
+ * The model's allowance ran out: not an alarming red error but what happened and a way on: another
+ * free model, with the last message sent to it again.
+ */
+@Composable
+private fun LimitCard(message: String, sessionId: String) {
+    val c = Oc.c
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val next = remember { app.ocmobile.data.Limits.nextFree() }
+    var details by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().clip(Oc.round(18.dp)).background(c.surface).border(1.dp, c.border, Oc.round(18.dp)).padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Ico(Ic.Clock, tint = c.accent, size = 20.dp); Spacer(Modifier.width(10.dp))
+            Txt("This model's limit is used up for now", size = 15.sp, weight = FontWeight.Medium)
+        }
+        Txt(
+            "Free models have their own daily allowance on OpenCode's side. Another model usually still works, and this one comes back later.",
+            Modifier.padding(top = 6.dp), size = 14.sp, color = c.textDim, lineHeight = 20.sp,
+        )
+        if (next != null) {
+            Spacer(Modifier.height(12.dp))
+            app.ocmobile.ui.components.Pill("Go on with ${next.third}", {
+                val p = Graph.prefs
+                p.providerId = next.first; p.modelId = next.second; p.variant = ""
+                val last = Graph.chats.chat(sessionId).messages.lastOrNull { it.info.isUser }
+                val text = last?.parts?.filter { it.type == "text" && it.raw["synthetic"]?.toString() != "true" }?.joinToString("\n") { it.text }.orEmpty()
+                if (text.isNotBlank()) scope.launch { runCatching { Graph.chats.send(ctx, sessionId, text, emptyList()) } }
+            }, Modifier.fillMaxWidth())
+        }
+        Txt(if (details) message else "Details", Modifier.padding(top = 10.dp).clickable { details = !details }, size = 13.sp, color = c.textDim)
+    }
+}
+
+
+/**
+ * "Remember this?": the agent heard something lasting about the user and offers it with the
+ * `remember` tool (cl0udly-brain.js) instead of saving it on its own. Remember puts the fact on its
+ * shelf; the answer is kept per call, so the card stays answered. The computer has the same card.
+ */
+@Composable
+private fun RememberCard(p: Part) {
+    val input = p.raw.obj("state")?.obj("input") ?: return
+    val fact = input.str("fact")?.trim()?.takeIf { it.isNotEmpty() } ?: return
+    val shelf = input.str("shelf")?.trim().orEmpty().removeSuffix(".md").ifBlank { "about-me" }
+    val call = p.raw.str("callID") ?: p.raw.str("id").orEmpty()
+    val c = Oc.c
+    val answer = Graph.prefs.memoryAnswer(call)
+    Column(
+        Modifier.fillMaxWidth().clip(Oc.round(18.dp)).background(c.surface).animateContentSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Ico(Ic.Scroll, tint = if (answer == "y") c.accent else c.textDim, size = 16.dp)
+            Spacer(Modifier.width(8.dp))
+            Txt(when (answer) { "y" -> "Remembered"; "n" -> "Not saved"; else -> "Remember this?" }, size = 13.sp, color = c.textDim, weight = FontWeight.Medium)
+            Spacer(Modifier.weight(1f))
+            Txt(shelf, size = 12.sp, family = Oc.mono, color = c.textDim)
+        }
+        Txt(fact, size = 16.sp, color = if (answer == "n") c.textDim else c.text)
+        if (answer == null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+            SmallButton("Remember", {
+                val safe = shelf.lowercase().replace(Regex("[^a-z0-9а-яё]+"), "-").trim('-').ifBlank { "notes" }
+                app.ocmobile.data.Memory.addFact(java.io.File(app.ocmobile.data.Memory.dir(), "$safe.md"), fact)
+                Graph.prefs.answerMemory(call, true)
+            }, filled = true)
+            SmallButton("No", { Graph.prefs.answerMemory(call, false) })
+        }
+    }
 }

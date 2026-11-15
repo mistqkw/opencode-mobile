@@ -58,7 +58,7 @@ fun ScheduledScreen(nav: Nav, onMenu: () -> Unit) {
 
     Box(Modifier.fillMaxSize().screenBackdrop("ScheduledScreen1")) {
         Column(Modifier.fillMaxSize()) {
-            TopBar("Scheduled tasks", left = { IconBtn(Ic.Menu, onMenu) })
+            TopBar("Scheduled tasks", left = { app.ocmobile.ui.components.MenuBtn(onMenu) })
             if (tasks.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     EmptyState(Ic.Clock2, "No scheduled tasks yet", "Run a prompt on a schedule, like a daily summary of your project.")

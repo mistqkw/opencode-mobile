@@ -87,7 +87,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize().screenBackdrop("SettingsScreen1")) {
-        TopBar("Settings", left = { IconBtn(Ic.Menu, onMenu) }, right = { IconBtn(Ic.Info, { nav.push(Route.About) }) }, serif = true)
+        TopBar("Settings", left = { app.ocmobile.ui.components.MenuBtn(onMenu) }, right = { IconBtn(Ic.Info, { nav.push(Route.About) }) }, serif = true)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             // Account card (in Messenger, a profile like in Telegram)
             if (Oc.look.id == "messenger") Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -100,6 +100,9 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
                     .clickable { nav.push(if (prefs.signedIn.isBlank()) Route.Login else Route.Providers) }.padding(horizontal = 20.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // the photo opens Profile, where it can be changed
+                app.ocmobile.ui.screens.Avatar(48.dp) { nav.push(Route.Profile) }
+                Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Txt(prefs.userName.ifBlank { "OpenCode" }, size = 19.sp)
                     Txt(
@@ -145,7 +148,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
             SettingsGroup {
                 SettingsRow("Interface", subtitle = app.ocmobile.ui.theme.Looks.of(prefs.edition).title, icon = Ic.Palette, onClick = { nav.push(Route.Edition) })
                 // the mascot tab: only in the cl0udly look
-                if (Oc.look.id == "cloud") SettingsRow("cl0udly", subtitle = "Mascot, outfits and games", icon = Ic.Cloud, onClick = { nav.push(Route.MascotSettings) })
+                SettingsRow("cl0udly", subtitle = "Mascot, outfits and games", icon = Ic.Cloud, onClick = { nav.push(Route.MascotSettings) })
                 SettingsRow("Color mode", subtitle = prefs.colorMode.replaceFirstChar { it.uppercase() }, icon = Ic.Moon, onClick = { dialog = "color" })
                 SettingsRow("Font style", subtitle = if (prefs.fontStyle == "default") "Default" else "System", icon = Ic.FontSize, onClick = { nav.push(Route.Appearance) })
                 SettingsRow("Voice", subtitle = app.ocmobile.data.Speech.label(), icon = Ic.Waveform, onClick = { dialog = "voice" })
@@ -153,6 +156,19 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
                 SettingsRow("Haptic feedback", icon = Ic.Vibrate, trailing = { OcSwitch(prefs.haptics) { prefs.haptics = it } })
+                // the language opens in its own small window: three choices, the current one ticked
+                var lang by remember { mutableStateOf(prefs.language) }
+                var langOpen by remember { mutableStateOf(false) }
+                val langName = mapOf("system" to "System", "ru" to "Русский", "en" to "English")
+                SettingsRow("Language", icon = Ic.Globe, trailing = { Txt(langName[lang] ?: "System", size = 16.sp, color = c.textDim) }, chevron = true, onClick = { langOpen = true })
+                if (langOpen) app.ocmobile.ui.components.PickerFrame("Language", { langOpen = false }, skipHalf = false) {
+                    langName.forEach { (id, name) ->
+                        app.ocmobile.ui.components.PickRow(name, { lang = id; prefs.language = id; app.ocmobile.data.I18n.lang = id; langOpen = false },
+                            selected = lang == id, subtitle = if (id == "system") "Follows the phone's language" else null)
+                    }
+                    Txt("Language of the app's own words. The agent answers in the language you write to it.", Modifier.padding(horizontal = 24.dp, vertical = 16.dp), size = 14.sp, color = c.textDim, lineHeight = 20.sp)
+                }
+                SettingsRow("Sounds", subtitle = "Sent, done, the mascot", icon = Ic.Volume, trailing = { OcSwitch(prefs.sounds) { prefs.sounds = it; if (it) app.ocmobile.data.Sounds.play(app.ocmobile.data.Sounds.S.Done) } })
                 SettingsRow("Progress on lock screen", subtitle = "What the agent is doing, with Allow / Deny buttons", icon = Ic.ListCheck, trailing = { OcSwitch(prefs.liveNotify) { prefs.liveNotify = it } })
                 SettingsRow("Cost before sending", subtitle = "A hint under the message field", icon = Ic.Dollar, trailing = { OcSwitch(prefs.costHint) { prefs.costHint = it } })
                 SettingsRow("Notifications", icon = Ic.Bell, onClick = {

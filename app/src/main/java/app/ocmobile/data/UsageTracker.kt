@@ -39,6 +39,8 @@ data class UsageSnapshot(
     val byModel: List<ModelUsage>,
     val totalMonth: Double,
     val tracked: Int,
+    /** Cost per day for the last 14 days, oldest first (today last). */
+    val daily: List<Double> = emptyList(),
 )
 
 /**
@@ -138,6 +140,12 @@ class UsageTracker(
             byModel = byModel,
             totalMonth = monthRecs.sumOf { it.cost },
             tracked = recs.size,
+            daily = run {
+                val zone = java.time.ZoneId.systemDefault()
+                val today = java.time.LocalDate.now(zone)
+                val by = relevant.groupBy { java.time.Instant.ofEpochMilli(it.t).atZone(zone).toLocalDate() }
+                (13 downTo 0).map { d -> by[today.minusDays(d.toLong())]?.sumOf { it.cost } ?: 0.0 }
+            },
         )
     }
 

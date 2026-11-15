@@ -104,7 +104,7 @@ fun CodeScreen(nav: Nav, onMenu: () -> Unit) {
 
     Box(Modifier.fillMaxSize().screenBackdrop("CodeScreen1")) {
         Column(Modifier.fillMaxSize()) {
-            TopBar(if (Oc.look.id.kimiLike) "Remote devices" else "Code", left = { IconBtn(Ic.Menu, onMenu) }, right = { IconBtn(Ic.Clock2, { nav.push(Route.Recents) }) })
+            TopBar("Remote devices", left = { app.ocmobile.ui.components.MenuBtn(onMenu) }, right = { IconBtn(Ic.Clock2, { nav.push(Route.Recents) }) })
             LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item { Txt("Devices", Modifier.padding(start = 8.dp, top = 8.dp), size = 16.sp, color = c.textDim) }
                 item {
@@ -151,6 +151,16 @@ fun CodeScreen(nav: Nav, onMenu: () -> Unit) {
         OcSheet({ deviceMenu = null }, d.name) {
             Column(Modifier.padding(bottom = 16.dp)) {
                 Txt(d.url, Modifier.padding(horizontal = 24.dp, vertical = 8.dp), size = 15.sp, color = c.textDim)
+                val sync = app.ocmobile.data.Sync
+                val scope = androidx.compose.runtime.rememberCoroutineScope()
+                app.ocmobile.ui.components.SettingsRow("Sync at home", subtitle = "Chats and memory go both ways when the phone is on the same network", icon = Ic.Refresh, trailing = {
+                    app.ocmobile.ui.components.OcSwitch(Graph.prefs.syncHome) { Graph.prefs.syncHome = it }
+                })
+                app.ocmobile.ui.components.SettingsRow(
+                    "Sync now",
+                    subtitle = if (sync.running) "Syncing…" else sync.status.ifBlank { if (Graph.prefs.syncLast > 0) "Last time ${shortAgo(Graph.prefs.syncLast)} ago" else "Needs Remote Control on the computer" },
+                    icon = Ic.Laptop, onClick = { scope.launch { sync.syncAll(manual = true) } },
+                )
                 app.ocmobile.ui.components.ChoiceRow("Remove device", false, { Graph.devices.remove(d.id); deviceMenu = null }, icon = Ic.Trash)
             }
         }
@@ -182,12 +192,12 @@ private fun DeviceChip(name: String, online: Boolean, active: Boolean, icon: and
 private fun SessionCard(s: Session, status: String?, needInput: Set<String>, question: String?, remote: Device?, connected: Boolean, nav: Nav) {
     val c = Oc.c
     var actions by remember { mutableStateOf(false) }
-    if (actions) SessionActionsSheet(s) { actions = false }
     val dir = s.directory.trimEnd('/').substringAfterLast('/').ifBlank { "/" }
     Column(
         Modifier.fillMaxWidth().clip(Oc.round(30.dp)).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = .22f)).border(1.dp, c.border.copy(alpha = .6f), Oc.round(30.dp))
             .tap(scale = 0.985f, onLongClick = { actions = true }) { nav.openChat(s.id) }.padding(16.dp),
     ) {
+        SessionActionsMenu(s, actions) { actions = false }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(52.dp).clip(Oc.round(16.dp)).background(c.surface), contentAlignment = Alignment.Center) {
                 if (status != null) Spinner(22.dp) else Ico(Ic.Code, tint = c.textDim, size = 24.dp)
@@ -296,4 +306,4 @@ private fun AddDeviceSheet(onDismiss: () -> Unit) {
 }
 
 /** Command for the computer: starts OpenCode with a password and shows a QR code for the phone. */
-private const val QR_COMMAND = "curl -fsSL https://raw.githubusercontent.com/mistqkw/opencode-mobile/main/tools/connect-qr.sh | sh"
+private const val QR_COMMAND = "curl -fsSL https://raw.githubusercontent.com/mistqkw/cl0udly-mobile/main/tools/connect-qr.sh | sh"

@@ -68,12 +68,13 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
         LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 112.dp + navBar)) {
             item { DrawerHeader { go(it) } }
             item {
-                val navs = if (Oc.look.id.kimiLike)
-                    // Kimi: sections with labels like in their menu, plus memory
-                    listOf(Triple("Scheduled tasks", Ic.Clock2, Route.Scheduled), Triple("Remote devices", Ic.Laptop, Route.Code), Triple("Projects", Ic.Folder, Route.Projects), Triple("Artifacts", Ic.Puzzle, Route.Artifacts), Triple("Memory", Ic.Sparkle, Route.Memory)) +
-                        // cl0udly has its own room: chat and play while the agent works
-                        (if (Oc.look.id == "cloud") listOf(Triple("cl0udly", Ic.Cloud, Route.Mascot)) else emptyList())
-                else listOf(Triple("Projects", Ic.Folder, Route.Projects), Triple("Code", Ic.Code, Route.Code), Triple("Artifacts", Ic.Puzzle, Route.Artifacts), Triple("Scheduled", Ic.Clock2, Route.Scheduled))
+                // the same sections in every look: a look changes how the app looks, never what it can do
+                val navs = listOf(
+                    Triple("Scheduled tasks", Ic.Clock2, Route.Scheduled), Triple("Remote devices", Ic.Laptop, Route.Code), Triple("Projects", Ic.Folder, Route.Projects),
+                    Triple("Artifacts", Ic.Puzzle, Route.Artifacts), Triple("Memory", Ic.Sparkle, Route.Memory),
+                    // cl0udly has its own room: chat and play while the agent works
+                    Triple("cl0udly", Ic.Cloud, Route.Mascot),
+                ) + (if (Oc.look.id.kimiLike) emptyList() else listOf(Triple("Settings", Ic.Sliders, Route.Settings)))
                 if (Oc.look.id == "cards") {
                     // Cards: sections as 2×2 tiles
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -127,7 +128,7 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
                 if (Oc.look.id == "cloud") app.ocmobile.ui.components.KimiCircleBtn(Ic.Edit, { go(Route.Home) }, size = 52.dp)
                 else app.ocmobile.ui.components.KimiCircleBtn(Ic.Sliders, { go(Route.Settings) }, size = 52.dp)
             } else {
-            Avatar(52.dp) { go(Route.Settings) }
+            Avatar(52.dp) { go(Route.Profile) }
             Spacer(Modifier.weight(1f))
             Pill("New chat", { go(Route.Home) }, icon = Ic.Plus)
             }
@@ -153,7 +154,7 @@ private fun DrawerHeader(go: (Route) -> Unit) {
         // Telegram: a colored panel with avatar and name
         "messenger" -> Column(Modifier.fillMaxWidth().background(c.surface).padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 14.dp)) {
             Row(verticalAlignment = Alignment.Top) {
-                Avatar(64.dp) { go(Route.Settings) }
+                Avatar(64.dp) { go(Route.Profile) }
                 Spacer(Modifier.weight(1f))
                 IconBtn(Ic.Search, { go(Route.Recents) })
             }
@@ -179,7 +180,7 @@ private fun DrawerHeader(go: (Route) -> Unit) {
         // Kimi: a plain heading without the mascot (the mascot is only on the empty screen and while thinking)
         // Kimi: avatar, name and a round new chat button
         "kimi", "cloud" -> Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Avatar(44.dp) { go(Route.Settings) }
+            Avatar(44.dp) { go(Route.Profile) }
             Spacer(Modifier.width(14.dp))
             Txt(Graph.prefs.userName.ifBlank { "OpenCode" }, Modifier.weight(1f), size = 19.sp, weight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 1)
             // cl0udly: settings at the top, new chat at the bottom by the search
@@ -221,15 +222,15 @@ private fun NavItem(label: String, icon: androidx.compose.ui.graphics.vector.Ima
 @Composable
 private fun SessionRow(s: Session, status: String?, nav: Nav, close: () -> Unit) {
     var actions by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    if (actions) SessionActionsSheet(s) { actions = false }
     val c = Oc.c
     val current = (nav.current as? Route.Chat)?.id == s.id
     val needs = Graph.chats.questions.collectAsState().value.any { it.sessionID == s.id } || Graph.chats.permissions.collectAsState().value.any { it.sessionID == s.id }
     Row(
-        Modifier.padding(horizontal = 10.dp).fillMaxWidth().clip(Oc.round(18.dp)).background(if (current) c.surfaceHigh else androidx.compose.ui.graphics.Color.Transparent)
+        Modifier.padding(horizontal = 10.dp).fillMaxWidth().clip(Oc.round(18.dp)).background(if (current || actions) c.surfaceHigh else androidx.compose.ui.graphics.Color.Transparent)
             .tap(scale = 1f, onLongClick = { actions = true }) { close(); nav.openChat(s.id) }.padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        SessionActionsMenu(s, actions) { actions = false }
         if (Oc.look.id == "messenger") {
             // like a chat list: a circle with the first letter
             val hue = listOf(0xFFE17076, 0xFFFAA774, 0xFF7BC862, 0xFF6EC9CB, 0xFF65AADD, 0xFFA695E7, 0xFFEE7AAE)[(s.id.hashCode() and 0x7fffffff) % 7]
@@ -265,9 +266,11 @@ private fun SessionRow(s: Session, status: String?, nav: Nav, close: () -> Unit)
                 Txt("$helpers", size = 12.sp, color = c.textDim)
             }
         }
-        if (needs || status != null) {
+        val done = s.id in Graph.chats.doneUnseen.collectAsState().value
+        if (needs || status != null || done) {
             Spacer(Modifier.width(12.dp))
-            Box(Modifier.size(11.dp).clip(CircleShape).background(if (needs) c.link else c.textDim))
+            if (needs) Box(Modifier.size(11.dp).clip(CircleShape).background(c.link))
+            else app.ocmobile.ui.components.WorkDot(working = status != null && !done, size = 11.dp)
         }
     }
 }

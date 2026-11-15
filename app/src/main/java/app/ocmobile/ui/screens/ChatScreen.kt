@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import app.ocmobile.ui.components.tap
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateContentSize
@@ -95,6 +96,7 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
     var rename by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var showDiff by remember { mutableStateOf(false) }
+    var showTimeline by remember { mutableStateOf(false) }
     var actionsFor by remember { mutableStateOf<ChatMessage?>(null) }
     var selectText by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<ChatMessage?>(null) }
@@ -110,7 +112,8 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
 
     // An incognito session disappears when the screen closes.
     DisposableEffect(id) {
-        onDispose { if (hub.isIncognito(id)) Graph.scope.launch { hub.dropIncognito(id) } }
+        hub.viewing = id; hub.seen(id)
+        onDispose { if (hub.viewing == id) hub.viewing = null; if (hub.isIncognito(id)) Graph.scope.launch { hub.dropIncognito(id) } }
     }
 
     // "Sticking" to the bottom: drag the list and it unsticks; reach the end (yourself or with the button) and it sticks again.
@@ -170,11 +173,16 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
 
     // links to environment files (/root/…) open as files, the rest as usual
     val sysUri = androidx.compose.ui.platform.LocalUriHandler.current
-    val uris = remember(sysUri) {
+    val uris = remember(sysUri, id) {
         object : androidx.compose.ui.platform.UriHandler {
             override fun openUri(uri: String) {
-                if (uri.startsWith("/")) app.ocmobile.ui.components.OutFiles.host(uri)?.let { app.ocmobile.ui.components.OutFiles.open(ctx, it) } ?: hub.toasts.tryEmit("File not found: $uri")
-                else runCatching { sysUri.openUri(uri) }
+                when {
+                    uri.startsWith("/") && Graph.devices.isRemote -> app.ocmobile.ui.components.FileView.open(app.ocmobile.ui.components.ViewSrc.Remote(uri, hub.session(id)?.directory))
+                    uri.startsWith("/") -> app.ocmobile.ui.components.OutFiles.host(uri)?.let { app.ocmobile.ui.components.FileView.open(app.ocmobile.ui.components.ViewSrc.Local(it)) } ?: hub.toasts.tryEmit("File not found: $uri")
+                    // web pages open in the app's own browser, like in Claude
+                    uri.startsWith("http://") || uri.startsWith("https://") -> nav.push(app.ocmobile.ui.Route.Preview(uri, null))
+                    else -> runCatching { sysUri.openUri(uri) }
+                }
             }
         }
     }
@@ -183,40 +191,46 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
     Column(Modifier.fillMaxSize().lookBackdrop().imePadding()) {
         TopBar(
             title = null,
-            left = { Row(verticalAlignment = Alignment.CenterVertically) { if (incognito) IconBtn(Ic.Close, { nav.pop() }) else IconBtn(Ic.Menu, onMenu); app.ocmobile.ui.components.TopModelPill(state) } },
-            right = { app.ocmobile.ui.components.UsageRing(chat, nav); if (!incognito) IconBtn(Ic.Plus, { nav.root(app.ocmobile.ui.Route.Home) }) },
-        )
-        Box(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentAlignment = Alignment.Center) {
-            Row(
-                Modifier.clip(CircleShape).clickable(enabled = !incognito) { menu = true }.padding(horizontal = 14.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (incognito) { if (Oc.look.id == "cloud") app.ocmobile.ui.components.GhostCloud(22.dp, blinks = false) else Ico(Ic.Ghost, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(8.dp)) }
-                Txt(if (incognito) (if (Oc.look.id == "cloud") "Anonymous chat" else "Incognito session") else session?.displayTitle.orEmpty(), size = 15.sp, color = c.textDim, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
-                if (!incognito) { Spacer(Modifier.width(4.dp)); Ico(Ic.ChevronDown, tint = c.textDim, size = 16.dp) }
-            }
-            DropdownMenu(menu, { menu = false }, containerColor = c.surface) {
-                val items = listOf(
-                    "Rename" to { rename = true },
-                    (if (id in pinned) "Unpin" else "Pin") to { Graph.prefs.togglePin(id) },
-                ) + (if (!Graph.prefs.memoryEnabled) emptyList() else listOf(
-                    (if (Graph.prefs.memoryOn(id)) "Turn off memory here" else "Turn on memory here") to {
-                        val on = !Graph.prefs.memoryOn(id)
-                        hub.setChatMemory(id, on)
-                        hub.toasts.tryEmit(if (on) "Memory is on in this chat" else "This chat won't read or save memory"); Unit
-                    },
-                )) + listOf(
-                    "Changes" to { showDiff = true },
-                    "Fork" to { scope.launch { runCatching { Graph.api.forkSession(id, chat.directory, null) }.getOrNull()?.let { nav.openChat(it.id) } } },
-                    "Compact context" to { scope.launch { runCatching { Graph.api.summarize(id, chat.directory, Graph.prefs.providerId, Graph.prefs.modelId) } } },
-                    "Archive" to { scope.launch { runCatching { Graph.api.archiveSession(id, chat.directory) }; nav.pop() } },
-                    "Delete" to { confirmDelete = true },
-                )
-                items.forEach { (label, act) ->
-                    DropdownMenuItem(text = { Txt(label, size = 16.sp, color = if (label == "Delete") c.danger else c.text) }, onClick = { menu = false; act() })
+            left = { Row(verticalAlignment = Alignment.CenterVertically) { if (incognito) IconBtn(Ic.Close, { nav.pop() }) else app.ocmobile.ui.components.MenuBtn(onMenu); app.ocmobile.ui.components.TopModelPill(state) } },
+            right = {
+                app.ocmobile.ui.components.UsageRing(chat, nav)
+                if (!incognito) {
+                    // no title over the chat: rename, pin, memory, changes, fork, compact, archive and delete live here
+                    Box {
+                        // the same round button as the usage ring next to it, so the two sit as a pair
+                        if (Oc.look.id == "kimi" || Oc.look.id == "cloud") {
+                            Spacer(Modifier.width(8.dp))
+                            Box(
+                                Modifier.size(48.dp).clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.7f)).border(1.dp, c.border, CircleShape).tap { menu = true },
+                                contentAlignment = Alignment.Center,
+                            ) { Ico(Ic.More, size = 22.dp) }
+                        } else IconBtn(Ic.More, { menu = true })
+                    DropdownMenu(menu, { menu = false }, containerColor = c.surface) {
+                        val items = listOf(
+                            "Rename" to { rename = true },
+                            (if (id in pinned) "Unpin" else "Pin") to { Graph.prefs.togglePin(id) },
+                        ) + (if (!Graph.prefs.memoryEnabled) emptyList() else listOf(
+                            (if (Graph.prefs.memoryOn(id)) "Turn off memory here" else "Turn on memory here") to {
+                                val on = !Graph.prefs.memoryOn(id)
+                                hub.setChatMemory(id, on)
+                                hub.toasts.tryEmit(if (on) "Memory is on in this chat" else "This chat won't read or save memory"); Unit
+                            },
+                        )) + listOf(
+                            "Timeline" to { showTimeline = true },
+                            "Changes" to { showDiff = true },
+                            "Fork" to { scope.launch { runCatching { Graph.api.forkSession(id, chat.directory, null) }.getOrNull()?.let { nav.openChat(it.id) } } },
+                            "Compact context" to { scope.launch { runCatching { Graph.api.summarize(id, chat.directory, Graph.prefs.providerId, Graph.prefs.modelId) } } },
+                            "Archive" to { scope.launch { runCatching { Graph.api.archiveSession(id, chat.directory) }; nav.pop() } },
+                            "Delete" to { confirmDelete = true },
+                        )
+                        items.forEach { (label, act) ->
+                            DropdownMenuItem(text = { Txt(label, size = 16.sp, color = if (label == "Delete") c.danger else c.text) }, onClick = { menu = false; act() })
+                        }
+                    }
+                    }
                 }
-            }
-        }
+            },
+        )
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (chat.loading && chat.messages.isEmpty()) {
                 // the shape of a conversation while it loads: a short question on the right, a reply under it
@@ -239,7 +253,14 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
                         }
                     }
                 }
-                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalTextToolbar provides selBar) {
+                // the messages read at Kimi's size (measured off their chat: ~17.5 sp text, 29 dp lines),
+                // a step above the rest of the app; the app's text size setting still scales it
+                val dens = androidx.compose.ui.platform.LocalDensity.current
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.ui.platform.LocalTextToolbar provides selBar,
+                    androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(dens.density, dens.fontScale * CHAT_TEXT),
+                    app.ocmobile.ui.components.LocalChatText provides true,
+                ) {
                 LazyColumn(Modifier.fillMaxSize(), state = listState, verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)) {
                     items(turns, key = { it.first().id }) { turn ->
                         val m = turn.last()
@@ -291,7 +312,9 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
                 }
             }
         }
-        val myPerm = perms.firstOrNull { it.sessionID == id }
+        // the chat's own requests first, then its helpers' (they would wait unseen otherwise)
+        val allS by hub.allSessions.collectAsState()
+        val myPerm = perms.firstOrNull { it.sessionID == id } ?: perms.firstOrNull { p -> allS[p.sessionID]?.parentID == id }
         val myQuestion = questions.firstOrNull { it.sessionID == id }
         editing?.let {
             Row(
@@ -305,13 +328,18 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
         }
         app.ocmobile.ui.components.InterruptedCard(id)
         if (myQuestion == null && myPerm == null) app.ocmobile.ui.components.PreviewChips(chat, id, nav)
-        if (myQuestion == null && myPerm == null) app.ocmobile.ui.components.TeamStrip(id, nav)
+        if (myQuestion == null && myPerm == null) app.ocmobile.ui.components.HelperClouds(id)
         if (myQuestion != null || myPerm != null) Box(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
             androidx.compose.animation.AnimatedContent(myQuestion?.id ?: myPerm?.id, label = "ask", transitionSpec = {
                 (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(140)) + androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(160)) { it / 4 }) togetherWith
                     androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90))
             }) { _ ->
-                if (myQuestion != null) QuestionPanel(myQuestion, chat.directory) else if (myPerm != null) PermissionPanel(myPerm, chat.directory)
+                if (myQuestion != null) QuestionPanel(myQuestion, chat.directory)
+                else if (myPerm != null && myPerm.permission == "task") app.ocmobile.ui.components.TaskPermissionPanel(myPerm, chat.directory)
+                else if (myPerm != null) Column {
+                    if (myPerm.sessionID != id) Txt("${app.ocmobile.data.Team.display(allS[myPerm.sessionID]?.agent)} asks", Modifier.padding(start = 24.dp, bottom = 6.dp), size = 13.sp, color = Oc.c.accent)
+                    PermissionPanel(myPerm, chat.directory)
+                }
             }
         } else Box(Modifier.navigationBarsPadding()) {
             ComposerHost(
@@ -371,6 +399,7 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
         }, danger = true) { Txt("This permanently removes the conversation and its history.", size = 16.sp, color = c.textDim) }
     }
     if (showDiff) DiffSheet(id, chat.directory) { showDiff = false }
+    if (showTimeline) TimelineSheet(chat) { showTimeline = false }
 }
 
 /** Soft appearance of a new message: opacity and a slide from below. */
@@ -491,3 +520,6 @@ private fun workKind(m: app.ocmobile.data.ChatMessage?): app.ocmobile.ui.compone
         else -> app.ocmobile.ui.components.Work.Other
     }
 }
+
+/** How much bigger the chat's text is than the rest of the app: 18 sp × 0.88 (the default text size) × 1.1 ≈ Kimi's 17.4 sp. */
+private const val CHAT_TEXT = 1.1f

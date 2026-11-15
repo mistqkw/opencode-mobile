@@ -316,5 +316,12 @@ class OpenCodeApi(private val prefs: Prefs) {
     suspend fun findFiles(query: String, directory: String?): List<String> =
         (call("GET", "/find/file", dir(directory) + mapOf("query" to query, "limit" to "20")) as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.content }
 
+    /**
+     * A file's contents from the server's computer (inside the project): text as is, anything else as
+     * base64 with its type. For Remote Control, where the files are not on this phone.
+     */
+    suspend fun fileContent(path: String, directory: String?): JsonObject? =
+        call("GET", "/file/content", dir(directory) + mapOf("path" to path)) as? JsonObject
+
     private fun JsonArray?.orEmpty() = this ?: JsonArray(emptyList())
 }

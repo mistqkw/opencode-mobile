@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="camera" path="camera/" />
+    <cache-path name="view" path="view/" />
     <files-path name="export" path="export/" />
     <files-path name="rootfs" path="rootfs/" />
 </paths>

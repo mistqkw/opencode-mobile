@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CoroutineScope
 
@@ -48,4 +49,11 @@ fun rememberMotionEnabled(): Boolean {
 fun WhileStarted(vararg keys: Any?, block: suspend CoroutineScope.() -> Unit) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(lifecycle, *keys) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED, block) }
+}
+
+/** True while the app is in front (resumed): sensors and the like stop as soon as it goes to the background. */
+@Composable
+fun rememberResumed(): Boolean {
+    val st by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    return st.isAtLeast(Lifecycle.State.RESUMED)
 }

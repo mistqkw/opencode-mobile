@@ -208,51 +208,10 @@ fun KimiBall(modifier: Modifier, thinking: Boolean = false) {
 
 private enum class Mood { Idle, Happy, Angry, Sleep }
 
-/** Quick-action chips above the input (horizontal scroll). */
-@Composable
-fun KimiQuickChips(nav: Nav, code: Boolean, onPick: (String) -> Unit) {
-    val c = Oc.c
-    val items: List<Triple<String, ImageVector, () -> Unit>> = listOf(
-        Triple("New project", Ic.FilePlus) { nav.push(Route.Projects) },
-        Triple("Code", Ic.Code) { nav.root(Route.Code) },
-        Triple("Scheduled", Ic.Clock2) { nav.root(Route.Scheduled) },
-        Triple("Write", Ic.Edit) { onPick("Help me write ") },
-        Triple("Search the web", Ic.Globe) { onPick("Search the web for ") },
-    )
-    val scroll = rememberScrollState()
-    // cl0udly: the chips fade out at the edge instead of being cut off (the left edge only once scrolled)
-    val fade = if (Oc.look.id != "cloud") Modifier else Modifier
-        .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
-        .drawWithContent {
-            drawContent()
-            val edge = 24.dp.toPx()
-            if (scroll.canScrollForward) drawRect(
-                androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = size.width - edge, endX = size.width),
-                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
-            )
-            if (scroll.value > 0) drawRect(
-                androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = edge),
-                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
-            )
-        }
-    Row(Modifier.fillMaxWidth().then(fade).horizontalScroll(scroll).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        items.forEach { (label, icon, act) ->
-            Row(
-                Modifier.height(50.dp).clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.75f)).tap(scale = 0.96f, onClick = act).padding(horizontal = 18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Ico(icon, tint = c.textDim, size = 20.dp)
-                Spacer(Modifier.width(9.dp))
-                Txt(label, size = 16.sp)
-            }
-        }
-    }
-}
-
 // ---------- model picker: a card drops from the top ----------
 
 @Composable
-fun KimiModelPanel(onDismiss: () -> Unit, onMore: () -> Unit) {
+fun KimiModelPanel(onDismiss: () -> Unit, onMore: () -> Unit, onTeam: (() -> Unit)? = null) {
     val c = Oc.c
     val prefs = Graph.prefs
     val providers by Graph.catalog.providers.collectAsState()
@@ -289,8 +248,9 @@ fun KimiModelPanel(onDismiss: () -> Unit, onMore: () -> Unit) {
                         (androidx.compose.animation.slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { -it / 3 * dir } + androidx.compose.animation.fadeOut(tween(140)))
                 }) { pg ->
                     Column {
-                        if (pg != "main") KimiBackRow(when (pg) { "effort" -> "Reasoning level"; "agent" -> "Mode"; else -> "More models" }) { page = "main" }
+                        if (pg != "main") KimiBackRow(when (pg) { "effort" -> "Reasoning level"; "agent" -> "Mode"; "team" -> "Sub-agents"; else -> "More models" }) { page = "main" }
                         when (pg) {
+                            "team" -> Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) { app.ocmobile.ui.screens.TeamPanel(onAll = onTeam, onCreated = onDismiss) }
                             "effort" -> Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState())) {
                                 KimiPanelRow("Default", "Let the model decide", prefs.variant.isBlank()) { prefs.variant = ""; page = "main" }
                                 current?.variantNames.orEmpty().forEach { n ->
@@ -338,6 +298,7 @@ fun KimiModelPanel(onDismiss: () -> Unit, onMore: () -> Unit) {
                                 KimiDivider()
                                 KimiNavRow("More models", null) { page = "all" }
                                 KimiDivider()
+                                KimiNavRow("Sub-agents", teamLabel()) { page = "team" }; KimiDivider()
                                 if (current != null && current.variantNames.isNotEmpty())
                                     KimiNavRow("Reasoning level", prefs.variant.ifBlank { "Standard" }.replaceFirstChar { it.uppercase() }) { page = "effort" }
                                 KimiNavRow("Mode", prefs.agent.replaceFirstChar { it.uppercase() }) { page = "agent" }
@@ -407,98 +368,6 @@ private fun KimiNavRow(title: String, value: String?, onClick: () -> Unit) {
 @Composable
 private fun KimiDivider() = Box(Modifier.padding(horizontal = 28.dp, vertical = 6.dp).fillMaxWidth().height(1.dp).background(Oc.c.text.copy(alpha = 0.1f)))
 
-// ---------- "+" sheet: tiles and sections ----------
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun KimiAddSheet(
-    nav: Nav,
-    sessionId: String? = null,
-    onDismiss: () -> Unit,
-    onCamera: () -> Unit,
-    onPhotos: () -> Unit,
-    onFiles: () -> Unit,
-    onVoice: (() -> Unit)?,
-) {
-    val c = Oc.c
-    val prefs = Graph.prefs
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val scope = rememberCoroutineScope()
-    fun close(after: () -> Unit) { scope.launch { state.hide() }.invokeOnCompletion { onDismiss(); after() } }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, containerColor = c.surfaceHigh, shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp), dragHandle = null) {
-        Column(Modifier.navigationBarsPadding().padding(top = 26.dp, bottom = 16.dp)) {
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                KimiTile("Camera", Ic.Camera) { onDismiss(); onCamera() }
-                KimiTile("Photos", Ic.Image) { onDismiss(); onPhotos() }
-                KimiTile("Local file", Ic.FileUp) { onDismiss(); onFiles() }
-                if (onVoice != null) KimiTile("Call", Ic.Phone) { onDismiss(); onVoice() }
-                KimiTile("Devices", Ic.Laptop) { close { nav.push(Route.Code) } }
-            }
-            Spacer(Modifier.height(18.dp))
-            KimiSheetRow(Ic.Puzzle, "Connectors", "Connect apps and databases to automate what you do") { close { nav.push(Route.Connectors) } }
-            KimiSheetRow(Ic.Scroll, "Skills", "Reuse specialised skills to get tasks done reliably") { close { nav.push(Route.Skills) } }
-            KimiSheetRow(Ic.Clock2, "Scheduled", "OpenCode runs a task on its own at the time you pick") { close { nav.root(Route.Scheduled) } }
-            KimiSheetRow(Ic.Shield, "Permissions", mapOf("ask" to "Asks before every change", "edits" to "Edits files freely, asks before commands", "auto" to "Runs everything without asking")[prefs.permissionMode] ?: "") { close { nav.push(Route.PermissionsCfg) } }
-            // memory: for every chat, and for this one only
-            var memAll by remember { mutableStateOf(prefs.memoryEnabled) }
-            var memHere by remember { mutableStateOf(prefs.memoryOn(sessionId)) }
-            KimiSwitchRow(Ic.Sparkle, "Memory", if (memAll) "Remembers you between chats" else "Nothing is read or saved", memAll) {
-                memAll = it; prefs.memoryEnabled = it; memHere = prefs.memoryOn(sessionId); app.ocmobile.data.Memory.sync()
-            }
-            if (sessionId != null && memAll) KimiSwitchRow(Ic.Chat, "Memory in this chat", if (memHere) "Reads and saves notes here" else "Off for this chat only", memHere) {
-                memHere = it; Graph.chats.setChatMemory(sessionId, it)
-            }
-        }
-    }
-}
-
-@Composable
-private fun KimiTile(label: String, icon: ImageVector, onClick: () -> Unit) {
-    val c = Oc.c
-    Column(
-        Modifier.size(112.dp).clip(RoundedCornerShape(28.dp)).background(c.text.copy(alpha = 0.07f)).tap(scale = 0.96f, onClick = onClick).padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-    ) {
-        Ico(icon, size = 26.dp)
-        Spacer(Modifier.height(10.dp))
-        Txt(label, size = 16.sp, align = TextAlign.Center, maxLines = 2, lineHeight = 20.sp)
-    }
-}
-
-@Composable
-private fun KimiSwitchRow(icon: ImageVector, title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
-    val c = Oc.c
-    Row(
-        Modifier.fillMaxWidth().toggleable(on, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange).padding(horizontal = 26.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Ico(icon, tint = c.text, size = 24.dp)
-        Spacer(Modifier.width(18.dp))
-        Column(Modifier.weight(1f)) {
-            Txt(title, size = 18.sp, weight = FontWeight.SemiBold)
-            Txt(sub, Modifier.padding(top = 3.dp), size = 15.sp, color = c.textDim, lineHeight = 21.sp)
-        }
-        Spacer(Modifier.width(12.dp))
-        OcSwitch(on, onChange)
-    }
-}
-
-@Composable
-private fun KimiSheetRow(icon: ImageVector, title: String, sub: String, onClick: () -> Unit) {
-    val c = Oc.c
-    Row(Modifier.fillMaxWidth().tap(scale = 1f, onClick = onClick).padding(horizontal = 26.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Ico(icon, tint = c.text, size = 24.dp)
-        Spacer(Modifier.width(20.dp))
-        Column(Modifier.weight(1f)) {
-            Txt(title, size = 18.sp, weight = FontWeight.SemiBold)
-            Txt(sub, Modifier.padding(top = 3.dp), size = 15.sp, color = c.textDim, lineHeight = 21.sp)
-        }
-        Spacer(Modifier.width(10.dp))
-        Ico(Ic.ChevronRight, tint = c.textDim, size = 20.dp)
-    }
-}
-
-/** Kimi's empty home screen: the ball, a greeting by name and a blue pill under it. */
 @Composable
 fun KimiHero(code: Boolean, typing: Boolean = false, onMore: () -> Unit) {
     val c = Oc.c

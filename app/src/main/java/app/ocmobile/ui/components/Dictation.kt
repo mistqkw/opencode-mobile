@@ -75,6 +75,14 @@ class Dictation(private val ctx: Context) {
 
     private fun listen() { if (active) runCatching { rec?.startListening(Speech.recognizerIntent()) } }
 
+    /** Russian ↔ English on the fly: what was said so far stays, the recognizer starts over in the other one. */
+    fun switchLang() {
+        Graph.prefs.speechLang = if (Speech.tag().startsWith("en")) Speech.auto().takeIf { !it.startsWith("en") } ?: "ru-RU" else "en-US"
+        if (partial.isNotBlank()) { done = listOf(done, partial).filter { it.isNotBlank() }.joinToString(" "); partial = "" }
+        runCatching { rec?.cancel() }
+        listen()
+    }
+
     /** Stop and return everything recognized. */
     fun finish(): String { val t = text; stop(); return t }
 
@@ -156,6 +164,11 @@ fun DictationBar(d: Dictation, onCancel: () -> Unit, onDone: () -> Unit, onSend:
             }
         }
         Spacer(Modifier.width(10.dp))
+        // the language being listened for; a tap switches it
+        Box(Modifier.clip(Oc.pill).background(c.surfaceHigh).tap(onClick = { d.switchLang() }).padding(horizontal = 9.dp, vertical = 5.dp)) {
+            Txt(Speech.tag().take(2).uppercase(), size = 12.sp, color = c.text, family = Oc.mono)
+        }
+        Spacer(Modifier.width(8.dp))
         Txt("%d:%02d".format(secs / 60, secs % 60), size = 14.sp, color = c.textDim, family = Oc.mono)
         Spacer(Modifier.width(10.dp))
         IconBtn(Ic.Check, onDone, size = 40.dp, bg = c.surfaceHigh)

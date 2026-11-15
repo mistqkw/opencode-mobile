@@ -104,7 +104,7 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
     Column(Modifier.fillMaxSize().imePadding()) {
         Box(Modifier.graphicsLayer { alpha = 1f - prog.value }) {
             TopBar(
-                left = { Row(verticalAlignment = Alignment.CenterVertically) { IconBtn(Ic.Menu, onMenu); app.ocmobile.ui.components.TopModelPill(state) } },
+                left = { Row(verticalAlignment = Alignment.CenterVertically) { app.ocmobile.ui.components.MenuBtn(onMenu); app.ocmobile.ui.components.TopModelPill(state) } },
                 right = {
                     app.ocmobile.ui.components.UsageRing(null, nav)
                     if (Oc.look.id == "cloud") app.ocmobile.ui.components.GhostCloudButton(ghost) { ghost = !ghost }
@@ -165,7 +165,7 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
             Modifier.navigationBarsPadding().onGloballyPositioned { composerRect = it.boundsInRoot() }
                 .graphicsLayer { alpha = 1f - prog.value * 1.4f; translationY = prog.value * 90f },
         ) {
-            if (Oc.look.id.kimiLike && !ghost && !state.text.startsWith("/")) app.ocmobile.ui.components.KimiQuickChips(nav, code) { state.text = it }
+            // no quick chips above the field (New project, Code, Scheduled…): the home screen stays clean
             ComposerHost(
                 state = state, nav = nav, busy = sending, dashed = ghost,
                 placeholder = if (Oc.look.id.kimiLike) "Ask me. Give me a task." else if (code) "Describe a task…" else "Chat with OpenCode…",

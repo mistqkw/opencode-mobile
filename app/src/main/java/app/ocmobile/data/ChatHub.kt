@@ -110,7 +110,12 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
 
     suspend fun refreshSessions() {
         try {
-            val list = api.listSessions(limit = 500)
+            // OpenCode answers per project: without a folder it leaves out the sessions of git repositories
+            // (each repo is a project of its own), so every project is also asked by its folder
+            val repos = runCatching { api.projects() }.getOrNull().orEmpty()
+                .mapNotNull { (it as? JsonObject)?.str("worktree") }.filter { it != "/" }.distinct().take(24)
+            val list = (api.listSessions(limit = 500) + repos.flatMap { d -> runCatching { api.listSessions(directory = d, limit = 500) }.getOrDefault(emptyList()) })
+                .distinctBy { it.id }
             all.value = list.associateBy { it.id }
             publish()
             loaded.value = true
@@ -201,6 +206,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             "session.error" -> {
                 val msg = p.obj("error")?.obj("data")?.str("message") ?: p.obj("error")?.str("name")
                 if (msg != null) toasts.tryEmit(msg)
+                if (foreground) Sounds.play(Sounds.S.Error)
                 app.ocmobile.ui.components.MascotSignals.outcome = app.ocmobile.ui.components.Outcome(ok = false)
             }
             else -> {
@@ -232,7 +238,11 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
         val mem = if (access != null) listOf("external_directory", "read", "edit").flatMap { perm ->
             listOf("$MEMORY_DIR/*", "$MEMORY_DIR/**").map { rule(perm, access, it) }
         } else emptyList()
-        val all = base + mem
+        // a helper model is the user's call in every mode, except the ones they always allow
+        val team = if (Team.on) listOf(rule("task", "ask")) + Team.always.mapNotNull { ref ->
+            Team.helperFor(ref)?.let { rule("task", "allow", it) }
+        } else emptyList()
+        val all = base + mem + team
         return if (all.isEmpty()) null else buildJsonArray { all.forEach { add(it) } }
     }
 
@@ -255,16 +265,20 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     private val ruled = HashMap<String, String>()
 
     /** Memory on or off for one chat; its rules are set again before the next message. */
+    /** Session rules are sent again with the next message (after the team or its OKs changed). */
+    fun forgetRules() = ruled.clear()
+
     fun setChatMemory(sessionId: String, on: Boolean) { prefs.setChatMemory(sessionId, on); ruled.remove(sessionId) }
 
     suspend fun send(ctx: Context, sessionId: String, text: String, atts: List<Attachment>, keepParts: List<JsonObject> = emptyList()) {
+        Sounds.play(Sounds.S.Send)
         val dir = session(sessionId)?.directory
-        val ruleKey = prefs.permissionMode + "/" + prefs.memoryOn(sessionId) + "/" + prefs.memoryEnabled
+        val ruleKey = prefs.permissionMode + "/" + prefs.memoryOn(sessionId) + "/" + prefs.memoryEnabled + "/" + Team.mode + Team.always.sorted() + Team.pool + prefs.teamMembers.hashCode()
         if (ruled[sessionId] != ruleKey) runCatching {
             api.setSessionPermission(sessionId, dir, permissionRules(sessionId = sessionId) ?: JsonArray(emptyList()))
             ruled[sessionId] = ruleKey
         }
-        val localId = if (keepParts.isEmpty()) chat(sessionId).addLocalUser(text) else null
+        val localId = if (keepParts.isEmpty()) chat(sessionId).addLocalUser(text, atts) else null
         val text = expandSlash(text)
         // fresh memory goes into the instructions before the request (the agent may have changed it in the last reply)
         if (prefs.memoryEnabled && !Graph.devices.isRemote) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Memory.sync() }
@@ -273,10 +287,17 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             val parts = buildJsonArray {
                 if (text.isNotBlank() || (keepParts.isEmpty() && attParts.isEmpty())) add(buildJsonObject { put("type", "text"); put("text", text) })
                 keepParts.forEach { add(it) }
-                attParts.forEach { add(it) }
+                // the date and time, as a hidden part of the message (in the system text it would break the prompt cache every minute)
+                add(Attachments.synthetic(nowLine()))
+                // several files: number them in the order the user arranged, so "photo 2" means the second one
+                if (attParts.size > 1) {
+                    add(Attachments.synthetic("The user attached ${atts.size} files, numbered in the order they put them: " +
+                        atts.mapIndexed { i, a -> "${i + 1} = ${a.name}" }.joinToString(", ") + ". When they say \"the first photo\", \"image 2\" and so on, they mean this numbering."))
+                    attParts.forEachIndexed { i, p -> add(Attachments.synthetic("Attachment ${i + 1}: ${atts[i].name}")); add(p) }
+                } else attParts.forEach { add(it) }
             }
             // agent team: helpers in the config and a note to the main agent on how to use them
-            val team = if (Team.on) { Team.sync(); Team.instruction() } else null
+            val team = run { Team.sync(); Team.instruction() }
             // in the cl0udly look the agent is the cl0udly cloud (Persona), unless turned off
             // anonymous chat: tell the agent not to remember anything from it
             val anon = if (isIncognito(sessionId)) "This is an anonymous chat. Do not save anything from it to memory, notes or files outside the task." else null
@@ -331,6 +352,11 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
 
     /** The app is on screen: set by MainActivity. */
     @Volatile var foreground = false
+    /** The chat open on the screen right now, if any. */
+    @Volatile var viewing: String? = null
+    /** Chats whose task finished while you weren't looking at them: a bright dot until you open them. */
+    val doneUnseen = MutableStateFlow<Set<String>>(emptySet())
+    fun seen(id: String) { if (id in doneUnseen.value) doneUnseen.update { it - id } }
     /** Open a chat from a notification tap. */
     val openRequest = MutableStateFlow<String?>(null)
 
@@ -338,8 +364,11 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     private fun finished(id: String) {
         app.ocmobile.ui.components.MascotSignals.outcome = app.ocmobile.ui.components.Outcome(ok = true)
         if (isIncognito(id)) return
+        if (!(foreground && viewing == id)) doneUnseen.update { it + id }
+        Limits.checkSpending()
         val ctx = Graph.app
         if (foreground) {
+            Sounds.play(Sounds.S.Done)
             if (prefs.haptics) runCatching {
                 val v = ctx.getSystemService(android.os.Vibrator::class.java)
                 v?.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_TICK))
@@ -399,3 +428,10 @@ data class RetryInfo(val message: String, val label: String?, val link: String?,
 data class Attachment(val uri: Uri, val mime: String, val name: String) {
     val isImage get() = mime.startsWith("image/")
 }
+
+/** "Now: Sunday, 15 November 2026, 15:42 (Europe/Warsaw)", for the agent. */
+internal fun nowLine(): String {
+    val z = java.time.ZonedDateTime.now()
+    return "Now: " + z.format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy, HH:mm", java.util.Locale.ENGLISH)) + " (" + z.zone.id + ")"
+}
+

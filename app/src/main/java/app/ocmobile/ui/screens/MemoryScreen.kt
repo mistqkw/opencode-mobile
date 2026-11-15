@@ -1,9 +1,11 @@
 package app.ocmobile.ui.screens
 
+import kotlinx.coroutines.launch
 import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -39,6 +41,7 @@ import app.ocmobile.Graph
 import app.ocmobile.data.Memory
 import app.ocmobile.ui.Nav
 import app.ocmobile.ui.components.Ico
+import app.ocmobile.ui.components.Segmented
 import app.ocmobile.ui.components.IconBtn
 import app.ocmobile.ui.components.OcDialog
 import app.ocmobile.ui.components.OcSheet
@@ -79,7 +82,7 @@ fun MemoryScreen(nav: Nav) {
     val ctx = LocalContext.current
     var rev by remember { mutableStateOf(0) }
     var enabled by remember { mutableStateOf(prefs.memoryEnabled) }
-    var auto by remember { mutableStateOf(prefs.memoryAuto) }
+    var mode by remember { mutableStateOf(prefs.memoryMode) }
     var topics by remember { mutableStateOf(prefs.memoryTopics.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()) }
     var note by remember { mutableStateOf("") }
     var custom by remember { mutableStateOf(prefs.memoryCustom) }
@@ -87,20 +90,49 @@ fun MemoryScreen(nav: Nav) {
     var open by remember { mutableStateOf<File?>(null) }
     var showPrompt by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
+    // the graph comes first; the shelves, settings and the rest are one tap away
+    var more by remember { mutableStateOf(false) }
+    var picked by remember { mutableStateOf<app.ocmobile.ui.components.MemNode?>(null) }
     val shelves = remember(rev) { Memory.shelves() }
     val facts = remember(rev) { shelves.associateWith { Memory.facts(it) } }
     val total = facts.values.sumOf { it.size }
     val bytes = remember(rev) { shelves.sumOf { it.length() } + File(Memory.dir(), "MEMORY.md").length() }
     fun changed() { Memory.sync(); rev++ }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val importer = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris.isNotEmpty()) scope.launch {
+            val n = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { Memory.importUris(ctx, uris) }.getOrDefault(-1) }
+            Graph.chats.toasts.tryEmit(if (n >= 0) "Imported $n notes into memory" else "Couldn't import")
+            rev++
+        }
+    }
 
     Column(Modifier.fillMaxSize().screenBackdrop("MemoryScreen1")) {
-        TopBar("Memory", left = { IconBtn(Ic.Back, { nav.pop() }) }, right = {
-            IconBtn(Ic.Share, {
-                val i = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, Memory.exportText())
-                ctx.startActivity(android.content.Intent.createChooser(i, "Share memory").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-            })
+        TopBar(if (more) "Memory settings" else "Memory", left = { IconBtn(Ic.Back, { if (more) more = false else nav.pop() }) }, right = {
+            // in: a memory export (Claude's zip) or .md notes; out: a zip in Download/OpenCode
+            IconBtn(Ic.FileUp, { importer.launch("*/*") })
+            IconBtn(Ic.Download, { scope.launch { runCatching { app.ocmobile.ui.components.OutFiles.save(ctx, Memory.exportZip(ctx)) } } })
         })
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding().padding(bottom = 32.dp)) {
+        if (!more) Box(Modifier.weight(1f).fillMaxWidth()) {
+            app.ocmobile.ui.components.MemoryGraphView(
+                Memory.dir(), File(ctx.filesDir, "memory-graph-seen"), rev,
+                app.ocmobile.ui.components.GraphColors(c.border, c.text, c.textDim, c.accent, c.text.copy(alpha = 0.75f), c.bg),
+                onSelect = { picked = it },
+                onNew = { app.ocmobile.data.Sounds.play(app.ocmobile.data.Sounds.S.Pop) },
+            )
+            Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                picked?.let { n ->
+                    Column(Modifier.fillMaxWidth().clip(Oc.round(20.dp)).background(c.surface).border(1.dp, c.border, Oc.round(20.dp)).clickable { n.file?.takeIf { it.name != "MEMORY.md" }?.let { open = it } }.padding(16.dp)) {
+                        Txt(n.label, size = 15.sp, maxLines = 4)
+                        n.file?.takeIf { n.kind == 2 }?.let { Txt(it.nameWithoutExtension, size = 12.sp, color = c.textDim) }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Txt(if (total == 0) "Nothing saved yet" else "$total facts on ${shelves.size} shelves", Modifier.weight(1f).align(Alignment.CenterVertically), size = 13.sp, color = c.textDim)
+                    Pill("More", { more = true }, filled = false)
+                }
+            }
+        } else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding().padding(bottom = 32.dp)) {
             // Summary
             Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)).background(c.surface).border(1.dp, c.border, Oc.round(24.dp)).padding(20.dp)) {
                 Row(verticalAlignment = Alignment.Bottom) {
@@ -125,10 +157,16 @@ fun MemoryScreen(nav: Nav) {
                 SettingsRow("Use memory", subtitle = "Remember you across chats", icon = Ic.Scroll, trailing = {
                     OcSwitch(enabled) { enabled = it; prefs.memoryEnabled = it; Memory.sync() }
                 })
-                SettingsRow("Save on its own", subtitle = if (auto) "Notices lasting facts and saves them" else "Only when you say \"remember…\"", icon = Ic.Zap, trailing = {
-                    OcSwitch(auto) { auto = it; prefs.memoryAuto = it; Memory.sync() }
-                })
             }
+            SectionLabel("Saving")
+            Segmented(
+                listOf("ask" to "Ask", "auto" to "On its own", "off" to "When asked"), mode,
+                { mode = it; prefs.memorySave = it; Memory.sync() }, Modifier.padding(horizontal = 16.dp),
+            )
+            Txt(
+                when (mode) { "ask" -> "Offers what it heard about you as a card, you tap Remember"; "auto" -> "Notices lasting facts and saves them"; else -> "Only when you say \"remember…\"" },
+                size = 13.sp, color = c.textDim, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
 
             SectionLabel("What to remember")
             FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

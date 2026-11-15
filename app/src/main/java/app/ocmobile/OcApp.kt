@@ -1,8 +1,12 @@
 package app.ocmobile
 
+import app.ocmobile.data.Sync
+import app.ocmobile.runtime.OcUpdater
+import app.ocmobile.data.I18n
 import android.app.Application
 import app.ocmobile.api.EventHub
 import app.ocmobile.api.OpenCodeApi
+import app.ocmobile.data.Brain
 import app.ocmobile.data.Catalog
 import app.ocmobile.data.LiveNotify
 import app.ocmobile.data.PhoneBridge
@@ -46,10 +50,12 @@ object Graph {
     lateinit var chats: ChatHub
     lateinit var usage: UsageTracker
     lateinit var catalog: Catalog
+    lateinit var ocUpdater: OcUpdater
 
     fun init(a: Application) {
         app = a
         prefs = Prefs(a)
+        I18n.lang = prefs.language
         paths = RuntimePaths(a)
         devices = Devices(prefs)
         api = OpenCodeApi(prefs)
@@ -66,12 +72,15 @@ object Graph {
         chats.start()
         catalog.start()
         usage.start()
+        ocUpdater = OcUpdater(runtime, scope).also { it.start() }
+        Sync.start(a)
         Scheduler.load(a)
         PhoneBridge.start()
         LiveNotify.start()
         // the server is up: connect the "phone" MCP to it (the config entry changes only when needed)
         scope.launch { runtime.state.collect { if (it is app.ocmobile.runtime.RuntimeState.Running) PhoneBridge.register() } }
         Memory.sync()
+        Brain.install()
         Vault.restore()
         Vault.reconcileAccount()
         scope.launch(Dispatchers.IO) { while (true) { Vault.save(); Vault.reconcileAccount(); delay(30_000) } }

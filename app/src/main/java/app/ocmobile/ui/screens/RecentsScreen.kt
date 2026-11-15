@@ -107,7 +107,7 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
         Column(Modifier.fillMaxSize()) {
             TopBar(
                 "Recents",
-                left = { if (selecting) IconBtn(Ic.Back, { selecting = false; selected.clear() }) else IconBtn(Ic.Menu, onMenu) },
+                left = { if (selecting) IconBtn(Ic.Back, { selecting = false; selected.clear() }) else app.ocmobile.ui.components.MenuBtn(onMenu) },
                 right = {
                     if (selecting) IconBtn(Ic.Trash, { if (selected.isNotEmpty()) confirm = true }, tint = if (selected.isEmpty()) c.textDim else c.text)
                     else {
@@ -156,12 +156,12 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
             LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 8.dp, bottom = 120.dp)) {
                 items(list, key = { it.id }) { s ->
                     var actions by remember { mutableStateOf(false) }
-                    if (actions) SessionActionsSheet(s) { actions = false }
                     Row(
                         Modifier.fillMaxWidth().tap(scale = 1f, onLongClick = { if (!selecting) actions = true }) { if (selecting) { if (s.id in selected) selected.remove(s.id) else selected.add(s.id) } else nav.openChat(s.id) }
                             .padding(horizontal = 20.dp, vertical = 13.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        SessionActionsMenu(s, actions) { actions = false }
                         if (selecting) {
                             val on = s.id in selected
                             Box(Modifier.size(26.dp).clip(Oc.round(8.dp)).border(1.5.dp, if (on) c.link else c.border, Oc.round(8.dp)).background(if (on) c.link else androidx.compose.ui.graphics.Color.Transparent), contentAlignment = Alignment.Center) {

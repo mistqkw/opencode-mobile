@@ -93,9 +93,11 @@ fun Txt(
     maxLines: Int = Int.MAX_VALUE,
     align: TextAlign? = null,
     lineHeight: TextUnit = TextUnit.Unspecified,
+    /** User or agent text: shown as it is, never translated. */
+    raw: Boolean = false,
 ) {
     Text(
-        text, modifier = modifier, color = color, fontSize = size, fontWeight = weight,
+        if (raw) text else app.ocmobile.data.I18n.t(text), modifier = modifier, color = color, fontSize = size, fontWeight = weight,
         fontFamily = family ?: Oc.body, maxLines = maxLines,
         overflow = if (maxLines == Int.MAX_VALUE) TextOverflow.Clip else TextOverflow.Ellipsis,
         textAlign = align, lineHeight = lineHeight,
@@ -256,7 +258,8 @@ fun SettingsGroup(modifier: Modifier = Modifier, content: @Composable ColumnScop
         "messenger" -> modifier.fillMaxWidth().background(c.border)
         "cards" -> modifier.padding(horizontal = 16.dp).fillMaxWidth()
         "chatgpt" -> modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(18.dp)).background(c.border)
-        else -> modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp))
+        // the gaps between rows show the page colour, not the pictures drawn behind the page
+        else -> modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(24.dp)).background(c.bg)
     }
     val gap = when (Oc.look.id) { "hairline", "notebook", "messenger", "chatgpt" -> 1.dp; "cards" -> 8.dp; else -> 2.dp }
     Column(m, verticalArrangement = Arrangement.spacedBy(gap), content = content)
@@ -427,7 +430,6 @@ fun OcTextField(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OcSheet(
     onDismiss: () -> Unit,
@@ -435,29 +437,7 @@ fun OcSheet(
     onBack: (() -> Unit)? = null,
     skipHalf: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
-) {
-    val c = Oc.c
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = skipHalf),
-        containerColor = c.bg,
-        scrimColor = c.scrim,
-        shape = if (Oc.terminal) androidx.compose.ui.graphics.RectangleShape else RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
-        dragHandle = {
-            Box(Modifier.padding(top = 12.dp, bottom = 4.dp).width(40.dp).height(5.dp).clip(CircleShape).background(c.border))
-        },
-    ) {
-        Column(Modifier.navigationBarsPadding()) {
-            if (title != null) {
-                Box(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 12.dp)) {
-                    IconBtn(if (onBack != null) Ic.Back else Ic.Close, onBack ?: onDismiss, Modifier.align(Alignment.CenterStart))
-                    Txt(title, Modifier.align(Alignment.Center), size = 20.sp, weight = FontWeight.Medium)
-                }
-            }
-            content()
-        }
-    }
-}
+) = MagnetSheet(onDismiss = onDismiss, title = title, onBack = onBack, half = !skipHalf, corner = 36.dp, content = content)
 
 @Composable
 fun OcDialog(

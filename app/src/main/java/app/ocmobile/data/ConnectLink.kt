@@ -13,7 +13,8 @@ import app.ocmobile.Graph
  * first we ask "connect?", and only then add the device.
  */
 object ConnectLink {
-    data class Offer(val name: String, val url: String, val password: String)
+    /** [session]: the chat open on the computer when the code was shown; it opens right after connecting. */
+    data class Offer(val name: String, val url: String, val password: String, val session: String? = null)
 
     /** Waits for confirmation in the dialog (Root). */
     var pending by mutableStateOf<Offer?>(null)
@@ -22,7 +23,7 @@ object ConnectLink {
         val u = Uri.parse(raw.trim())
         if (!u.scheme.equals("cl0udly", true) || !u.host.equals("connect", true)) return null
         val url = u.getQueryParameter("u")?.takeIf { it.isNotBlank() } ?: return null
-        Offer(u.getQueryParameter("n").orEmpty(), Devices.normalize(url), u.getQueryParameter("p").orEmpty())
+        Offer(u.getQueryParameter("n").orEmpty(), Devices.normalize(url), u.getQueryParameter("p").orEmpty(), u.getQueryParameter("s")?.takeIf { it.isNotBlank() })
     }.getOrNull()
 
     /** A link or text from a QR code; false means it isn't a connect code. */

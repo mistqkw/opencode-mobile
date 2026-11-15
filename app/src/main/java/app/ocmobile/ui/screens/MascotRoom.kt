@@ -79,11 +79,12 @@ private val LILAC = Color(0xFF9F9DF2)
 @Composable
 fun MascotRoom(nav: Nav) {
     val c = Oc.c
-    var playing by remember { mutableStateOf(false) }
+    var game by remember { mutableStateOf<String?>(null) }
+    var talking by remember { mutableStateOf(false) }
     val statuses by Graph.chats.statuses.collectAsState()
     val busyId = statuses.entries.firstOrNull { it.value == "busy" || it.value == "retry" }?.key
     Column(Modifier.fillMaxSize().screenBackdrop("MascotRoom")) {
-        TopBar(if (playing) "Ping-pong" else "cl0udly", left = { IconBtn(Ic.Back, { if (playing) playing = false else nav.pop() }) })
+        TopBar(GAMES.firstOrNull { it.first == game }?.second ?: "cl0udly", left = { IconBtn(Ic.Back, { if (game != null) game = null else nav.pop() }) })
         if (busyId != null) Row(
             Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(14.dp)).border(1.dp, c.border, Oc.round(14.dp))
                 .tap(scale = 0.98f) { nav.openChat(busyId) }.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -95,13 +96,20 @@ fun MascotRoom(nav: Nav) {
             Txt("Back to chat", size = 14.sp, color = c.accent)
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (playing) Pong() else Room { playing = true }
+            when (game) {
+                "pong" -> Pong()
+                "rain" -> RainGame()
+                "cups" -> CupsGame()
+                "echo" -> EchoGame()
+                else -> Room { if (it == "talk") talking = true else game = it }
+            }
         }
     }
+    if (talking) VoiceMode(null, forceCloud = true) { sid -> talking = false; sid?.let { nav.openChat(it) } }
 }
 
 @Composable
-private fun Room(onPlay: () -> Unit) {
+private fun Room(onPlay: (String) -> Unit) {
     val c = Oc.c
     var line by remember { mutableStateOf(CloudTalk.hello.random()) }
     var said by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -131,13 +139,29 @@ private fun Room(onPlay: () -> Unit) {
         Spacer(Modifier.height(40.dp))
         Txt("Petted $pets ${if (pets == 1) "time" else "times"} · best rally ${Graph.prefs.pongBest}", size = 13.sp, color = c.textDim)
         Spacer(Modifier.height(14.dp))
-        Box(Modifier.clip(CircleShape).background(c.text).tap(scale = 0.96f, onClick = onPlay).padding(horizontal = 22.dp, vertical = 12.dp)) {
-            Txt("Play ping-pong", size = 16.sp, color = c.bg, weight = FontWeight.Medium)
+        // a voice conversation with the cloud, then the games, two in a row
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.width(310.dp).clip(Oc.round(18.dp)).background(c.accent).tap(scale = 0.96f) { onPlay("talk") }.padding(vertical = 13.dp), contentAlignment = Alignment.Center) {
+                Txt("Talk with cl0udly", size = 15.sp, color = c.bg, weight = FontWeight.Medium)
+            }
+            GAMES.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    pair.forEach { (id, name) ->
+                        Box(Modifier.width(150.dp).clip(Oc.round(18.dp)).background(if (id == "pong") c.text else c.surface).border(1.dp, c.border, Oc.round(18.dp))
+                            .tap(scale = 0.96f) { onPlay(id) }.padding(vertical = 13.dp), contentAlignment = Alignment.Center) {
+                            Txt(name, size = 15.sp, color = if (id == "pong") c.bg else c.text, weight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(10.dp))
         Txt("Tap, hold, pet or shake the phone", size = 13.sp, color = c.textDim)
     }
 }
+
+/** The games: id and name. */
+private val GAMES = listOf("pong" to "Ping-pong", "rain" to "Catch the rain", "cups" to "Cups", "echo" to "Echo")
 
 /**
  * Ping-pong: the mascot is the top paddle, you are the bottom one (drag with a finger). The ball speeds up with every

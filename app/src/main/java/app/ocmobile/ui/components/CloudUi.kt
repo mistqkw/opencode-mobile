@@ -84,7 +84,7 @@ enum class CloudMood { Idle, Happy, Angry, Sleep, Love, Wink, Surprised, Dizzy, 
  */
 internal fun DrawScope.drawIconCloud(
     x: Float, y: Float, w: Float, mood: CloudMood, eyeDx: Float, blink: Float, eye: Color,
-    eyeDy: Float = 0f, outline: Color? = null,
+    eyeDy: Float = 0f, outline: Color? = null, body: Color = WHITE, shade: Color = GREY,
 ) {
     val k = w / CW
     // start on a whole pixel and size the blocks from it: when moving, the cloud shifts as a whole
@@ -100,12 +100,12 @@ internal fun DrawScope.drawIconCloud(
         r(-o, 113f - o, CW + o, CH + o, outline)
         r(152f - o, -o, 635f + o, 113f, outline)
     }
-    r(0f, 113f, CW, CH, WHITE)
-    r(152f, 0f, 565f, 114f, WHITE)
-    r(565f, 0f, 635f, 113f, GREY)
-    r(635f, 113f, 704f, 193f, GREY)
-    r(0f, 213f, 62f, CH, GREY)
-    r(62f, 333f, 127f, CH, GREY)
+    r(0f, 113f, CW, CH, body)
+    r(152f, 0f, 565f, 114f, body)
+    r(565f, 0f, 635f, 113f, shade)
+    r(635f, 113f, 704f, 193f, shade)
+    r(0f, 213f, 62f, CH, shade)
+    r(62f, 333f, 127f, CH, shade)
 
     val ew = 68f; val eh = 198f; val top = 110f + eyeDy * CW
     val dx = eyeDx * CW
@@ -127,7 +127,7 @@ internal fun DrawScope.drawIconCloud(
                 r(ex, top + 80f, ex + ew, top + eh, eye)
                 val inner = if (i == 0) ex + ew - 34f else ex
                 r(inner, top + 40f, inner + 34f, top + 80f, eye)
-                r(if (i == 0) ex else ex + 34f, top + 80f, if (i == 0) ex + 34f else ex + ew, top + 110f, WHITE)
+                r(if (i == 0) ex else ex + 34f, top + 80f, if (i == 0) ex + 34f else ex + ew, top + 110f, body)
             }
             CloudMood.Sleep -> r(ex - 10f, top + eh - 34f, ex + ew + 10f, top + eh, eye)
             // being petted: "^" and lilac cheeks under the eyes
@@ -202,7 +202,9 @@ private fun rememberIdleMotion(): IdleMotion {
 fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boolean = true, watching: Boolean = false, onReact: ((String) -> Unit)? = null, cue: Any? = null) {
     val c = Oc.c
     val vibrate = rememberHaptic()
-    val haptic = { if (Graph.prefs.mascotHaptics) vibrate() }
+    // it never buzzes from the background (a plug-in, a pocket): only while the app is in front
+    val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    val haptic = { if (Graph.prefs.mascotHaptics && life.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) vibrate() }
     val scope = rememberCoroutineScope()
     var mood by remember { mutableStateOf(CloudMood.Idle) }
     val taps = remember { ArrayDeque<Long>() }
@@ -339,7 +341,7 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
                 val scale = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
                 lowBattery = !now && lvl in 0 until scale * 15 / 100
                 if (plugged == false && now) {
-                    lastTouch = System.currentTimeMillis(); haptic(); set(CloudMood.Happy, 1500); boing(0.8f)
+                    lastTouch = System.currentTimeMillis(); haptic(); app.ocmobile.data.Sounds.play(app.ocmobile.data.Sounds.S.Tap); set(CloudMood.Happy, 1500); boing(0.8f)
                     bit('z', 0.78f); bit('z', 0.78f, 450); bit('z', 0.78f, 900)
                 }
                 plugged = now
@@ -383,10 +385,16 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
     val listening = MascotSignals.listening && interactive
     // phone shake and tilt (not with motion off: battery saver or animations turned off)
     val motion = app.ocmobile.ui.theme.rememberMotionEnabled()
-    androidx.compose.runtime.DisposableEffect(interactive, motion) {
+    // the side menu: eyes follow it out; fully open, a short wide-eyed look; closed again, back to normal
+    val drawerOut = MascotSignals.drawer
+    val drawerOpen = interactive && drawerOut > 0.9f
+    LaunchedEffect(drawerOpen) { if (drawerOpen && mood == CloudMood.Idle) set(CloudMood.Surprised, 500) }
+    // only while the app is in front: in the background a shaken pocket made it react and vibrate
+    val resumed = app.ocmobile.ui.theme.rememberResumed()
+    androidx.compose.runtime.DisposableEffect(interactive, motion, resumed) {
         val sm = ctx.getSystemService(android.content.Context.SENSOR_SERVICE) as? android.hardware.SensorManager
         val acc = sm?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)
-        if (!interactive || !motion || !prefs.mascotSensors || sm == null || acc == null) return@DisposableEffect onDispose { }
+        if (!interactive || !motion || !resumed || !prefs.mascotSensors || sm == null || acc == null) return@DisposableEffect onDispose { }
         var lastShake = 0L; var jolts = 0; var gx = 0f
         val l = object : android.hardware.SensorEventListener {
             override fun onSensorChanged(e: android.hardware.SensorEvent) {
@@ -488,7 +496,7 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
                         if (nd != dir && run > size.width * 0.12f) {
                             turns++; run = 0f
                             if (turns >= 2) {
-                                if (mood != CloudMood.Love) { haptic(); onReact?.invoke("pet"); Graph.prefs.petCount = ((Graph.prefs.petCount.toIntOrNull() ?: 0) + 1).toString() }
+                                if (mood != CloudMood.Love) { haptic(); app.ocmobile.data.Sounds.play(app.ocmobile.data.Sounds.S.Pet); onReact?.invoke("pet"); Graph.prefs.petCount = ((Graph.prefs.petCount.toIntOrNull() ?: 0) + 1).toString() }
                                 set(CloudMood.Love, 1600); heart()
                             }
                         }
@@ -533,6 +541,8 @@ fun PixelCloud(modifier: Modifier, thinking: Boolean = false, interactive: Boole
         val eyeDx = when {
             tl != null -> tl.x * 0.035f
             listening -> 0.035f
+            // the side menu comes out from the left: its eyes follow it
+            interactive && drawerOut > 0.02f -> -0.045f * drawerOut
             thinking || watching -> 0f
             else -> (lookT * 0.03f + tiltA * 0.03f + dartX.value * 0.035f).coerceIn(-0.045f, 0.045f)
         }

@@ -149,7 +149,6 @@ fun ServerScreen(nav: Nav) {
     var showLog by remember { mutableStateOf(false) }
     var tools by remember { mutableStateOf<List<String>?>(null) }
     var reset by remember { mutableStateOf(false) }
-    var updating by remember { mutableStateOf<String?>(null) }
 
     Column(Modifier.fillMaxSize().screenBackdrop("MoreScreens2")) {
         TopBar("Local server", left = { IconBtn(Ic.Back, { nav.pop() }) })
@@ -183,11 +182,13 @@ fun ServerScreen(nav: Nav) {
             }
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
-                SettingsRow("Update OpenCode", subtitle = updating ?: "Installed: ${prefs.opencodeVersion.ifBlank { "?" }}", icon = Ic.Download, onClick = {
-                    if (updating == null) { updating = "Checking…"; scope.launch {
-                        updating = runCatching { "Updated to " + Graph.runtime.updateOpencode() }.getOrElse { it.message }
-                    } }
+                val up = Graph.ocUpdater
+                SettingsRow("Version ${prefs.opencodeVersion.ifBlank { "?" }}", subtitle = up.busy ?: prefs.ocUpdateError.ifBlank { "Checked once a day. A new build is tested first and takes over only when it works." }, icon = Ic.Download, onClick = {
+                    scope.launch { up.check(manual = true) }
                 })
+                up.previous?.let { v ->
+                    SettingsRow("Go back to the previous version", subtitle = "OpenCode $v is kept", icon = Ic.Undo, onClick = { scope.launch { up.rollback() } })
+                }
                 SettingsRow("Install dev tools", subtitle = "git, ripgrep, curl, python3, build-essential", icon = Ic.Terminal, onClick = {
                     val lines = mutableStateListOf<String>(); tools = lines
                     scope.launch {
@@ -279,6 +280,7 @@ fun ProfileScreen(nav: Nav) {
             val out = android.graphics.Bitmap.createScaledBitmap(sq, 512.coerceAtMost(side), 512.coerceAtMost(side), true)
             val f = File(ctx.filesDir, "avatar-${System.currentTimeMillis()}.jpg")
             f.outputStream().use { out.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }
+            prefs.avatarPath.takeIf { it.isNotBlank() }?.let { File(it).delete() }
             prefs.avatarPath = f.path
         }
     }
@@ -287,7 +289,10 @@ fun ProfileScreen(nav: Nav) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Avatar(112.dp) { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
             Spacer(Modifier.height(14.dp))
-            SmallButton("Edit photo", { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SmallButton(if (prefs.avatarPath.isBlank()) "Add photo" else "Change photo", { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
+                if (prefs.avatarPath.isNotBlank()) SmallButton("Remove", { File(prefs.avatarPath).delete(); prefs.avatarPath = "" })
+            }
             Column(Modifier.fillMaxWidth().padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Txt("What should we call you?", size = 17.sp, modifier = Modifier.padding(start = 4.dp))
                 OcTextField(name, { name = it })
@@ -316,14 +321,15 @@ fun AboutScreen(nav: Nav) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
             SettingsGroup {
                 SettingsRow("OpenCode mobile", subtitle = "v${BuildConfig.VERSION_NAME}", icon = Ic.Info)
-                if (app.ocmobile.ui.theme.Oc.look.id == "cloud") SettingsRow("cl0udly", subtitle = Graph.prefs.petCount.let { "Petted $it ${if (it == "1") "time" else "times"}" }, icon = Ic.Cloud, chevron = true, onClick = { nav.push(app.ocmobile.ui.Route.MascotSettings) })
-                SettingsRow("Source on GitHub", subtitle = "mistqkw/opencode-mobile", icon = Ic.GitHub, onClick = { open("https://github.com/mistqkw/opencode-mobile") })
+                SettingsRow("cl0udly", subtitle = Graph.prefs.petCount.let { "Petted $it ${if (it == "1") "time" else "times"}" }, icon = Ic.Cloud, chevron = true, onClick = { nav.push(app.ocmobile.ui.Route.MascotSettings) })
+                SettingsRow("Source on GitHub", subtitle = "mistqkw/cl0udly-mobile", icon = Ic.GitHub, onClick = { open("https://github.com/mistqkw/cl0udly-mobile") })
                 SettingsRow("OpenCode (in container)", subtitle = Graph.prefs.opencodeVersion.ifBlank { "not installed" }, icon = Ic.Terminal)
                 SettingsRow("OpenCode documentation", icon = Ic.External, onClick = { open("https://opencode.ai/docs") })
                 SettingsRow("OpenCode Go console", icon = Ic.External, onClick = { open("https://opencode.ai/console") })
             }
             // Updates from GitHub releases
             val upd by app.ocmobile.data.Updater.state.collectAsState()
+            Spacer(Modifier.height(16.dp))
             SettingsGroup {
                 SettingsRow(
                     "Check for updates", icon = Ic.Download, chevron = true,

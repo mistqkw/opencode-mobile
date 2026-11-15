@@ -85,7 +85,7 @@ fun ArtifactsScreen(nav: Nav, onMenu: () -> Unit) {
     val list = items?.filter { query.isBlank() || it.file.contains(query, true) || it.sessionTitle.contains(query, true) }
 
     Column(Modifier.fillMaxSize().screenBackdrop("ArtifactsScreen1")) {
-        TopBar("Artifacts", left = { IconBtn(Ic.Menu, onMenu) })
+        TopBar("Artifacts", left = { app.ocmobile.ui.components.MenuBtn(onMenu) })
         Row(
             Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(30.dp)).border(1.5.dp, c.border, Oc.round(30.dp)).padding(horizontal = 20.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,

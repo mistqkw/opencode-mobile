@@ -52,7 +52,7 @@ object Ic {
     val FileUp by lazy { icon("file_up", "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z", "M14 3v5h5", "M12 17v-6", "M9 13l3-3 3 3") }
     val File by lazy { icon("file", "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z", "M14 3v5h5", "M9 13h6", "M9 17h6") }
     val Camera by lazy { icon("camera", "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z", "M12 9a4 4 0 1 0 0 8a4 4 0 0 0 0-8z") }
-    val User by lazy { icon("user", CIRCLE, "M12 10a2.6 2.6 0 1 0 0 .01", "M6.5 18.5c1-2.2 3-3.3 5.5-3.3s4.5 1.1 5.5 3.3") }
+    val User by lazy { icon("user", CIRCLE, "M9.2 10a2.8 2.8 0 1 0 5.6 0a2.8 2.8 0 1 0 -5.6 0", "M6.5 18.5c1-2.2 3-3.3 5.5-3.3s4.5 1.1 5.5 3.3") }
     val Users by lazy { icon("users", "M9 11a3 3 0 1 0 0-.01", "M3.5 19c.8-2.6 2.9-4 5.5-4s4.7 1.4 5.5 4", "M16 8.2a2.6 2.6 0 1 1 0 5.2", "M17.5 15.3c1.6.5 2.6 1.8 3 3.7") }
     val Dollar by lazy { icon("dollar", CIRCLE, "M12 6.5v11", "M14.8 9.4c0-1-1.2-1.9-2.8-1.9s-2.8.8-2.8 1.9 1.2 1.7 2.8 2.1 2.8 1.1 2.8 2.2-1.2 1.9-2.8 1.9-2.8-.9-2.8-1.9") }
     val Drop by lazy { icon("drop", "M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z", "M12 17.2a2.4 2.4 0 0 1-2.2-2.2") }
@@ -88,7 +88,7 @@ object Ic {
     val Eye by lazy { icon("eye", "M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z", "M12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6z") }
     val FilePlus by lazy { icon("file_plus", "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z", "M14 3v5h5", "M12 12v6", "M9 15h6") }
     val Diff by lazy { icon("diff", "M12 3v10", "M7 8h10", "M7 19h10") }
-    val Git by lazy { icon("git", "M6 3v12", "M18 9a3 3 0 1 0 0 .01", "M6 18a3 3 0 1 0 0 .01", "M18 12a9 9 0 0 1-9 9") }
+    val Git by lazy { icon("git", "M6 3v12", "M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0", "M3 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0", "M18 9a9 9 0 0 1-9 9") }
     val Undo by lazy { icon("undo", "M3 7v6h6", "M21 17a9 9 0 0 0-15-6.7L3 13") }
     val Mic by lazy { icon("mic", "M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z", "M19 10v1a7 7 0 0 1-14 0v-1", "M12 18v4", "M8 22h8") }
     val Ghost by lazy { icon("ghost", "M12 3a7 7 0 0 0-7 7v11l2.3-2 2.3 2 2.4-2 2.4 2 2.3-2 2.3 2V10a7 7 0 0 0-7-7z", "M9.5 10.5h.01", "M14.5 10.5h.01") }
@@ -107,7 +107,7 @@ object Ic {
         ).build()
     }
     val Play by lazy { icon("play", "M7 4.5v15l12-7.5z") }
-    val Branch by lazy { icon("branch", "M6 3v12", "M18 9a3 3 0 1 0 0 .01", "M6 18a3 3 0 1 0 0 .01", "M18 12a9 9 0 0 1-9 9") }
+    val Branch by lazy { icon("branch", "M6 3v12", "M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0", "M3 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0", "M18 9a9 9 0 0 1-9 9") }
     val Pause by lazy { icon("pause", "M8 5v14", "M16 5v14") }
     val Music by lazy { icon("music", "M9 18V5l12-2v13", "M9 18a3 3 0 1 1-6 0a3 3 0 1 1 6 0z", "M21 16a3 3 0 1 1-6 0a3 3 0 1 1 6 0z") }
     val Video by lazy { icon("video", "M4 6h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z", "M16 10l5-3v10l-5-3") }

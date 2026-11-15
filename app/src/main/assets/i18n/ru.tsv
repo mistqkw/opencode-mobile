@@ -1,0 +1,648 @@
+30 days	30 дней
+5 hours	5 часов
+7 days	7 дней
+About	О приложении
+About cl0udly	О cl0udly
+Access	Доступ
+Account	Аккаунт
+Achievement unlocked:	Достижение получено:
+A copy of this conversation to try another way	Копия этого разговора, чтобы попробовать иначе
+Add	Добавить
+Add a connector	Добавить коннектор
+Add a local MCP server below.	Добавьте локальный MCP-сервер ниже.
+Add a model	Добавить модель
+Add a sub-agent	Добавить субагента
+Add connector	Добавить коннектор
+Add files	Добавить файлы
+Add one: it gets a model, a name and a role	Добавьте: у него будет модель, имя и роль
+Add or set up sub-agents…	Добавить или настроить субагентов…
+Address, localhost:3000 or a search	Адрес, localhost:3000 или поиск
+Add to session	Добавить в сессию
+Again	Ещё раз
+Again!	Ещё!
+Agent is working	Агент работает
+Agents	Агенты
+All	Все
+Allow background work and notifications so tasks don't stop	Разрешите фоновую работу и уведомления, чтобы задачи не останавливались
+Allow background work so long tasks don't stop	Разрешите фоновую работу, чтобы долгие задачи не останавливались
+All sub-agent settings	Все настройки субагентов
+Always	Всегда
+A name, a role and a model	Имя, роль и модель
+Anonymous chat	Анонимный чат
+App data	Данные приложения
+Appearance	Внешний вид
+App icon	Значок приложения
+Archive	В архив
+A reply is ready	Ответ готов
+Artifacts	Артефакты
+Ask	Спросить
+Ask first	Спрашивать
+Ask from anywhere in the window.	Спросите из любого места окна.
+Ask me. Give me a task.	Спроси меня. Дай задачу.
+A soft note when a message goes, when a reply is done, when you pet the mascot.	Тихий звук, когда сообщение ушло, ответ готов или вы гладите маскота.
+A task	Задача
+At most	Не больше
+A tool wants permission or the agent asks a question.	Инструмент просит разрешения или агент задаёт вопрос.
+Attach files	Прикрепить файлы
+Auto	Авто
+Auto lets the agent run tools without asking, like Claude's Auto.	В режиме «Авто» агент запускает инструменты без спроса, как Auto у Claude.
+Automatic	Автоматически
+Auto (titles & summaries)	Авто (названия и сводки)
+Available	Доступно
+Back	Назад
+Back to chat	Назад в чат
+Back up everything	Сохранить всё
+Backup & move	Резервная копия и перенос
+Backups cover the server on this phone. Switch to it first.	Копии делаются для сервера на этом телефоне. Сначала переключитесь на него.
+Battery	Батарея
+Behaviour	Поведение
+Best human ever.	Лучший человек на свете.
+Bigger text	Крупнее текст
+Black, 1px lines, wide headings, one blue accent	Чёрный, линии в 1px, широкие заголовки, один синий акцент
+Blue	Синий
+Boop.	Буп.
+Bow	Бантик
+Brainstorm	Мозговой штурм
+Brainstorm ideas for 	Придумай идеи для 
+Brewing a storm	Завариваю бурю
+Brief, and checks every step	Кратко и с проверкой каждого шага
+Browser	Браузер
+Browser and files	Браузер и файлы
+Browsing the web	Ищет в интернете
+Bubbles on both sides with tails, like Telegram	Пузыри с хвостиками с обеих сторон, как в Telegram
+Cancel	Отмена
+Capabilities	Возможности
+Cards	Карточки
+Careful, I might rain.	Осторожно, могу пойти дождём.
+Catch the rain	Поймай дождь
+Changes	Изменения
+Charging	Зарядка
+Charging and low battery	Зарядка и низкий заряд
+Chat	Чат
+Chats	Чаты
+Chat with cl0udly and play ping-pong	Поболтать с cl0udly и сыграть в пинг-понг
+Checking for updates…	Проверяю обновления…
+Classic	Классика
+Clear all memory	Стереть всю память
+Close	Закрыть
+Closing the window hides it; the agent keeps working. Quit from the cloud in the panel.	Закрытие окна прячет его, агент продолжает работать. Выйти — через облачко на панели.
+Cloud wins!	Облачко победило!
+Cloudy with a chance of code.	Облачно, возможен код.
+Code	Код
+Code and chat, right on your phone	Код и чат прямо в телефоне
+Code copied	Код скопирован
+Color mode	Тема
+Colors, fonts and corners switch right away. Light and dark mode work in every interface.	Цвета, шрифты и углы меняются сразу. Светлая и тёмная тема работают в любом интерфейсе.
+Commits as	Коммиты от имени
+Compact	Сжать
+Compiling thoughts…	Компилирую мысли…
+Computer	Компьютер
+Connected	Подключено
+Connectors	Коннекторы
+Connectors · MCP	Коннекторы · MCP
+Context	Контекст
+Continue	Продолжить
+Copied	Скопировано
+Copilot, or no account at all	Copilot или вообще без аккаунта
+Copy	Копировать
+Copy message	Копировать сообщение
+Copy URL	Копировать адрес
+Could not add	Не получилось добавить
+Could not continue	Не получилось продолжить
+Could not open the page	Не получилось открыть страницу
+Could not save the key	Не получилось сохранить ключ
+Could not start the chat	Не получилось начать чат
+Cream	Кремовый
+Cream & blue	Крем и синий
+Cumulus. Nimbus.	Кучевое. Дождевое.
+Cups	Напёрстки
+Daily	Каждый день
+Dark	Тёмная
+Default	По умолчанию
+Default mode	Режим по умолчанию
+Delete	Удалить
+Delete message	Удалить сообщение
+Delete session?	Удалить сессию?
+Describe a task…	Опишите задачу…
+Desktop app	Приложение для ПК
+Desktop notifications while the window is in the background.	Уведомления на рабочем столе, пока окно в фоне.
+Dictate	Диктовать
+Dictation	Диктовка
+Did you know clouds weigh about 500 tonnes?	А ты знал, что облако весит около 500 тонн?
+Done	Готово
+Done. What's the task?	Готово. Какая задача?
+Do you think the code is happy?	Как думаешь, код счастлив?
+Dozes off when left alone	Дремлет, если оставить одного
+Dreaming of blue skies…	Мечтаю о синем небе…
+Echo	Повтори
+Edit	Изменить
+Editing code	Правит код
+Edit task	Изменить задачу
+Effort	Усилие
+Empty uses \$SHELL.	Пусто — используется $SHELL.
+English	Английский
+English only.	Только английский.
+Errors	Ошибки
+Every message is a card — tidy for long tasks	Каждое сообщение — карточка, удобно для длинных задач
+Explain	Объяснить
+Export	Экспорт
+Export as Markdown	Экспорт в Markdown
+Failed	Ошибка
+Fast open models · free tier	Быстрые открытые модели · бесплатно
+Feeling fluffy today.	Сегодня я особенно пушистое.
+File	Файл
+Files	Файлы
+Files the agent makes show as cards you can open or save to Downloads	Файлы, которые делает агент, показываются карточками: их можно открыть или сохранить в «Загрузки»
+First launch of the day	Первый запуск за день
+Five more minutes…	Ещё пять минуточек…
+Fix	Исправить
+Flat panels and Inter, like the desktop app	Плоские панели и Inter, как в приложении для ПК
+Forecast for today:	Прогноз на сегодня:
+For example: Researcher (reads the code and finds what to change), Coder (makes the change), Reviewer (checks it and runs the tests).	Например: Исследователь (читает код и находит, что менять), Кодер (вносит правку), Ревьюер (проверяет и запускает тесты).
+Fork	Ответвить
+Fork from here	Ответвить отсюда
+Forward	Вперёд
+Free model	Бесплатная модель
+Free models	Бесплатные модели
+Free models work without an account. Sign in to add more models — your keys and memory stay on this phone.	Бесплатные модели работают без аккаунта. Войдите, чтобы добавить больше моделей, — ключи и память останутся на этом телефоне.
+Full	Полностью
+General	Общие
+Go	Вперёд
+Good day for a deploy.	Отличный день для деплоя.
+Gotcha.	Понял.
+Graphite	Графит
+Graphite, pixel clouds, a little cloud mascot	Графит, пиксельные облака, маленький маскот-облачко
+Graphite, round buttons, a little blue mascot	Графит, круглые кнопки, маленький синий маскот
+Green	Зелёный
+Green top hat	Зелёный цилиндр
+Grr.	Ррр.
+Ha! My point.	Ха! Моё очко.
+Hello, world.	Привет, мир.
+Help	Помощь
+Helpers	Помощники
+Helpers at once	Помощников за раз
+Help me plan a new feature for this project: 	Помоги спланировать новую функцию для этого проекта: 
+Help me write 	Помоги написать 
+Hey, friend.	Привет, друг.
+Hey, listen!	Эй, послушай!
+Hey! Stop it!	Эй! Хватит!
+Hi	Привет
+Hi again!	Снова привет!
+Hide steps	Скрыть шаги
+Hold a message to copy it, edit it or select text.	Удерживайте сообщение, чтобы скопировать, изменить или выделить текст.
+Home	Главная
+How can I help you today?	Чем помочь сегодня?
+How many helpers it may start in one go.	Сколько помощников можно запустить за раз.
+How sessions in a project folder behave.	Как ведут себя сессии в папке проекта.
+Huh? What did I miss?	А? Что я пропустил?
+I compiled.	Я скомпилировал.
+Icon matches this interface	Значок под этот интерфейс
+I counted the stars. There are many.	Я посчитало звёзды. Их много.
+I'd make it rain, but your phone is not waterproof.	Я бы пошло дождём, но твой телефон не водонепроницаемый.
+I feel like a tornado.	Чувствую себя торнадо.
+I let you win.	Я тебе поддалось.
+I like you.	Ты мне нравишься.
+I'll be back…	Я ещё вернусь…
+I'm 0% water, 100% pixels.	Я на 0% вода и на 100% пиксели.
+I'm a cloud, not a button!	Я облачко, а не кнопка!
+I'm all ears. Well, all eyes.	Я весь внимание. Ну, все глаза.
+I'm a storm cloud now.	Теперь я грозовая туча.
+Import…	Импорт…
+I'm up! I'm up!	Я не сплю! Не сплю!
+In chats	В чатах
+Incognito chats stay out of your recents and are deleted when you leave them.	Чаты инкогнито не попадают в недавние и удаляются, когда вы из них выходите.
+Insert coin	Вставьте монетку
+Interface	Интерфейс
+Interface language	Язык интерфейса
+Interrupted	Прервано
+Interrupted: 	Прервано: 
+I promise I'm not a ghost.	Честно, я не привидение.
+I see dead code.	Я вижу мёртвый код.
+It's a-me, cl0udly.	Это я, cl0udly.
+It's dangerous to code alone.	Кодить в одиночку опасно.
+It's just a refactor.	Это всего лишь рефакторинг.
+It's not a bug, it's a weather event.	Это не баг, это погодное явление.
+I've got time for a task.	У меня есть время на задачу.
+I want to create a new skill. Ask me what it should do, then write it.	Хочу создать новый навык. Спроси, что он должен делать, и напиши его.
+I was just floating around.	Я просто проплывало мимо.
+I write Kotlin and Flutter, answer in Russian, keep it short…	Пишу на Kotlin и Flutter, отвечай по-русски, коротко…
+just now	только что
+Keep	Оставить
+Keep calm	Сохраняй спокойствие
+Keep it running	Не выключать
+Keep running in the tray	Работать в трее
+Keep the computer awake	Не давать компьютеру уснуть
+Keyboard shortcuts	Сочетания клавиш
+Knows its name, that it's a cloud living in this app, and names its real model when asked	Знает своё имя, что оно облачко в этом приложении, и называет настоящую модель, если спросить
+Language	Язык
+Language of the app's own words. The agent answers in the language you write to it.	Язык надписей приложения. Агент отвечает на том языке, на котором вы ему пишете.
+Large	Крупный
+Last 14 days	Последние 14 дней
+Later	Позже
+Launch animation	Анимация запуска
+Let's-a go!	Поехали!
+Let's build something	Давай что-нибудь сделаем
+Let's make it work on yours.	Давай заставим работать и у тебя.
+Let's set up	Давай настроим
+Let's talk	Давай поговорим
+Let the phone connect	Разрешить подключение телефона
+Light	Светлая
+Light drizzle of ideas.	Лёгкая морось идей.
+Limits	Лимиты
+Live	Сейчас
+Loading creativity…	Загружаю вдохновение…
+Loading skills…	Загружаю навыки…
+Local command	Локальная команда
+Local server	Локальный сервер
+Long tool output is cut to its beginning and end; the whole text goes to a file it reads in parts.	Длинный вывод инструментов обрезается до начала и конца, а целиком он кладётся в файл, который агент читает по частям.
+Look	Вид
+Look around this project and explain how it is put together.	Осмотрись в этом проекте и объясни, как он устроен.
+Lucky shot.	Повезло.
+Mains	От сети
+Manage models…	Управление моделями…
+Match system	Как в системе
+Memory	Память
+Memory as a graph, plus import and export (a memory zip from Claude works too)	Память в виде графа, плюс импорт и экспорт (подходит и архив памяти из Claude)
+Memory is off in this chat: nothing is read or saved	Память в этом чате выключена: ничего не читается и не сохраняется
+Memory is on in this chat	Память в этом чате включена
+Memory off	Память выкл.
+Memory on	Память вкл.
+Memory settings	Настройки памяти
+Menu	Меню
+Messenger	Мессенджер
+Microphone access is needed	Нужен доступ к микрофону
+Microphone access is needed to talk	Чтобы говорить, нужен доступ к микрофону
+Mode	Режим
+Model	Модель
+Model for new messages	Модель для новых сообщений
+Models	Модели
+Models marked :free	Модели с пометкой :free
+Models that may help	Модели, которые могут помогать
+Models the helpers can use	Модели, которые могут брать помощники
+Monospace, square corners, like the TUI	Моноширинный шрифт, квадратные углы, как в терминальной версии
+More	Ещё
+More models	Ещё модели
+More, please.	Ещё, пожалуйста.
+Morning stretch	Утренняя потягушка
+Mustard	Горчичный
+My team	Моя команда
+Name	Имя
+Name (e.g. github)	Имя (например, github)
+Names, roles and settings…	Имена, роли и настройки…
+Narrow	Узко
+Neutral grey, like the desktop app on this PC	Нейтральный серый, как приложение на этом ПК
+New	Новый
+New chat	Новый чат
+New games with the cloud in Settings → cl0udly	Новые игры с облачком в Настройки → cl0udly
+New line	Новая строка
+New task	Новая задача
+Next	Далее
+Nice	Класс
+No artifacts yet	Артефактов пока нет
+No commands	Нет команд
+No connectors yet	Коннекторов пока нет
+No Git	Без Git
+No MCP servers configured. Connectors give the agent extra tools — databases, browsers, docs.	MCP-серверы не настроены. Коннекторы дают агенту дополнительные инструменты: базы данных, браузеры, документацию.
+No merge conflicts.	Конфликтов слияния нет.
+no model	нет модели
+Nope, I was over here.	Не-а, я было здесь.
+No rain today.	Сегодня без дождя.
+Normal	Обычный
+Normal hides the work in a summary; Verbose shows every step open.	«Обычный» прячет работу в сводку, «Подробный» показывает каждый шаг.
+No scheduled tasks yet	Запланированных задач пока нет
+No skills	Нет навыков
+No speech recognizer on this device	На этом устройстве нет распознавания речи
+No sub-agents yet	Субагентов пока нет
+Not all who wander are lost.	Не все, кто блуждает, потерялись.
+Notebook	Блокнот
+Nothing connected yet	Пока ничего не подключено
+Nothing found	Ничего не найдено
+Nothing here yet. Say "remember that…" in a chat, or add a fact below.	Пока пусто. Скажите в чате «запомни, что…» или добавьте факт ниже.
+Nothing is kept: it stays out of your history and memory, and it's deleted as soon as you leave.	Ничего не сохраняется: чат не попадает в историю и память и удаляется, как только вы выйдете.
+Nothing saved yet	Пока ничего не сохранено
+Nothing used in this window	В этом окне ничего не потрачено
+Nothing yet	Пока ничего
+Notifications	Уведомления
+Notifications work	Уведомления работают
+Not the shaking!	Только не трясти!
+No usage in this window	В этом окне ничего не потрачено
+Off	Выкл.
+Oh, hi!	О, привет!
+Oh, it's just Python.	А, это просто Python.
+Okay, okay, you got me.	Ладно, ладно, поймал.
+Once	Один раз
+One agent does everything. Turn on a team to let it hand parts of the work to others.	Всё делает один агент. Включите команду, чтобы он раздавал части работы другим.
+Only for the server on this phone	Только для сервера на этом телефоне
+Open	Открыть
+Open a file	Открыть файл
+Open a project	Открыть проект
+Open a project folder	Открыть папку проекта
+Open file…	Открыть файл…
+Open folder…	Открыть папку…
+Open in default browser	Открыть в браузере по умолчанию
+Open links in built-in browser	Открывать ссылки во встроенном браузере
+Open links in the built-in browser	Открывать ссылки во встроенном браузере
+Opens Changes when a session edits files.	Открывает «Изменения», когда сессия правит файлы.
+Opens cl0udly when you log in.	Открывает cl0udly при входе в систему.
+Open the folder	Открыть папку
+Outfit	Наряд
+Outfits	Наряды
+Paper, serif text, no bubbles — reads like a journal	Бумага, шрифт с засечками, без пузырей — читается как дневник
+Permissions	Разрешения
+Petted	Погладили
+Phone tools	Инструменты телефона
+Pick the project in the corner before you start.	Перед началом выберите проект в углу.
+Pin	Закрепить
+Ping-pong	Пинг-понг
+Ping-pong? I'm undefeated. Mostly.	Пинг-понг? Я непобедимо. Почти.
+Pink	Розовый
+Pinned	Закреплённые
+Plan	План
+Planning	Планирует
+Play	Играть
+Play it now	Показать сейчас
+Play ping-pong	Играть в пинг-понг
+Plays when the app starts; tap to skip	Играет при запуске, нажмите, чтобы пропустить
+Poke detected.	Тык засечён.
+Press start.	Нажми «старт».
+Preview	Просмотр
+Profile	Профиль
+Projects	Проекты
+Providers	Провайдеры
+Providers counted	Учитываемые провайдеры
+Pure black, one-line input, blue voice button	Чистый чёрный, поле в одну строку, синяя кнопка голоса
+Purrr…	Мррр…
+Quick entry	Быстрый ввод
+Quit	Выйти
+Ran a command	Выполнил команду
+Ran a helper	Запустил помощника
+Reacts to	Реагирует на
+Read aloud	Прочитать вслух
+Reading files	Читает файлы
+Ready? Drag to move.	Готов? Двигай пальцем.
+Reasoning level	Уровень рассуждений
+Rematch!	Реванш!
+Remote Control	Удалённое управление
+Remote devices	Удалённые устройства
+Remote URL	Удалённый адрес
+Rename	Переименовать
+Rename chat	Переименовать чат
+Rename session	Переименовать сессию
+Replaces what is here now	Заменит то, что здесь сейчас
+Reply	Ответить
+Resetting now	Сбрасывается сейчас
+Restore from a backup	Восстановить из копии
+Retry	Повторить
+Retry failed	Повтор не удался
+Review	Ревью
+Review my uncommitted changes and point out problems.	Посмотри мои незакоммиченные изменения и укажи на проблемы.
+Rewinds the session to this message	Откатывает сессию к этому сообщению
+Room	Комната
+Rude.	Грубо.
+Run a prompt on a schedule, like a daily summary of your project.	Запускать запрос по расписанию, например ежедневную сводку по проекту.
+Running a command	Выполняет команду
+Run the build, find what fails and fix it.	Запусти сборку, найди, что падает, и почини.
+Russian	Русский
+Russian + English	Русский + английский
+Russian, with English words kept as they are. Fastest.	Русский, английские слова остаются как есть. Быстрее всего.
+Santa hat	Шапка Санты
+Save	Сохранить
+Save on its own	Сохранять самостоятельно
+Save screenshot	Сохранить скриншот
+Save the transcript into…	Сохранить переписку в…
+Scheduled	По расписанию
+Scheduled runs a prompt every day at a time you pick.	«По расписанию» запускает запрос каждый день в выбранное время.
+Scheduled tasks	Задачи по расписанию
+Scroll down	Вниз
+Search	Поиск
+Search artifacts	Искать в артефактах
+Search chats and sessions	Искать в чатах и сессиях
+Searching	Ищет
+Search models	Искать модели
+Search settings	Искать в настройках
+Search shortcuts	Искать сочетания
+Search the web for 	Найди в интернете 
+Select all	Выделить всё
+Select model	Выбор модели
+Select text	Выделить текст
+Semicolons ready.	Точки с запятой наготове.
+Send	Отправить
+Send a test	Отправить тестовое
+Sent with every new session, like Claude's personal preferences.	Отправляется в каждой новой сессии, как личные настройки в Claude.
+Server	Сервер
+Server log	Журнал сервера
+Settings	Настройки
+Set up	Настроить
+Setup	Настройка
+Setup downloads about 110 MB once.	Настройка один раз скачивает около 110 МБ.
+Shades	Очки
+Shake, tilt and upside down	Тряска, наклон и вверх ногами
+Share	Поделиться
+Shell	Оболочка
+Shelves	Полки
+Shift+Enter	Shift+Enter
+Shortcuts	Сочетания клавиш
+Shorter replies and fewer tokens; re-reads its edits and runs the checks before handing work back.	Ответы короче, токенов меньше; перечитывает свои правки и запускает проверки, прежде чем отдать работу.
+Show files the agent edits	Показывать файлы, которые правит агент
+Show me around	Покажи, что тут есть
+Show me the prompt.	Покажи промпт.
+Show on the home screen	Показывать на главном экране
+Show steps	Показать шаги
+Show thinking	Показывать размышления
+Sidebar	Боковая панель
+Sign out	Выйти из аккаунта
+Skills	Навыки
+Skip	Пропустить
+Slash commands	Слэш-команды
+Small	Мелкий
+Smaller text	Мельче текст
+Small model	Малая модель
+Snow, leaves and confetti	Снег, листья и конфетти
+Soft and warm, with serif replies	Мягкий и тёплый, ответы с засечками
+Softest pets.	Самые нежные поглаживания.
+Something went wrong	Что-то пошло не так
+Sounds	Звуки
+Speech recognition is not available on this device	Распознавание речи недоступно на этом устройстве
+Sprout	Росток
+Start	Начать
+Start without an account	Начать без аккаунта
+Start with the session	Запускать вместе с сессией
+Sticking	Не отпускает
+Stop	Стоп
+Stop the reply	Остановить ответ
+Storage	Хранилище
+Sub-agents	Субагенты
+Sub-agents in the model picker and in +: switch each one on or off, give it a name, a role and a model	Субагенты в выборе модели и в «+»: включайте и выключайте каждого, давайте имя, роль и модель
+Subtask: 	Подзадача: 
+Summarize the session to free up context	Сжать сессию, чтобы освободить контекст
+Summarize to free up the context	Сжать, чтобы освободить контекст
+Switch the model right from the composer.	Меняйте модель прямо из поля ввода.
+System	Системный
+Take me with you.	Возьми меня с собой.
+Tap, hold, pet or shake the phone	Тыкни, подержи, погладь или потряси телефон
+Tap, hold, pet or shake — try it here.	Тыкни, подержи, погладь или потряси — попробуй здесь.
+Taps, pets and ping-pong	Тыки, поглаживания и пинг-понг
+Tap the ghost for a chat that leaves no trace.	Нажмите на привидение — чат, который не оставит следов.
+Tap to start, then repeat after me.	Нажми, чтобы начать, и повторяй за мной.
+TASK INTERRUPTED	ЗАДАЧА ПРЕРВАНА
+Tasks run while the app and the server are alive. The app keeps its server running in the background.	Задачи идут, пока живы приложение и сервер. Приложение держит свой сервер в фоне.
+Teal	Бирюзовый
+Team	Команда
+Terminal	Терминал
+Terracotta	Терракота
+Tests: let's find out.	Тесты: сейчас узнаем.
+Text size	Размер текста
+That's nice.	Приятно.
+That tickles!	Щекотно!
+The agent runs in a Linux container (Ubuntu via proot) right on your device — no computer needed. 	Агент работает в Linux-контейнере (Ubuntu через proot) прямо на устройстве — компьютер не нужен. 
+The assistant is cl0udly	Ассистент — cl0udly
+The cloud is fine.	С облачком всё в порядке.
+The cloud is just someone else's phone.	Облако — это просто чужой телефон.
+The floor is lava.	Пол — это лава.
+The launcher may take a few seconds to refresh the icon.	Лаунчеру может понадобиться несколько секунд, чтобы обновить значок.
+The main agent decides how many helpers a task needs and which model each one uses. Simple tasks get none.	Главный агент сам решает, сколько помощников нужно задаче и на какой модели каждый. Простым задачам — ни одного.
+The main agent splits each task between your sub-agents, runs them in parallel, then checks and combines their work.	Главный агент делит задачу между вашими субагентами, запускает их параллельно, потом проверяет и собирает их работу.
+The page didn't open	Страница не открылась
+There is no try-catch.	Нет никакого try-catch.
+The server listens on the local network with its password. The QR is in the Context panel.	Сервер слушает локальную сеть со своим паролем. QR-код — на панели «Контекст».
+The task was interrupted	Задача прервана
+The terminal has you.	Терминал нашёл тебя.
+The window keeps Claude desktop's frame; a look repaints it and changes fonts and messages.	Окно сохраняет рамку Claude desktop; вид перекрашивает его и меняет шрифты и сообщения.
+Thinking	Думает
+this computer	этот компьютер
+This permanently removes the conversation and its history.	Разговор и его история будут удалены навсегда.
+this project	этот проект
+This time it's yours.	На этот раз твоё.
+Thought	Подумал
+Time	Время
+Tip	Совет
+Title	Название
+Today	Сегодня
+Together	Вместе
+Toggle sidebar	Боковая панель
+Too slow!	Слишком медленно!
+Transcript	Переписка
+Transcript view	Вид переписки
+Try again	Ещё раз
+Try it	Попробовать
+Tulip	Тюльпан
+Turn off memory here	Выключить память здесь
+Turn on memory here	Включить память здесь
+Unpin	Открепить
+Update	Обновить
+Update available	Доступно обновление
+Update didn't go through	Обновление не прошло
+Updated the plan	Обновил план
+Usage	Расход
+Use	Использовать
+Used for new messages	Для новых сообщений
+Used in the greeting.	Используется в приветствии.
+Use memory	Использовать память
+Uses the motion sensor while visible	Использует датчик движения, пока виден
+Verbose	Подробный
+Vibes: immaculate.	Вайб: безупречный.
+Vibration	Вибрация
+View	Вид
+Violet	Фиолетовый
+Voice mode	Голосовой режим
+Waiting for the provider	Ждём провайдера
+Waiting for you to approve…	Ждёт вашего разрешения…
+Want me to clean it up?	Прибраться?
+Want one?	Хочешь?
+Warm	Тёплый
+Was I snoring?	Я храпело?
+Watch…	Смотри…
+Watch closely…	Смотри внимательно…
+Watch where I hide. Tap to start.	Смотри, куда я спрячусь. Нажми, чтобы начать.
+Weekly	Каждую неделю
+Welcome to my room.	Добро пожаловать в мою комнату.
+What are we building today?	Что строим сегодня?
+What are we making?	Что делаем?
+What it remembers	Что помнит
+What shall we write today?	Что напишем сегодня?
+What should cl0udly call you?	Как cl0udly к вам обращаться?
+What should cl0udly know about you?	Что cl0udly стоит знать о вас?
+What's new	Что нового
+What's the case?	Что случилось?
+What's the plan?	Какой план?
+What's up?	Как дела?
+What the agent can use besides its own tools: connectors (MCP servers), skills, commands and agents.	Что агент может использовать кроме своих инструментов: коннекторы (MCP-серверы), навыки, команды и агентов.
+What to remember	Что запоминать
+Where am I?	Где я?
+While the agent works (systemd-inhibit).	Пока агент работает (systemd-inhibit).
+Whisper guesses it each time: any language, a few seconds slower.	Whisper угадывает язык каждый раз: любой язык, на пару секунд медленнее.
+Whoa… the sky is spinning.	Ох… небо кружится.
+Why so serious?	Что такой серьёзный?
+Wide	Широко
+Width	Ширина
+Window	Окно
+Winter is coming.	Зима близко.
+Witch hat	Шляпа ведьмы
+Worked	Поработал
+Working	Работает
+Working style	Стиль работы
+Works on my cloud.	На моём облаке работает.
+Write	Написать
+Write a small script that 	Напиши небольшой скрипт, который 
+Writing	Пишет
+Yes, delete all notes	Да, удалить все заметки
+You	Вы
+You came to visit!	Ты пришёл в гости!
+You found me! Faster now.	Нашёл! Теперь быстрее.
+Your cl0udly	Ваш cl0udly
+your computer	ваш компьютер
+You're up to date	У вас последняя версия
+Your name	Ваше имя
+Your panel has no tray, so closing the window quits.	На вашей панели нет трея, поэтому закрытие окна завершает приложение.
+Your plan	Ваш тариф
+Your task is running	Задача выполняется
+Your task is still running. Wanna play?	Задача ещё идёт. Поиграем?
+Your turn	Твой ход
+Zzz…	Хррр…
+Follows the phone's language	Как в телефоне
+This model's limit is used up for now	Лимит этой модели пока исчерпан
+Free models have their own daily allowance on OpenCode's side. Another model usually still works, and this one comes back later.	У бесплатных моделей свой дневной лимит на стороне OpenCode. Другая модель обычно ещё работает, а эта вернётся позже.
+Details	Подробнее
+Timeline	Таймлайн
+Nothing has happened in this chat yet.	В этом чате пока ничего не происходило.
+Attached files	Прикреплены файлы
+Thinking	Думает
+now	сейчас
+Talk with cl0udly	Поговорить с cl0udly
+Listening…	Слушаю…
+Thinking…	Думаю…
+Tap to interrupt	Нажми, чтобы перебить
+Tap to talk	Нажми, чтобы говорить
+New sub-agent	Новый субагент
+Create	Создать
+OpenCode updates	Обновления OpenCode
+Check now	Проверить
+Checking for a new OpenCode…	Ищу новую OpenCode…
+Checked once a day. A new build is tested first and takes over only when it works.	Проверяется раз в день. Новая версия сначала проходит проверку и включается, только если всё работает.
+Go back to the previous version	Вернуть прошлую версию
+Go back	Вернуть
+No previous version yet	Прошлой версии пока нет
+the models did not load	модели не загрузились
+the cl0udly plugin did not load	плагин cl0udly не загрузился
+no opencode binary in the archive	в архиве нет opencode
+it did not start	она не запустилась
+Remember this?	Запомнить это?
+Remembered	Запомнил
+Not saved	Не сохранено
+Remember	Запомнить
+On its own	Сам
+When asked	По просьбе
+Only when asked	Только по просьбе
+Saving	Сохранение
+Offers what it heard about you as a card, you tap Remember	Предлагает услышанное о тебе карточкой, ты нажимаешь «Запомнить»
+Ask: it offers what it heard about you as a card, you tap Remember. Only when asked: it saves when you say "remember".	Спрашивать: предлагает услышанное о тебе карточкой, ты нажимаешь «Запомнить». Только по просьбе: сохраняет, когда скажешь «запомни».
+No	Нет
+Chats and memory move between the phone and the computer by themselves when you're home	Чаты и память сами переезжают между телефоном и компьютером, когда ты дома
+Remember this? cards: the agent offers what it heard about you, you decide	Карточки «Запомнить это?»: агент предлагает услышанное о тебе, решаешь ты
+Sub-agents work as a team: add them in the model picker and in +, they know the whole conversation	Саб-агенты работают командой: добавляй их в выборе модели и в «+», они знают весь разговор
+Memory as a graph, plus import and export (a memory zip from Claude works too)	Память в виде графа, плюс импорт и экспорт (подходит и архив памяти из Claude)
+Photos, videos and audio from the agent show as small tiles; code and headings look like in Claude	Фото, видео и аудио от агента — маленькими плитками; код и заголовки как в Claude
+OpenCode updates itself, and you can go back to the previous version in Server settings	OpenCode обновляется сам, а в настройках сервера можно вернуть прошлую версию
+A dot on the menu breathes while the agent works and turns blue when the task is done	Точка на меню мерцает, пока агент работает, и становится синей, когда задача готова
+Russian and English, voice talk with the cloud, a task timeline and limit warnings	Русский и английский, голосовой разговор с облачком, таймлайн задачи и предупреждения о лимитах
+Settings and every section are in every look now	Настройки и все разделы теперь есть в любом стиле

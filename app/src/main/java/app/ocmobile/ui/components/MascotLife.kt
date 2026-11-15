@@ -18,6 +18,8 @@ object MascotSignals {
     var forced by mutableStateOf<Holiday?>(null)
     /** The agent just finished ([Outcome.ok]) or failed: the mascot on screen reacts once. */
     var outcome by mutableStateOf<Outcome?>(null)
+    /** How far the side menu is out, 0..1: the mascot on the home screen looks toward it. */
+    var drawer by mutableFloatStateOf(0f)
 }
 
 class Outcome(val ok: Boolean, val at: Long = System.currentTimeMillis())

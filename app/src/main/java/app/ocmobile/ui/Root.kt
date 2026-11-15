@@ -168,6 +168,10 @@ private fun Shell(rt: RuntimeState) {
     LaunchedEffect(drawer, sheetW) {
         snapshotFlow { drawerProgress() > 0.02f }.collect { out -> if (out) { keyboard?.hide(); focus.clearFocus(force = true) } }
     }
+    // the mascot on the home screen watches the menu come out (rounded so it doesn't redraw every pixel)
+    LaunchedEffect(drawer, sheetW) {
+        snapshotFlow { (drawerProgress() * 20).toInt() / 20f }.collect { app.ocmobile.ui.components.MascotSignals.drawer = it }
+    }
 
     // The server starts by itself when the app opens.
     var autostarted by remember { mutableStateOf(false) }
@@ -188,8 +192,9 @@ private fun Shell(rt: RuntimeState) {
 
     ModalNavigationDrawer(
         drawerState = drawer,
-        // while a finger is on the mascot, the drawer doesn't open by swipe: it's being petted and pulled
-        gesturesEnabled = drawer.isOpen || !app.ocmobile.ui.components.MascotGrab.held,
+        // the swipe opens the drawer only on the home screen and in a chat (elsewhere it would fight with
+        // scrolling, pages and back); while a finger is on the mascot it doesn't either: it's being petted and pulled
+        gesturesEnabled = drawer.isOpen || (drawerSwipe(nav.current) && !app.ocmobile.ui.components.MascotGrab.held),
         drawerContent = {
             ModalDrawerSheet(drawerContainerColor = c.bg, drawerShape = RectangleShape, windowInsets = WindowInsets(0), modifier = Modifier.fillMaxWidth(DRAWER_WIDTH)) {
                 DrawerContent(nav) { scope.launch { drawer.close() } }
@@ -280,9 +285,14 @@ private fun Shell(rt: RuntimeState) {
         }
     }
     ConnectPrompt(nav)
+    app.ocmobile.ui.components.HelperHost()
+    app.ocmobile.ui.components.FileViewerHost()
 }
 
 /** A screen on its background, no wider than 720 dp on tablets and in landscape (phones are unchanged). */
+/** Screens where a swipe from the left pulls out the side menu. */
+private fun drawerSwipe(r: Route) = r == Route.Home || r == Route.NewCode || r is Route.Chat
+
 @Composable
 private fun ScreenFrame(content: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize().background(Oc.c.bg), contentAlignment = Alignment.TopCenter) {
@@ -351,6 +361,7 @@ private fun ConnectPrompt(nav: Nav) {
                     app.ocmobile.data.ConnectLink.accept(o)
                     app.ocmobile.data.ConnectLink.pending = null
                     nav.root(Route.Code)
+                    o.session?.let { nav.openChat(it) }
                     Graph.chats.toasts.tryEmit("Connected to ${o.name.ifBlank { "your computer" }}")
                 } catch (e: Exception) {
                     error = e.message?.takeIf { it.isNotBlank() } ?: "Can't reach the computer"

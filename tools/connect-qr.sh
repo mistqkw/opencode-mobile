@@ -4,7 +4,7 @@
 # in cl0udly, Remote devices → Add device → Scan QR code (or point the phone camera at it).
 # The phone and computer must be on the same network. Stop with Ctrl+C.
 #
-#   curl -fsSL https://raw.githubusercontent.com/mistqkw/opencode-mobile/main/tools/connect-qr.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/mistqkw/cl0udly-mobile/main/tools/connect-qr.sh | sh
 #   PORT=4500 NAME=Laptop sh connect-qr.sh
 set -e
 

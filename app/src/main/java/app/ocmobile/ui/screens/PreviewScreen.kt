@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -53,8 +54,11 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 /**
- * Live preview of what the agent builds: a dev server from the environment (localhost is shared with the app)
- * or the project's .html file through the bridge. When the agent edits files, the page reloads by itself.
+ * The app's browser. Two jobs:
+ * - live preview of what the agent builds: a dev server from the environment (localhost is shared with the app)
+ *   or the project's .html file through the bridge; when the agent edits files, the page reloads by itself;
+ * - any web page from a chat link, like Claude's in-app browser: you browse inside, back goes back a page.
+ * The side menu can't be pulled out here (Root turns its swipe off), so scrolling the page is never taken over.
  */
 @OptIn(FlowPreview::class)
 @SuppressLint("SetJavaScriptEnabled")
@@ -68,24 +72,33 @@ fun PreviewScreen(url: String, sessionId: String?, nav: Nav) {
     var loading by remember { mutableStateOf(true) }
     var failed by remember { mutableStateOf<String?>(null) }
     var reloads by remember { mutableStateOf(0) }
+    var progress by remember { mutableStateOf(0) }
+    var canBack by remember { mutableStateOf(false) }
+    var canForward by remember { mutableStateOf(false) }
+    // a page from the web (not the project's own server or file): browse freely, no "Live" bar
+    val web0 = remember(url) { Uri.parse(url) }
+    val browsing = remember(url) { web0.host !in setOf("127.0.0.1", "localhost") }
 
     // the agent edited a file: reload (with a pause, so a series of edits gives one reload)
-    LaunchedEffect(Unit) {
+    if (!browsing) LaunchedEffect(Unit) {
         Graph.events.events.filter { e ->
             e.type == "file.edited" || (e.type == "message.part.updated" && e.props.obj("part")?.let { p ->
                 p.str("tool") in setOf("edit", "write", "apply_patch", "patch", "multiedit") && p.obj("state")?.str("status") == "completed"
             } == true)
         }.debounce(700).collect { web?.reload(); reloads++ }
     }
-    BackHandler(web?.canGoBack() == true) { web?.goBack() }
+    BackHandler(canBack) { web?.goBack() }
     DisposableEffect(Unit) { onDispose { web?.destroy() } }
 
     Column(Modifier.fillMaxSize().screenBackdrop("PreviewScreen1")) {
-        TopBar(title, left = { IconBtn(Ic.Back, { nav.pop() }) }, right = {
+        TopBar(title, left = { IconBtn(if (browsing) Ic.Close else Ic.Back, { nav.pop() }) }, right = {
             IconBtn(Ic.Refresh, { failed = null; web?.reload() })
-            IconBtn(Ic.External, { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(web?.url ?: url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) })
+            IconBtn(Ic.External, { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(web?.url ?: url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } })
         })
-        Box(Modifier.fillMaxWidth().height(2.dp).background(if (loading) c.accent.copy(alpha = 0.6f) else c.border))
+        // a thin line that fills as the page loads, then becomes the usual divider
+        Box(Modifier.fillMaxWidth().height(2.dp).background(c.border)) {
+            if (loading) Box(Modifier.fillMaxWidth((progress.coerceIn(8, 100)) / 100f).height(2.dp).background(c.accent))
+        }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -96,15 +109,33 @@ fun PreviewScreen(url: String, sessionId: String?, nav: Nav) {
                         settings.loadWithOverviewMode = true
                         settings.useWideViewPort = true
                         settings.allowFileAccess = false
+                        settings.setSupportZoom(true)
+                        settings.builtInZoomControls = true
+                        settings.displayZoomControls = false
+                        settings.mediaPlaybackRequiresUserGesture = true
+                        // the page scrolls by itself: no glow or stretch fighting with it at the edges
+                        overScrollMode = android.view.View.OVER_SCROLL_NEVER
+                        isVerticalScrollBarEnabled = false
+                        webChromeClient = object : android.webkit.WebChromeClient() {
+                            override fun onProgressChanged(view: WebView, p: Int) { if (progress != p) progress = p }
+                        }
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(view: WebView, req: WebResourceRequest): Boolean {
+                                val scheme = req.url.scheme ?: return false
+                                // mail, phone, app links: their own apps
+                                if (scheme != "http" && scheme != "https") {
+                                    runCatching { cx.startActivity(Intent(Intent.ACTION_VIEW, req.url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                    return true
+                                }
+                                if (browsing) return false
                                 val h = req.url.host ?: return false
                                 if (h == "127.0.0.1" || h == "localhost") return false
                                 // other links go to the external browser, the preview stays on the project
                                 runCatching { cx.startActivity(Intent(Intent.ACTION_VIEW, req.url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                                 return true
                             }
-                            override fun onPageStarted(view: WebView, u: String?, favicon: Bitmap?) { loading = true }
+                            override fun onPageStarted(view: WebView, u: String?, favicon: Bitmap?) { loading = true; progress = 0 }
+                            override fun doUpdateVisitedHistory(view: WebView, u: String?, isReload: Boolean) { canBack = view.canGoBack(); canForward = view.canGoForward() }
                             override fun onPageFinished(view: WebView, u: String?) { loading = false; title = view.title?.takeIf { it.isNotBlank() && !it.startsWith("http") } ?: label(u ?: url) }
                             override fun onReceivedError(view: WebView, req: WebResourceRequest, err: android.webkit.WebResourceError) {
                                 if (req.isForMainFrame) failed = err.description?.toString() ?: "Could not open the page"
@@ -114,6 +145,8 @@ fun PreviewScreen(url: String, sessionId: String?, nav: Nav) {
                         web = this
                     }
                 },
+                // the view lives as long as the screen; destroyed once, in onDispose above
+                onRelease = {},
             )
             failed?.let { msg ->
                 Column(Modifier.fillMaxSize().screenBackdrop("PreviewScreen2").padding(28.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -125,7 +158,13 @@ fun PreviewScreen(url: String, sessionId: String?, nav: Nav) {
                 }
             }
         }
-        if (sessionId != null) Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (browsing) Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconBtn(Ic.Back, { web?.goBack() }, tint = if (canBack) c.text else c.textDim.copy(alpha = 0.4f))
+            IconBtn(Ic.Back, { web?.goForward() }, Modifier.graphicsLayer { rotationZ = 180f }, tint = if (canForward) c.text else c.textDim.copy(alpha = 0.4f))
+            Txt(Uri.parse(web?.url ?: url).host.orEmpty().removePrefix("www."), Modifier.weight(1f).padding(horizontal = 8.dp), size = 13.sp, color = c.textDim, maxLines = 1, align = androidx.compose.ui.text.style.TextAlign.Center)
+            IconBtn(Ic.Share, { runCatching { ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, web?.url ?: url), null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }, iconSize = 21.dp)
+        }
+        if (sessionId != null && !browsing) Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).clip(CircleShape).background(if (reloads > 0) c.ok else c.textDim))
             Spacer(Modifier.size(8.dp))
             Txt(if (reloads > 0) "Live · reloaded $reloads×" else "Live · reloads when OpenCode edits files", Modifier.weight(1f), size = 13.sp, color = c.textDim, maxLines = 1)

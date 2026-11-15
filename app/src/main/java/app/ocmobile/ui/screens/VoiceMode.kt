@@ -84,7 +84,7 @@ private enum class Talk { Idle, Listening, Thinking, Speaking }
  * [sessionId] = null: a new chat is created with the first phrase; [onClose] gets the chat id if one appeared.
  */
 @Composable
-fun VoiceMode(sessionId: String?, onClose: (String?) -> Unit) {
+fun VoiceMode(sessionId: String?, forceCloud: Boolean = false, onClose: (String?) -> Unit) {
     val c = Oc.c
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -100,12 +100,15 @@ fun VoiceMode(sessionId: String?, onClose: (String?) -> Unit) {
     val recognizer = remember { if (SpeechRecognizer.isRecognitionAvailable(ctx)) SpeechRecognizer.createSpeechRecognizer(ctx) else null }
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     var listenNext by remember { mutableStateOf<() -> Unit>({}) }
+    // in the cloud look the conversation is with the mascot: it sits in the ring and speaks a little higher
+    val cloud = Oc.look.id == "cloud" || forceCloud
 
     fun speak(text: String) {
         val t = tts
         if (!speaker || t == null || text.isBlank()) { talk = Talk.Idle; listenNext(); return }
         val clean = text.replace(Regex("```[\\s\\S]*?```"), " code omitted. ").replace(Regex("[`*#>_|\\[\\]]"), "").replace(Regex("\\((/|https?://)[^)]*\\)"), "").take(2500)
         t.language = app.ocmobile.data.Speech.ttsLocale(clean)
+        t.setPitch(if (cloud) 1.25f else 1f)
         talk = Talk.Speaking
         t.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "voice")
     }
@@ -188,14 +191,21 @@ fun VoiceMode(sessionId: String?, onClose: (String?) -> Unit) {
         Box(Modifier.fillMaxSize().screenBackdrop("VoiceMode1")) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Spacer(Modifier.weight(1f))
-                VoiceRing(talk, level, Modifier.size(220.dp).tap(scale = 0.97f) {
-                    when (talk) {
-                        Talk.Speaking -> { tts?.stop(); talk = Talk.Idle; listen() } // interrupt, like in Claude
-                        Talk.Idle -> listen()
-                        Talk.Listening -> recognizer?.stopListening()
-                        Talk.Thinking -> {}
-                    }
-                })
+                Box(Modifier.size(260.dp), contentAlignment = Alignment.Center) {
+                    VoiceRing(talk, level, Modifier.fillMaxSize().tap(scale = 0.97f) {
+                        when (talk) {
+                            Talk.Speaking -> { tts?.stop(); talk = Talk.Idle; listen() } // interrupt, like in Claude
+                            Talk.Idle -> listen()
+                            Talk.Listening -> recognizer?.stopListening()
+                            Talk.Thinking -> {}
+                        }
+                    })
+                    // the cloud talks with you: it watches while you speak, thinks while the agent works, smiles while it answers
+                    if (cloud) app.ocmobile.ui.components.PixelCloud(
+                        Modifier.size(width = 104.dp, height = 72.dp), thinking = talk == Talk.Thinking, interactive = false,
+                        watching = talk == Talk.Listening, cue = talk,
+                    )
+                }
                 Spacer(Modifier.height(28.dp))
                 AnimatedContent(talk, label = "talk", transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(80)) }) { t ->
                     Txt(

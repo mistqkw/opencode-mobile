@@ -87,20 +87,6 @@ class RuntimeController(
 
     private fun OC_URL_OR(v: String) = ocUrl(v)
 
-    /** Update OpenCode to the latest 1.x release (the client is tested on 1.19.4). */
-    suspend fun updateOpencode(): String = withContext(Dispatchers.IO) {
-        val wasRunning = state.value is RuntimeState.Running
-        val latest = Regex("\"version\":\\s*\"([0-9.]+)\"").find(Downloader.getText("https://registry.npmjs.org/opencode-ai/latest"))?.groupValues?.get(1)
-            ?: error("Could not determine the latest version")
-        if (!latest.startsWith("1.")) error("Latest version $latest is not on the 1.x line; this client was only verified against 1.x")
-        if (latest == prefs.opencodeVersion) return@withContext latest
-        requestStop(); delay(1500)
-        installOpencode(latest, ocUrl(latest), null)
-        smokeTest()
-        if (wasRunning) startServer()
-        latest
-    }
-
     private fun installOpencode(version: String, url: String, sha: String?) {
         val tgz = File(paths.downloads, "opencode-$version.tar.gz")
         step("Downloading OpenCode $version", 0f)
@@ -262,6 +248,13 @@ class RuntimeController(
         requestStop()
         app.stopService(Intent(app, ServerService::class.java))
         if (state.value !is RuntimeState.NotInstalled) state.value = RuntimeState.Stopped
+    }
+
+    /** A long-running process inside Ubuntu (the updater's test server); the caller stops it. */
+    fun startGuest(argv: List<String>, cwd: String, extraEnv: Map<String, String>, logTo: File): Process {
+        val pb = ProcessBuilder(proot.build(argv, cwd, extraEnv)).redirectErrorStream(true).redirectOutput(logTo)
+        pb.environment().putAll(proot.env())
+        return pb.start()
     }
 
     /** Run a command inside Ubuntu (installing git and so on). */

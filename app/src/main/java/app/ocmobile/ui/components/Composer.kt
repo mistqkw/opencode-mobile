@@ -50,6 +50,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
@@ -194,7 +198,7 @@ fun ComposerHost(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                state.attachments.toList().forEach { a -> AttachmentChip(a) { state.attachments.remove(a) } }
+                AttachmentStrip(state.attachments)
             }
         }
         if (look == "cloud" && !dict.active) {
@@ -347,22 +351,7 @@ fun ComposerHost(
     if (!dict.active && look != "cloud") CostHint(sessionId?.let { Graph.chats.chat(it) }, state.text, state.attachments.size)
     }
 
-    if (state.showAdd && look.kimiLike) {
-        KimiAddSheet(
-            nav = nav,
-            sessionId = sessionId,
-            onDismiss = { state.showAdd = false },
-            onCamera = {
-                val f = File(ctx.cacheDir, "camera").apply { mkdirs() }.let { File(it, "cam-${System.currentTimeMillis()}.jpg") }
-                val u = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
-                cameraUri = u
-                camera.launch(u)
-            },
-            onPhotos = { photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-            onFiles = { files.launch(arrayOf("*/*")) },
-            onVoice = onVoice,
-        )
-    } else if (state.showAdd) {
+    if (state.showAdd) {
         AddSheet(
             onDismiss = { state.showAdd = false },
             sessionId = sessionId,
@@ -376,15 +365,59 @@ fun ComposerHost(
             },
             onPhotos = { state.showAdd = false; photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             onFiles = { state.showAdd = false; files.launch(arrayOf("*/*")) },
+            onVoice = onVoice,
         )
     }
     var allModels by remember { mutableStateOf(false) }
-    if (state.showModel && look.kimiLike && !allModels) KimiModelPanel(onDismiss = { state.showModel = false }, onMore = { allModels = true })
-    else if (state.showModel) ModelSheet(onDismiss = { state.showModel = false; allModels = false }, start = if (allModels) "all" else "main")
+    if (state.showModel && look.kimiLike && !allModels) KimiModelPanel(onDismiss = { state.showModel = false }, onMore = { allModels = true }, onTeam = { state.showModel = false; nav.push(Route.Team) })
+    else if (state.showModel) ModelSheet(onDismiss = { state.showModel = false; allModels = false }, start = if (allModels) "all" else "main", onTeam = { state.showModel = false; allModels = false; nav.push(Route.Team) })
+}
+
+/**
+ * The attachments above the input. Hold one and drag it sideways to change the order; with two or more
+ * each gets a number, and the agent is told the same numbers, so "photo 2" means the second one here.
+ */
+@Composable
+private fun AttachmentStrip(list: androidx.compose.runtime.snapshots.SnapshotStateList<Attachment>) {
+    val haptic = rememberHaptic()
+    var held by remember { mutableStateOf<Attachment?>(null) }
+    var dx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val widths = remember { androidx.compose.runtime.mutableStateMapOf<Attachment, Int>() }
+    val gap = with(androidx.compose.ui.platform.LocalDensity.current) { 10.dp.toPx() }
+    list.toList().forEachIndexed { i, a ->
+        androidx.compose.runtime.key(a) {
+            val lifted by androidx.compose.animation.core.animateFloatAsState(if (held == a) 1f else 0f, androidx.compose.animation.core.tween(120), label = "lift")
+            Box(
+                Modifier.zIndex(if (held == a) 1f else 0f)
+                    .onSizeChanged { widths[a] = it.width }
+                    .graphicsLayer { translationX = if (held == a) dx else 0f; scaleX = 1f + 0.06f * lifted; scaleY = scaleX }
+                    .pointerInput(a) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { held = a; dx = 0f; haptic() },
+                            onDrag = { ch, d ->
+                                ch.consume()
+                                dx += d.x
+                                val at = list.indexOf(a)
+                                // past half of the neighbour: swap with it and keep the chip under the finger
+                                if (dx > 0 && at < list.lastIndex) {
+                                    val w = (widths[list[at + 1]] ?: 0) + gap
+                                    if (dx > w / 2) { list.removeAt(at); list.add(at + 1, a); dx -= w; haptic() }
+                                } else if (dx < 0 && at > 0) {
+                                    val w = (widths[list[at - 1]] ?: 0) + gap
+                                    if (-dx > w / 2) { list.removeAt(at); list.add(at - 1, a); dx += w; haptic() }
+                                }
+                            },
+                            onDragEnd = { held = null; dx = 0f },
+                            onDragCancel = { held = null; dx = 0f },
+                        )
+                    },
+            ) { AttachmentChip(a, if (list.size > 1) i + 1 else null) { list.remove(a) } }
+        }
+    }
 }
 
 @Composable
-private fun AttachmentChip(a: Attachment, onRemove: () -> Unit) {
+private fun AttachmentChip(a: Attachment, number: Int?, onRemove: () -> Unit) {
     val c = Oc.c
     Box {
         if (a.isImage) {
@@ -399,6 +432,11 @@ private fun AttachmentChip(a: Attachment, onRemove: () -> Unit) {
             Modifier.align(Alignment.TopEnd).padding(4.dp).size(22.dp).clip(CircleShape).background(c.bg.copy(alpha = .85f)).clickable(onClick = onRemove),
             contentAlignment = Alignment.Center,
         ) { Ico(Ic.Close, tint = c.text, size = 14.dp) }
+        // the same number the agent is told
+        if (number != null) Box(
+            Modifier.align(Alignment.TopStart).padding(4.dp).size(22.dp).clip(CircleShape).background(c.text),
+            contentAlignment = Alignment.Center,
+        ) { Txt("$number", size = 12.sp, color = c.bg, weight = FontWeight.SemiBold) }
     }
 }
 
@@ -410,6 +448,7 @@ private fun AddSheet(
     onCamera: () -> Unit,
     onPhotos: () -> Unit,
     onFiles: () -> Unit,
+    onVoice: (() -> Unit)? = null,
 ) {
     val c = Oc.c
     val prefs = Graph.prefs
@@ -418,13 +457,12 @@ private fun AddSheet(
     val agents by Graph.catalog.agents.collectAsState()
     val permLabel = mapOf("ask" to "Ask", "edits" to "Auto-edit", "auto" to "Auto")
 
-    PickerFrame(
-        onDismiss = onDismiss,
-        title = when (page) { "perm" -> "Permission"; "agent" -> "Agent"; else -> if (Oc.terminal) "Commands" else "Add to session" },
-        onBack = if (page != "main") ({ page = "main" }) else null,
-        skipHalf = !Oc.claudeLike,
-    ) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = if (Oc.claudeLike) 24.dp else 10.dp)) {
+    // Terminal keeps its TUI dialog; every other look gets the sheet with tiles and groups, like Claude's
+    val sheet = !Oc.terminal
+    val title = when (page) { "perm" -> "Permission"; "agent" -> "Agent"; else -> if (Oc.terminal) "Commands" else "Add to session" }
+    val back = if (page != "main") ({ page = "main" }) else null
+    val body: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = if (sheet) 24.dp else 10.dp)) {
             when (page) {
                 "perm" -> {
                     listOf(
@@ -447,7 +485,11 @@ private fun AddSheet(
                 "agent" -> agents.forEach { a ->
                     PickRow(a.name.replaceFirstChar { it.uppercase() }, { prefs.agent = a.name; page = "main" }, selected = prefs.agent == a.name, subtitle = a.description)
                 }
-                else -> if (Oc.claudeLike) {
+                else -> if (sheet) {
+                    // leaving for another screen: the sheet slides away first, then the screen opens
+                    val close = LocalSheetClose.current
+                    fun go(to: () -> Unit) = close(to)
+                    var memHere by remember { mutableStateOf(prefs.memoryOn(sessionId)) }
                     Row(Modifier.padding(horizontal = 16.dp).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Tile("Camera", Ic.Camera, Modifier.weight(1f), onCamera)
                         Tile("Photos", Ic.Image, Modifier.weight(1f), onPhotos)
@@ -457,17 +499,24 @@ private fun AddSheet(
                     SettingsGroup {
                         SettingsRow("Permission", subtitle = permLabel[prefs.permissionMode], icon = Ic.FastForward, circleIcon = true, chevron = true, onClick = { page = "perm" })
                         SettingsRow("Agent", subtitle = prefs.agent.replaceFirstChar { it.uppercase() }, icon = Ic.Bot, circleIcon = true, chevron = true, onClick = { page = "agent" })
-                        SettingsRow("Devices", icon = Ic.Laptop, circleIcon = true, chevron = true, onClick = { onDismiss(); nav.push(Route.Code) })
+                        SettingsRow("Devices", icon = Ic.Laptop, circleIcon = true, chevron = true, onClick = { go { nav.push(Route.Code) } })
+                        if (onVoice != null) SettingsRow("Call", icon = Ic.Phone, circleIcon = true, chevron = true, onClick = { go(onVoice) })
                     }
                     Spacer(Modifier.height(14.dp))
                     SettingsGroup {
                         SettingsRow("Plan mode", icon = Ic.ListCheck, circleIcon = true, trailing = {
                             OcSwitch(prefs.agent == "plan") { prefs.agent = if (it) "plan" else "build" }
                         })
-                        SettingsRow("Connectors", icon = Ic.Puzzle, circleIcon = true, chevron = true, onClick = { onDismiss(); nav.push(Route.Connectors) })
-                        SettingsRow("Skills", icon = Ic.Scroll, circleIcon = true, chevron = true, onClick = { onDismiss(); nav.push(Route.Skills) })
-                        SettingsRow("Memory", icon = Ic.Scroll, circleIcon = true, trailing = {
-                            OcSwitch(prefs.memoryEnabled) { prefs.memoryEnabled = it; app.ocmobile.data.Memory.sync() }
+                        SettingsRow("Sub-agents", subtitle = teamLabel(), icon = Ic.Users, circleIcon = true, chevron = true, onClick = { go { nav.push(Route.Team) } })
+                        SettingsRow("Add a sub-agent", subtitle = "A name, a role and a model", icon = Ic.Plus, circleIcon = true, onClick = { go { app.ocmobile.data.Team.addRequested = true; nav.push(Route.Team) } })
+                        SettingsRow("Connectors", icon = Ic.Puzzle, circleIcon = true, chevron = true, onClick = { go { nav.push(Route.Connectors) } })
+                        SettingsRow("Skills", icon = Ic.Scroll, circleIcon = true, chevron = true, onClick = { go { nav.push(Route.Skills) } })
+                        SettingsRow("Scheduled", icon = Ic.Clock2, circleIcon = true, chevron = true, onClick = { go { nav.root(Route.Scheduled) } })
+                        SettingsRow("Memory", icon = Ic.Sparkle, circleIcon = true, trailing = {
+                            OcSwitch(prefs.memoryEnabled) { prefs.memoryEnabled = it; memHere = prefs.memoryOn(sessionId); app.ocmobile.data.Memory.sync() }
+                        })
+                        if (sessionId != null && prefs.memoryEnabled) SettingsRow("Memory in this chat", icon = Ic.Chat, circleIcon = true, trailing = {
+                            OcSwitch(memHere) { memHere = it; Graph.chats.setChatMemory(sessionId, it) }
                         })
                     }
                 } else {
@@ -487,6 +536,8 @@ private fun AddSheet(
             }
         }
     }
+    if (sheet) MagnetSheet(onDismiss = onDismiss, title = title, onBack = back, content = body)
+    else PickerFrame(onDismiss = onDismiss, title = title, onBack = back, content = body)
 }
 
 @Composable
@@ -503,7 +554,7 @@ private fun Tile(label: String, icon: androidx.compose.ui.graphics.vector.ImageV
 }
 
 @Composable
-fun ModelSheet(start: String = "main", onDismiss: () -> Unit) {
+fun ModelSheet(start: String = "main", onTeam: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val c = Oc.c
     val prefs = Graph.prefs
     val providers by Graph.catalog.providers.collectAsState()
@@ -513,10 +564,15 @@ fun ModelSheet(start: String = "main", onDismiss: () -> Unit) {
 
     PickerFrame(
         onDismiss = onDismiss,
-        title = when (page) { "effort" -> "Effort"; "all" -> "More models"; else -> "Select model" },
+        title = when (page) { "effort" -> "Effort"; "all" -> "More models"; "team" -> "Sub-agents"; else -> "Select model" },
         onBack = if (page != "main") ({ page = "main" }) else null,
         skipHalf = false,
     ) {
+        // sub-agents right here, a page like More models; the full screen is one row away
+        if (page == "team") {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) { app.ocmobile.ui.screens.TeamPanel(onAll = onTeam, onCreated = onDismiss) }
+            return@PickerFrame
+        }
         if (page == "effort") {
             val names = current?.variantNames.orEmpty()
             Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
@@ -530,7 +586,7 @@ fun ModelSheet(start: String = "main", onDismiss: () -> Unit) {
         }
         val claudeEd = Oc.claudeLike
         if (claudeEd && page == "main") {
-            ClaudeModelMain(current, onDismiss = onDismiss, onEffort = { page = "effort" }, onMore = { page = "all" })
+            ClaudeModelMain(current, onDismiss = onDismiss, onEffort = { page = "effort" }, onMore = { page = "all" }, onTeam = { page = "team" })
             return@PickerFrame
         }
         PickSearch(query, { query = it }, "Search models")
@@ -635,7 +691,7 @@ internal fun pickModel(providerId: String, m: app.ocmobile.api.ModelInfo) {
 
 /** The main model picker page, like Claude mobile: a short list as a card, a hint, Effort and "More models". */
 @Composable
-private fun ClaudeModelMain(current: app.ocmobile.api.ModelInfo?, onDismiss: () -> Unit, onEffort: () -> Unit, onMore: () -> Unit) {
+private fun ClaudeModelMain(current: app.ocmobile.api.ModelInfo?, onDismiss: () -> Unit, onEffort: () -> Unit, onMore: () -> Unit, onTeam: (() -> Unit)? = null) {
     val c = Oc.c
     val prefs = Graph.prefs
     val providers by Graph.catalog.providers.collectAsState()
@@ -693,6 +749,8 @@ private fun ClaudeModelMain(current: app.ocmobile.api.ModelInfo?, onDismiss: () 
         }
         SettingsGroup {
             SettingsRow("More models", chevron = true, onClick = onMore)
+            // helpers: who they are, their models and names, and which ones are on
+            if (onTeam != null) SettingsRow("Sub-agents", subtitle = teamLabel(), chevron = true, onClick = onTeam)
         }
     }
 }
@@ -733,3 +791,10 @@ class SkillHighlight(private val names: Set<String>, private val color: androidx
 
 /** "/name" at the start of the text or after a space. */
 val SLASH_TOKEN = Regex("""(^|\s)/([\w.:-]+)""")
+
+/** The sub-agents row's value: off, automatic, or how many of your helpers are on. */
+internal fun teamLabel(): String = when (Graph.prefs.teamMode) {
+    "manual" -> app.ocmobile.data.Team.members.count { it.on }.let { if (it == 1) "1 helper" else "$it helpers" }
+    "auto" -> "Automatic"
+    else -> "Off"
+}

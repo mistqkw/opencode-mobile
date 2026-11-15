@@ -30,7 +30,7 @@ Current version: **v0.0.1 beta-4**. Android 8+, arm64. Unofficial client.
 
 **Interfaces.** The default look is cl0udly: graphite with quiet pixel clouds and a small cloud that acts out what the agent is doing. It reacts to taps, petting, shaking and charging, dresses up for holidays and has its own room with ping-pong. In this look the assistant introduces itself as cl0udly and names its real model when asked. All of it can be tuned in Settings → cl0udly. Several other looks are in Settings, including OpenCode Desktop and OpenCode Terminal. The app icon can follow the look.
 
-**Your computer.** Remote devices → Add device → Scan QR code. On the computer run `curl -fsSL https://raw.githubusercontent.com/mistqkw/opencode-mobile/main/tools/connect-qr.sh | sh`: it starts OpenCode 1.x on your local network with a new password and prints a QR code. The phone and computer need to be on the same network.
+**Your computer.** Remote devices → Add device → Scan QR code. On the computer run `curl -fsSL https://raw.githubusercontent.com/mistqkw/cl0udly-mobile/main/tools/connect-qr.sh | sh`: it starts OpenCode 1.x on your local network with a new password and prints a QR code. The phone and computer need to be on the same network.
 
 **Memory.** The agent keeps facts in markdown files under `/root/memory` and sorts them by topic. You can view and edit them in Settings → Memory.
 

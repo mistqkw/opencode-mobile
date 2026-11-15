@@ -51,14 +51,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK="opencode-mobile-$TAG.apk"
+          APK="cl0udly-mobile-$TAG.apk"
           cp main.apk "$APK"
           # zipped: beta-4 and older take the first *.apk of a release as the update
-          V7="opencode-mobile-$TAG-armv7.apk"
+          V7="cl0udly-mobile-$TAG-armv7.apk"
           cp armv7.apk "$V7" && zip -q "$V7.zip" "$V7"
           NOTES="docs/releases/$TAG.md"
-          [ -f "$NOTES" ] || echo "OpenCode mobile $TAG" > "$NOTES"
-          PRE=""; case "$TAG" in *alpha*|*beta*|*rc*) PRE="--prerelease";; esac
+          [ -f "$NOTES" ] || echo "cl0udly $TAG" > "$NOTES"
+          # betas go out as full releases, visible as the latest one (not marked pre-release)
+          PRE=""
           NAME="${TAG/-beta-/ beta-}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber

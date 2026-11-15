@@ -30,11 +30,11 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * Updates from GitHub releases: every few hours it checks mistqkw/opencode-mobile,
+ * Updates from GitHub releases: every few hours it checks mistqkw/cl0udly-mobile,
  * compares the version with the installed one, downloads the APK on "Install" and hands it to the system installer.
  */
 object Updater {
-    const val REPO = "mistqkw/opencode-mobile"
+    const val REPO = "mistqkw/cl0udly-mobile"
     private const val EVERY_MS = 6 * 60 * 60 * 1000L
 
     data class Release(val tag: String, val name: String, val notes: String, val apkUrl: String, val size: Long, val page: String)

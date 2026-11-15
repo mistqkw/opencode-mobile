@@ -50,6 +50,9 @@ class Prefs(ctx: Context) {
     var codeFont by str("code_font", "mono")          // mono | system
     var wrapLines by bool("wrap_lines", false)
     var haptics by bool("haptics", true)
+    var sounds by bool("sounds", true)
+    var limitWarned by str("limit_warned", "")       // the window already warned about, "5-hour@<reset>"
+    var language by str("language", "system")         // system | en | ru: the app's own words
     var accessBannerHidden by bool("access_banner_hidden", false)  // dismissed the hint about background work and notifications
     // the cl0udly mascot: the "cl0udly" tab in settings
     var mascotOn by bool("mascot_on", true)
@@ -68,7 +71,11 @@ class Prefs(ctx: Context) {
     var teamMode by str("team_mode", "off")             // off | manual | auto
     var teamMembers by str("team_members", "[]")        // JSON: [{name, role, provider, model}]
     var teamPool by str("team_pool", "")                // auto: models, comma-separated, provider/model
+    var teamFileLast by str("team_file_last", "")      // the team file as the app last wrote it
     var teamMax by str("team_max", "3")                 // auto: the most helpers allowed
+    var teamAlways by str("team_always", "")            // provider/model per line: helpers that never ask first
+    var brainStyle by bool("brain_style", true)         // brief replies, every step checked (cl0udly-brain plugin)
+    var brainPrune by str("brain_prune", "8000")       // tool output cut to head and tail above this many characters; 0 keeps it
     var updateAuto by bool("update_auto", true)          // check GitHub releases on launch
     var phoneTools by bool("phone_tools", true)          // "phone" MCP: the agent can act on this phone
     var phoneToken by str("phone_token", "")
@@ -87,6 +94,19 @@ class Prefs(ctx: Context) {
     var memoryCustom by str("memory_custom", "")
     /** Save on its own (true) or only when asked to "remember". */
     var memoryAuto by bool("memory_auto", true)
+    /** Sync chats and memory with paired computers on the same network; when it last worked; per-device chat times seen then. */
+    var syncHome by bool("sync_home", true)
+    var syncLast by lng("sync_last", 0L)
+    var syncLedger by str("sync_ledger", "{}")
+    /** ask | auto | off: offer facts as "Remember this?" cards, save them on its own, or only when asked. */
+    var memorySave by str("memory_save", "")
+    val memoryMode get() = memorySave.ifBlank { if (memoryAuto) "ask" else "off" }
+    /** Answers to "Remember this?" cards: callID:y|n, newest last. */
+    var memoryAnswers by str("memory_answers", "")
+    fun memoryAnswer(call: String) = memoryAnswers.split(',').firstOrNull { it.startsWith("$call:") }?.substringAfter(':')
+    fun answerMemory(call: String, yes: Boolean) {
+        memoryAnswers = (memoryAnswers.split(',').filter { it.isNotBlank() && !it.startsWith("$call:") } + "$call:${if (yes) "y" else "n"}").takeLast(300).joinToString(",")
+    }
     /** Intro animation on launch. */
     var introEnabled by bool("intro_enabled", true)
     /** Shelf topics, comma-separated; empty means any. */
@@ -96,6 +116,7 @@ class Prefs(ctx: Context) {
     var githubLogin by str("github_login", "")           // GitHub sign-in inside the environment (gh holds the token)
     var githubName by str("github_name", "")
     var githubAvatar by str("github_avatar", "")
+    var seenVersion by str("seen_version", "")         // the version whose "what's new" was shown
     var onboarded by bool("onboarded", false)          // first launch done
     var scheduledJson by str("scheduled", "[]")
     var activeDevice by str("active_device", "")
@@ -113,6 +134,12 @@ class Prefs(ctx: Context) {
     var noSeccomp by bool("no_seccomp", false)
     var runtimeReady by bool("runtime_ready", false)
     var opencodeVersion by str("opencode_version", "")
+    /** OpenCode updates: when GitHub was last asked, the version kept to go back to, a version that failed its test, why, and a note for the user. */
+    var ocChecked by lng("oc_checked", 0L)
+    var ocPrevVersion by str("oc_prev_version", "")
+    var ocSkip by str("oc_skip", "")
+    var ocUpdateError by str("oc_update_error", "")
+    var ocNotice by str("oc_notice", "")
 
     // Model / mode selection
     var providerId by str("model_provider", "")

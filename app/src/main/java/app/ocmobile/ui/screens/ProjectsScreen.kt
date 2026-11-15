@@ -63,7 +63,7 @@ fun ProjectsScreen(nav: Nav, onMenu: () -> Unit) {
     val projects = remember(sessions, newProject) { knownProjects() }
     Box(Modifier.fillMaxSize().screenBackdrop("ProjectsScreen1")) {
         Column(Modifier.fillMaxSize()) {
-            TopBar("Projects", left = { IconBtn(Ic.Menu, onMenu) })
+            TopBar("Projects", left = { app.ocmobile.ui.components.MenuBtn(onMenu) })
             if (projects.isEmpty()) EmptyState(Ic.Folder, "No projects yet", "Projects you create show up here.")
             LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)) {
                 item {

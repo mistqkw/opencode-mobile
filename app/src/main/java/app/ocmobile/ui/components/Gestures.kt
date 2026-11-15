@@ -29,7 +29,12 @@ fun Modifier.tap(
 ): Modifier = composed {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
-    val s by animateFloatAsState(if (pressed && enabled) scale else 1f, spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh), label = "press")
+    // it sinks fast and comes back with a little spring, like it's held by a magnet
+    val s by animateFloatAsState(
+        if (pressed && enabled) scale else 1f,
+        if (pressed) spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh) else spring(0.45f, 900f),
+        label = "press",
+    )
     val a by animateFloatAsState(if (pressed && enabled) 0.72f else 1f, androidx.compose.animation.core.tween(70), label = "pressAlpha")
     val haptic = LocalHapticFeedback.current
     this
