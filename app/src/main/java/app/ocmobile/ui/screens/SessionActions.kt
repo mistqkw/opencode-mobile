@@ -69,13 +69,8 @@ fun SessionActionsMenu(s: Session, open: Boolean, onDismiss: () -> Unit) {
             done()
         }) { OcTextField(t, { t = it }) }
     }
-    if (delete) {
-        val done = { delete = false; onDismiss() }
-        OcDialog("Delete session?", done, "Delete", {
-            scope.launch { runCatching { Graph.api.deleteSession(s.id, dir) }; Graph.chats.forget(s.id); Graph.chats.refreshSessions() }
-            done()
-        }, danger = true) { Txt("This permanently removes the conversation and its history.", size = 16.sp, color = c.textDim) }
-    }
+    // no "are you sure?": the chat goes at once and "Undo" at the bottom brings it back
+    if (delete) { androidx.compose.runtime.LaunchedEffect(Unit) { Graph.chats.deleteWithUndo(listOf(s.id)); delete = false; onDismiss() } }
     if (!open || rename || delete) return
 
     val gap = with(LocalDensity.current) { 6.dp.roundToPx() }

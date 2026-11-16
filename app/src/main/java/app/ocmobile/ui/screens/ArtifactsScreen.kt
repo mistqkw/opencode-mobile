@@ -43,6 +43,7 @@ import app.ocmobile.api.long
 import app.ocmobile.api.str
 import app.ocmobile.ui.Nav
 import app.ocmobile.ui.components.CodeBlock
+import app.ocmobile.ui.components.DiffView
 import app.ocmobile.ui.components.EmptyState
 import app.ocmobile.ui.components.Ico
 import app.ocmobile.ui.components.IconBtn
@@ -132,7 +133,7 @@ fun ArtifactsScreen(nav: Nav, onMenu: () -> Unit) {
                 Txt(a.file, size = 14.sp, color = Oc.c.textDim)
                 a.content?.let { CodeBlock(it, a.file.substringAfterLast('.', "")) }
                 if (a.content == null) a.patch?.let { DiffView(it) }
-                a.content?.let { Row { app.ocmobile.ui.components.SmallButton("Copy", { clip.setText(AnnotatedString(it)); Graph.chats.toasts.tryEmit("Copied") }) } }
+                a.content?.let { Row { app.ocmobile.ui.components.SmallButton("Copy", { clip.setText(AnnotatedString(it)); app.ocmobile.ui.components.copiedNote() }) } }
             }
         }
     }

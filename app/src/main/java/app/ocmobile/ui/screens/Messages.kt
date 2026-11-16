@@ -57,6 +57,7 @@ import app.ocmobile.api.obj
 import app.ocmobile.api.str
 import app.ocmobile.data.ChatMessage
 import app.ocmobile.ui.components.CodeBlock
+import app.ocmobile.ui.components.DiffView
 import app.ocmobile.ui.components.Ico
 import app.ocmobile.ui.components.IconBtn
 import app.ocmobile.ui.components.ImageThumb
@@ -64,6 +65,8 @@ import app.ocmobile.ui.components.Markdown
 import app.ocmobile.ui.components.OcTextField
 import app.ocmobile.ui.components.SmallButton
 import app.ocmobile.ui.components.longPress
+import app.ocmobile.ui.components.longPressAnchored
+import app.ocmobile.ui.components.anchorTo
 import app.ocmobile.ui.components.Spinner
 import app.ocmobile.ui.components.Txt
 import app.ocmobile.ui.theme.Ic
@@ -143,20 +146,20 @@ fun UserBubble(m: ChatMessage, onImage: (String) -> Unit, onSelect: () -> Unit, 
         if (text.isNotBlank()) {
             if (Oc.terminal) {
                 // like in the TUI: a full-width dark block with a blue bar on the left
-                Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min).background(c.userBubble).longPress(onLong)) {
+                Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min).background(c.userBubble).longPressAnchored(onLong)) {
                     Box(Modifier.width(3.dp).fillMaxHeight().background(c.link))
                     Text(text, color = c.text, fontSize = 15.sp, lineHeight = 22.sp, fontFamily = Oc.body, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
                 }
             } else when (Oc.look.user) {
                 // Messenger: a bubble with a tail and the time inside
-                "tail" -> Box(Modifier.widthIn85().clip(TailShape(right = true)).background(c.userBubble).longPress(onLong).padding(start = 14.dp, end = 20.dp, top = 8.dp, bottom = 8.dp)) {
+                "tail" -> Box(Modifier.widthIn85().clip(TailShape(right = true)).background(c.userBubble).longPressAnchored(onLong).padding(start = 14.dp, end = 20.dp, top = 8.dp, bottom = 8.dp)) {
                     Column(horizontalAlignment = Alignment.End) {
                         Text(text, color = c.text, fontSize = 16.sp, lineHeight = 22.sp, fontFamily = Oc.body)
                         Txt(hhmm(m.info.time.created), size = 11.sp, color = c.text.copy(alpha = 0.55f))
                     }
                 }
                 // Notebook: no bubble, a label and text with a bar on the left
-                "plain" -> Column(Modifier.fillMaxWidth().longPress(onLong)) {
+                "plain" -> Column(Modifier.fillMaxWidth().longPressAnchored(onLong)) {
                     Txt("YOU · " + hhmm(m.info.time.created), size = 11.sp, color = c.textDim, family = Oc.label)
                     Row(Modifier.padding(top = 4.dp).height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
                         Box(Modifier.width(2.dp).fillMaxHeight().background(c.accent)); Spacer(Modifier.width(12.dp))
@@ -164,7 +167,7 @@ fun UserBubble(m: ChatMessage, onImage: (String) -> Unit, onSelect: () -> Unit, 
                     }
                 }
                 // Cards: a card with a header
-                "card" -> Column(Modifier.widthIn85().clip(Oc.round(18.dp)).background(c.surface).border(1.dp, c.border, Oc.round(18.dp)).longPress(onLong).padding(14.dp)) {
+                "card" -> Column(Modifier.widthIn85().clip(Oc.round(18.dp)).background(c.surface).border(1.dp, c.border, Oc.round(18.dp)).longPressAnchored(onLong).padding(14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(6.dp).clip(CircleShape).background(c.accent)); Spacer(Modifier.width(8.dp))
                         Txt("You", size = 13.sp, color = c.textDim, weight = FontWeight.Medium); Spacer(Modifier.width(6.dp)); Txt(hhmm(m.info.time.created), size = 12.sp, color = c.textDim)
@@ -172,25 +175,24 @@ fun UserBubble(m: ChatMessage, onImage: (String) -> Unit, onSelect: () -> Unit, 
                     Text(text, color = c.text, fontSize = 16.sp, lineHeight = 23.sp, fontFamily = Oc.body, modifier = Modifier.padding(top = 6.dp))
                 }
                 // Hairline: a 1px frame, no fill
-                "line" -> Box(Modifier.widthIn85().clip(Oc.round(10.dp)).border(1.dp, c.border, Oc.round(10.dp)).longPress(onLong).padding(horizontal = 16.dp, vertical = 11.dp)) {
+                "line" -> Box(Modifier.widthIn85().clip(Oc.round(10.dp)).border(1.dp, c.border, Oc.round(10.dp)).longPressAnchored(onLong).padding(horizontal = 16.dp, vertical = 11.dp)) {
                     Text(text, color = c.text, fontSize = 16.sp, lineHeight = 23.sp, fontFamily = Oc.body)
                 }
-                else -> Box(Modifier.widthIn85().clip(Oc.round(22.dp)).background(c.userBubble).longPress(onLong).padding(horizontal = 18.dp, vertical = 12.dp)) {
+                else -> Box(Modifier.widthIn85().clip(Oc.round(22.dp)).background(c.userBubble).longPressAnchored(onLong).padding(horizontal = 18.dp, vertical = 12.dp)) {
                     Text(text, color = c.text, fontSize = 16.sp, lineHeight = 23.sp, fontFamily = Oc.body)
                 }
             }
-            Box {
-                androidx.compose.material3.DropdownMenu(menu, { menu = false }, containerColor = c.surface, shape = Oc.round(16.dp), offset = androidx.compose.ui.unit.DpOffset(0.dp, 4.dp)) {
-                    Txt(java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(m.info.time.created)), size = 13.sp, color = c.textDim, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(c.border))
-                    @Composable fun row(icon: ImageVector, label: String, act: () -> Unit) = androidx.compose.material3.DropdownMenuItem(
-                        text = { Txt(label, size = 16.sp) }, leadingIcon = { Ico(icon, tint = c.textDim, size = 20.dp) }, onClick = { menu = false; act() },
-                    )
-                    row(Ic.Copy, "Copy message") { clip.setText(AnnotatedString(text)); Graph.chats.toasts.tryEmit("Copied") }
-                    row(Ic.TextSelect, "Select text", onSelect)
-                    row(Ic.Edit, "Edit", onEdit)
-                }
-            }
+            // the same floating card as the reply's ⋯, right at the bubble
+            if (menu) app.ocmobile.ui.components.FloatMenu(
+                { menu = false },
+                listOf(
+                    app.ocmobile.ui.components.FloatItem("Copy", Ic.Copy) { clip.setText(AnnotatedString(text)); app.ocmobile.ui.components.copiedNote() },
+                    app.ocmobile.ui.components.FloatItem("Select text", Ic.TextSelect, act = onSelect),
+                    app.ocmobile.ui.components.FloatItem("Edit", Ic.Edit, act = onEdit),
+                ),
+                header = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(m.info.time.created)),
+                alignEnd = true,
+            )
         }
     }
 }
@@ -224,7 +226,7 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
             val ctx = androidx.compose.ui.platform.LocalContext.current
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (textAll.isNotBlank()) {
-                    IconBtn(Ic.Copy, { clip.setText(AnnotatedString(textAll)); Graph.chats.toasts.tryEmit("Copied") }, size = 40.dp, iconSize = 20.dp, tint = c.textDim)
+                    app.ocmobile.ui.components.CopyButton(textAll, size = 40.dp, iconSize = 20.dp)
                     IconBtn(Ic.Share, {
                         val i = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, textAll)
                         ctx.startActivity(android.content.Intent.createChooser(i, null).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -233,7 +235,10 @@ fun AssistantBlock(m: ChatMessage, last: Boolean, onImage: (String) -> Unit, onL
                 }
                 if (onRetry != null) IconBtn(Ic.Refresh, onRetry, size = 40.dp, iconSize = 20.dp, tint = c.textDim)
                 // the model and the price are in the "⋮" menu: the row is the same size under every reply
-                IconBtn(Ic.More, onLong, size = 40.dp, iconSize = 20.dp, tint = c.textDim)
+                var at by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+                Box(Modifier.anchorTo { at = it }) {
+                    IconBtn(Ic.More, { app.ocmobile.ui.components.MenuAnchor.rect = at; onLong() }, size = 40.dp, iconSize = 20.dp, tint = c.textDim)
+                }
             }
             if (last) Txt((if (app.ocmobile.data.Persona.on) "cl0udly" else "OpenCode") + " can make mistakes. Check important changes.", size = 13.sp, color = c.textDim, modifier = Modifier.padding(top = 2.dp))
         } }
@@ -303,7 +308,7 @@ object Speaker {
         if (speaking) { tts?.stop(); speaking = false; return }
         val go = {
             val clean = text.replace(Regex("[`*#>_]"), "")
-            tts?.language = app.ocmobile.data.Speech.ttsLocale(clean)
+            tts?.let { app.ocmobile.data.Speech.applyVoice(it, clean) }
             tts?.speak(clean, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "oc")
             speaking = true
         }
@@ -328,16 +333,58 @@ private fun InfoLine(icon: ImageVector, text: String) {
     }
 }
 
+/** What went wrong in plain words, and what to do about it. */
+private class Trouble(val title: String, val hint: String, val retry: Boolean = true, val model: Boolean = true, val signIn: Boolean = false, val compact: Boolean = false, val quiet: Boolean = false)
+
+private fun troubleOf(name: String?, message: String): Trouble {
+    val m = message.lowercase()
+    return when {
+        name == "MessageAbortedError" || m.contains("aborted") ->
+            Trouble("You stopped this reply", "Send it again whenever you like.", model = false, quiet = true)
+        name == "ProviderAuthError" || m.contains("unauthorized") || m.contains("api key") || m.contains("didn't accept the sign-in") || m.contains("401") ->
+            Trouble("The model's service didn't accept the sign-in", "Sign in again, or pick a model that needs no account.", retry = false, signIn = true)
+        m.contains("context") && (m.contains("length") || m.contains("too long") || m.contains("maximum") || m.contains("window")) ->
+            Trouble("This chat got too long for the model", "Compact it to free up room, or switch to a model with a bigger memory.", retry = false, compact = true)
+        m.contains("function.name") || m.contains("expected '") || m.contains("tool call") || m.contains("invalid json") ->
+            Trouble("The model sent a broken step", "It happens with some free models. Try again, or pick another model.")
+        m.contains("timeout") || m.contains("timed out") || m.contains("network") || m.contains("fetch failed") || m.contains("econn") || m.contains("unable to connect") || m.contains("socket") ->
+            Trouble("Couldn't reach the model's server", "Check the connection and try again.", model = false)
+        m.contains("overloaded") || m.contains("503") || m.contains("502") || m.contains("unavailable") ->
+            Trouble("The model's server is busy right now", "Try again in a moment, or pick another model.")
+        else -> Trouble("Something went wrong with this reply", "Try again, or pick another model.")
+    }
+}
+
 @Composable
 private fun ErrorCard(name: String?, message: String, sessionId: String) {
     val c = Oc.c
     if (app.ocmobile.data.Limits.isLimit(name, message)) { LimitCard(message, sessionId); return }
-    Row(Modifier.fillMaxWidth().clip(Oc.round(18.dp)).background(c.danger.copy(alpha = .12f)).border(1.dp, c.danger.copy(alpha = .35f), Oc.round(18.dp)).padding(14.dp)) {
-        Ico(Ic.Warning, tint = c.danger, size = 22.dp); Spacer(Modifier.width(12.dp))
-        Column {
-            if (name == "ProviderAuthError") Txt("Provider not connected", size = 15.sp, color = c.danger, weight = FontWeight.Medium)
-            Txt(message, size = 15.sp, color = c.text)
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val t = remember(name, message) { troubleOf(name, message) }
+    var details by remember { mutableStateOf(false) }
+    fun again() {
+        val chat = Graph.chats.chat(sessionId)
+        val last = chat.messages.lastOrNull { it.info.isUser } ?: return
+        val text = userText(last)
+        if (text.isNotBlank()) scope.launch { runCatching { Graph.chats.edit(ctx, sessionId, last, text, emptyList()) }.onFailure { Graph.chats.toasts.tryEmit(it.message ?: "Couldn't send again") } }
+    }
+    // a calm card, not a red alarm: what happened, why, and the way on
+    Column(Modifier.fillMaxWidth().clip(Oc.round(18.dp)).background(c.surface).border(1.dp, if (t.quiet) c.border else c.danger.copy(alpha = .3f), Oc.round(18.dp)).padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Ico(if (t.quiet) Ic.Stop else Ic.Warning, tint = if (t.quiet) c.textDim else c.danger, size = 20.dp); Spacer(Modifier.width(10.dp))
+            Txt(t.title, size = 15.sp, weight = FontWeight.Medium)
         }
+        Txt(t.hint, Modifier.padding(top = 6.dp), size = 14.sp, color = c.textDim, lineHeight = 20.sp)
+        Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (t.retry) SmallButton("Try again", { again() }, filled = true)
+            if (t.compact) SmallButton("Compact chat", {
+                scope.launch { runCatching { Graph.api.summarize(sessionId, Graph.chats.session(sessionId)?.directory, Graph.prefs.providerId, Graph.prefs.modelId) } }
+            }, filled = true)
+            if (t.signIn) SmallButton("Sign in", { Graph.chats.openRequest.value = "route:connect:" + Graph.prefs.providerId.removeSuffix("-chat").let { if (it == "copilot") "github-copilot" else it } }, filled = true)
+            if (t.model || t.signIn || t.compact) SmallButton("Change model", { app.ocmobile.ui.components.UiRequests.pickModel++ })
+        }
+        if (!t.quiet) Txt(if (details) message else "Details", Modifier.padding(top = 10.dp).clickable { details = !details }, size = 13.sp, color = c.textDim, lineHeight = 18.sp)
     }
 }
 
@@ -517,20 +564,6 @@ private fun LiveTerminal(command: String, output: String, inset: Boolean = true)
         Text("$ " + command.lineSequence().first().take(200), color = c.link, fontFamily = Oc.mono, fontSize = 12.sp, softWrap = false)
         if (output.isNotBlank()) lines.forEach { Text(it.ifEmpty { " " }, color = c.text, fontFamily = Oc.mono, fontSize = 12.sp, softWrap = false) }
         Box(Modifier.padding(top = 2.dp).size(width = 7.dp, height = 13.dp).background(c.text.copy(alpha = if (blink > 0.5f) 0.9f else 0f)))
-    }
-}
-
-@Composable
-fun DiffView(diff: String) {
-    val c = Oc.c
-    Box(Modifier.fillMaxWidth().clip(Oc.round(14.dp)).background(c.codeBg).horizontalScroll(rememberScrollState())) {
-        Column(Modifier.padding(vertical = 10.dp)) {
-            diff.lineSequence().take(400).forEach { l ->
-                val bg = when { l.startsWith("+") && !l.startsWith("+++") -> c.ok.copy(alpha = .16f); l.startsWith("-") && !l.startsWith("---") -> c.danger.copy(alpha = .16f); else -> androidx.compose.ui.graphics.Color.Transparent }
-                val fg = if (l.startsWith("@@")) c.link else c.text
-                Text(l.ifEmpty { " " }, color = fg, fontFamily = Oc.mono, fontSize = 12.sp, softWrap = false, modifier = Modifier.background(bg).padding(horizontal = 12.dp))
-            }
-        }
     }
 }
 

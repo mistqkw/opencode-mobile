@@ -15,8 +15,8 @@ android {
         // and with targetSdk >= 29 Android forbids exec from app_data_file (same as Termux).
         // The APK is distributed as a file, not through Play.
         targetSdk = 28
-        versionCode = 6
-        versionName = "0.0.2 beta-1"
+        versionCode = 7
+        versionName = "0.0.2 beta-2"
         // -Pabi=armeabi-v7a: a build for 32-bit phones without proot, it only connects to a computer
         ndk { abiFilters += (findProperty("abi") as String? ?: "arm64-v8a") }
     }

@@ -151,7 +151,9 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
                 SettingsRow("cl0udly", subtitle = "Mascot, outfits and games", icon = Ic.Cloud, onClick = { nav.push(Route.MascotSettings) })
                 SettingsRow("Color mode", subtitle = prefs.colorMode.replaceFirstChar { it.uppercase() }, icon = Ic.Moon, onClick = { dialog = "color" })
                 SettingsRow("Font style", subtitle = if (prefs.fontStyle == "default") "Default" else "System", icon = Ic.FontSize, onClick = { nav.push(Route.Appearance) })
+                SettingsRow("Side menu", subtitle = "Sections and chats it shows", icon = Ic.Menu, onClick = { nav.push(Route.SideMenu) })
                 SettingsRow("Voice", subtitle = app.ocmobile.data.Speech.label(), icon = Ic.Waveform, onClick = { dialog = "voice" })
+                SettingsRow("Reading voice", subtitle = if (prefs.ttsVoice.isBlank()) "The most natural one" else "Picked by you", icon = Ic.Volume, onClick = { dialog = "ttsVoice" })
             }
             Spacer(Modifier.height(16.dp))
             SettingsGroup {
@@ -197,6 +199,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
     }
 
     if (dialog == "bug") BugDialog { dialog = null }
+    if (dialog == "ttsVoice") VoicePickerDialog { dialog = null }
     when (dialog) {
         "voice" -> ChoiceDialog("Speech language", app.ocmobile.data.Speech.languages.map { Triple(it.first, it.second, null) }, prefs.speechLang, { prefs.speechLang = it }) { dialog = null }
         "color" -> ChoiceDialog("Color mode", listOf(Triple("system", "System", Ic.Phone), Triple("light", "Light", Ic.Sun), Triple("dark", "Dark", Ic.Moon)), prefs.colorMode, { prefs.colorMode = it }) { dialog = null }
@@ -315,6 +318,44 @@ private fun BugDialog(onDismiss: () -> Unit) {
             }
             Spacer(Modifier.height(8.dp))
             Txt("You'll see everything on GitHub before you send it. Needs a GitHub account.", size = 13.sp, color = c.textDim, lineHeight = 18.sp)
+        }
+    }
+}
+
+/** The reading voices installed for the speech language: tap one to hear it, the tick marks the one in use. */
+@Composable
+private fun VoicePickerDialog(onDismiss: () -> Unit) {
+    val c = Oc.c
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val prefs = Graph.prefs
+    var tts by remember { mutableStateOf<android.speech.tts.TextToSpeech?>(null) }
+    var voices by remember { mutableStateOf<List<android.speech.tts.Voice>>(emptyList()) }
+    var picked by remember { mutableStateOf(prefs.ttsVoice) }
+    val sample = if (app.ocmobile.data.Speech.tag().startsWith("ru")) "Привет! Так я буду читать ответы вслух." else "Hi! This is how I'll read replies aloud."
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        var t: android.speech.tts.TextToSpeech? = null
+        t = android.speech.tts.TextToSpeech(ctx.applicationContext) { st ->
+            if (st == android.speech.tts.TextToSpeech.SUCCESS) { tts = t; voices = app.ocmobile.data.Speech.voicesFor(t!!, app.ocmobile.data.Speech.ttsLocale(sample)) }
+        }
+        onDispose { t?.stop(); t?.shutdown() }
+    }
+    fun quality(v: android.speech.tts.Voice) = when {
+        v.quality >= android.speech.tts.Voice.QUALITY_VERY_HIGH -> "Natural"
+        v.quality >= android.speech.tts.Voice.QUALITY_HIGH -> "Clear"
+        else -> "Basic"
+    } + if (v.isNetworkConnectionRequired) ", online" else ""
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.clip(Oc.round(32.dp)).background(c.bg).border(1.dp, c.border, Oc.round(32.dp)).heightIn(max = 600.dp).verticalScroll(rememberScrollState()).padding(vertical = 12.dp)) {
+            Txt("Reading voice", Modifier.padding(start = 24.dp, top = 16.dp, bottom = 4.dp), size = 22.sp)
+            Txt("Tap a voice to hear it.", Modifier.padding(start = 24.dp, bottom = 10.dp), size = 14.sp, color = c.textDim)
+            ChoiceRow("The most natural one", picked.isBlank(), { picked = ""; prefs.ttsVoice = ""; tts?.let { app.ocmobile.data.Speech.applyVoice(it, sample); it.speak(sample, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "try") } })
+            if (tts != null && voices.isEmpty()) Txt("No voices for this language. Install them in Android settings → Text-to-speech.", Modifier.padding(horizontal = 24.dp, vertical = 8.dp), size = 14.sp, color = c.textDim)
+            voices.forEachIndexed { i, v ->
+                ChoiceRow("Voice ${i + 1}", picked == v.name, subtitle = quality(v), onClick = {
+                    picked = v.name; prefs.ttsVoice = v.name
+                    tts?.let { it.voice = v; it.setPitch(1f); it.speak(sample, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "try") }
+                })
+            }
         }
     }
 }

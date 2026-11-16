@@ -26,6 +26,8 @@ import app.ocmobile.Graph
 import app.ocmobile.api.str
 import app.ocmobile.data.ChatMessage
 import app.ocmobile.ui.components.OcSheet
+import app.ocmobile.ui.components.FloatItem
+import app.ocmobile.ui.components.FloatMenu
 import app.ocmobile.ui.components.SettingsGroup
 import app.ocmobile.ui.components.SettingsRow
 import app.ocmobile.ui.components.Txt
@@ -36,7 +38,7 @@ fun userText(m: ChatMessage) = m.parts.filter { it.type == "text" && it.raw.str(
 fun assistantText(m: ChatMessage) = m.parts.filter { it.type == "text" }.joinToString("\n\n") { it.text }
 fun messageText(m: ChatMessage) = if (m.info.isUser) userText(m) else assistantText(m)
 
-/** Long-press menu for a message, like in Claude: copy, select, edit, retry. */
+/** The ⋯ / long-press menu of a message: a card floating right next to it, like the chat's ⋯ menu. */
 @Composable
 fun MessageActionsSheet(
     m: ChatMessage,
@@ -47,39 +49,26 @@ fun MessageActionsSheet(
     onFork: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val c = Oc.c
     val ctx = LocalContext.current
     val clip = LocalClipboardManager.current
     val text = messageText(m)
-    fun done(f: () -> Unit) = { onDismiss(); f() }
-    OcSheet(onDismiss) {
-        Column(Modifier.padding(bottom = 20.dp)) {
-            // which model wrote the reply and what it cost: kept here, out of the buttons under the reply
-            if (!m.info.isUser) {
-                val bits = listOfNotNull(m.info.modelName, m.info.cost?.takeIf { it > 0 }?.let { app.ocmobile.ui.components.Fmt.price(it) })
-                if (bits.isNotEmpty()) Txt(bits.joinToString("   "), Modifier.padding(horizontal = 24.dp, vertical = 4.dp), size = 14.sp, color = c.textDim, maxLines = 1)
-            }
-            if (text.isNotBlank()) {
-                Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(Oc.round(20.dp)).background(c.surface).padding(16.dp)) {
-                    Txt(text, size = 15.sp, color = c.textDim, maxLines = 3)
-                }
-                Spacer(Modifier.height(8.dp))
-            }
-            SettingsGroup {
-                if (text.isNotBlank()) {
-                    SettingsRow("Copy", icon = Ic.Copy, onClick = done { clip.setText(AnnotatedString(text)); Graph.chats.toasts.tryEmit("Copied") })
-                    SettingsRow("Select text", icon = Ic.IBeam, onClick = done(onSelect))
-                }
-                onEdit?.let { SettingsRow("Edit", subtitle = "Rewinds the session to this message", icon = Ic.Edit, onClick = done(it)) }
-                onRetry?.let { SettingsRow("Retry", icon = Ic.Refresh, onClick = done(it)) }
-                SettingsRow("Fork from here", icon = Ic.Branch, onClick = done(onFork))
-                if (text.isNotBlank()) SettingsRow("Share", icon = Ic.Share, onClick = done {
-                    ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null))
-                })
-                SettingsRow("Delete message", icon = Ic.Trash, titleColor = c.danger, onClick = done(onDelete))
-            }
+    // which model wrote the reply and what it cost: kept here, out of the buttons under the reply
+    val header = if (m.info.isUser) null
+        else listOfNotNull(m.info.modelName, m.info.cost?.takeIf { it > 0 }?.let { app.ocmobile.ui.components.Fmt.price(it) }).joinToString("   ").ifBlank { null }
+    val items = buildList {
+        if (text.isNotBlank()) {
+            add(FloatItem("Copy", Ic.Copy) { clip.setText(AnnotatedString(text)); app.ocmobile.ui.components.copiedNote() })
+            add(FloatItem("Select text", Ic.IBeam, act = onSelect))
         }
+        onEdit?.let { add(FloatItem("Edit", Ic.Edit, act = it)) }
+        onRetry?.let { add(FloatItem("Retry", Ic.Refresh, act = it)) }
+        add(FloatItem("Fork from here", Ic.Branch, act = onFork))
+        if (text.isNotBlank()) add(FloatItem("Share", Ic.Share) {
+            ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null))
+        })
+        add(FloatItem("Delete message", Ic.Trash, danger = true, act = onDelete))
     }
+    FloatMenu(onDismiss, items, header)
 }
 
 @Composable

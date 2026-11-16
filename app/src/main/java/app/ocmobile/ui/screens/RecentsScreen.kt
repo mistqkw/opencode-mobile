@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import androidx.compose.ui.text.withStyle
 import app.ocmobile.ui.theme.kimiLike
 import app.ocmobile.ui.theme.screenBackdrop
 import androidx.compose.foundation.background
@@ -113,14 +114,10 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
                     else {
                         Box {
                             IconBtn(Ic.Sliders, { filterMenu = true })
-                            DropdownMenu(filterMenu, { filterMenu = false }, containerColor = c.surface) {
-                                listOf("all" to "All", "pinned" to "Pinned", "working" to "Working", "input" to "Needs input").forEach { (k, l) ->
-                                    DropdownMenuItem(
-                                        text = { Txt(l, size = 17.sp, color = if (filter == k) c.link else c.text) },
-                                        onClick = { filter = k; filterMenu = false },
-                                    )
-                                }
-                            }
+                            if (filterMenu) app.ocmobile.ui.components.FloatMenu({ filterMenu = false },
+                                listOf("all" to "All", "pinned" to "Pinned", "working" to "Working", "input" to "Needs input").map { (k, l) ->
+                                    app.ocmobile.ui.components.FloatItem(l, selected = filter == k) { filter = k }
+                                })
                         }
                         IconBtn(Ic.ListCheck, { selecting = true })
                     }
@@ -172,7 +169,7 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
                         Ico(if (statuses[s.id] != null) Ic.Zap else Ic.Terminal, tint = if (statuses[s.id] != null) c.accent else c.textDim, size = 22.dp)
                         Spacer(Modifier.width(16.dp))
                         Column(Modifier.weight(1f)) {
-                            Txt(s.displayTitle, size = 19.sp, maxLines = 1)
+                            androidx.compose.material3.Text(marked(s.displayTitle, query.trim(), c.accent), color = c.text, fontSize = 19.sp, maxLines = 1, fontFamily = Oc.body)
                             Txt(ago(s.time.updated) + " · " + s.directory.substringAfterLast('/').ifBlank { "/" }, size = 15.sp, color = c.textDim, maxLines = 1)
                         }
                         if (s.id in needInput) Box(Modifier.size(10.dp).clip(CircleShape).background(c.link))
@@ -184,7 +181,7 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
                         val h = hits[i]
                         Column(Modifier.fillMaxWidth().tap(scale = 1f) { nav.openChat(h.sessionId) }.padding(horizontal = 20.dp, vertical = 11.dp)) {
                             Txt(h.title.ifBlank { "Untitled" } + " · " + ago(h.time), size = 14.sp, color = c.textDim, maxLines = 1)
-                            Txt((if (h.user) "You: " else "") + h.snippet, size = 16.sp, maxLines = 3, lineHeight = 22.sp)
+                            androidx.compose.material3.Text(marked((if (h.user) "You: " else "") + h.snippet, query.trim(), c.accent), color = c.text, fontSize = 16.sp, maxLines = 3, lineHeight = 22.sp, fontFamily = Oc.body)
                         }
                     }
                 }
@@ -194,7 +191,7 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
                         val h = memHits[i]
                         Column(Modifier.fillMaxWidth().tap(scale = 1f) { nav.push(Route.Memory) }.padding(horizontal = 20.dp, vertical = 11.dp)) {
                             Txt(h.shelf, size = 14.sp, color = c.textDim, maxLines = 1)
-                            Txt(h.line, size = 16.sp, maxLines = 3, lineHeight = 22.sp)
+                            androidx.compose.material3.Text(marked(h.line, query.trim(), c.accent), color = c.text, fontSize = 16.sp, maxLines = 3, lineHeight = 22.sp, fontFamily = Oc.body)
                         }
                     }
                 }
@@ -203,12 +200,19 @@ fun RecentsScreen(nav: Nav, onMenu: () -> Unit) {
         Box(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp)) { Pill("New session", { nav.root(Route.Home) }, icon = Ic.Plus) }
     }
     if (confirm) {
-        OcDialog("Delete ${selected.size} session${if (selected.size == 1) "" else "s"}?", { confirm = false }, "Delete", {
-            val ids = selected.toList(); confirm = false; selecting = false; selected.clear()
-            scope.launch {
-                ids.forEach { id -> runCatching { Graph.api.deleteSession(id, Graph.chats.session(id)?.directory) }; Graph.chats.forget(id) }
-                Graph.chats.refreshSessions()
-            }
-        }, danger = true) { Txt("This cannot be undone.", size = 16.sp, color = c.textDim) }
+        LaunchedEffect(Unit) { val ids = selected.toList(); confirm = false; selecting = false; selected.clear(); Graph.chats.deleteWithUndo(ids) }
+    }
+}
+
+/** The text with every match of [q] in the accent color and a little bolder, so you see why it was found. */
+private fun marked(text: String, q: String, accent: androidx.compose.ui.graphics.Color) = androidx.compose.ui.text.buildAnnotatedString {
+    if (q.length < 2) { append(text); return@buildAnnotatedString }
+    var at = 0
+    while (true) {
+        val i = text.indexOf(q, at, ignoreCase = true)
+        if (i < 0) { append(text.substring(at)); break }
+        append(text.substring(at, i))
+        withStyle(androidx.compose.ui.text.SpanStyle(color = accent, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)) { append(text.substring(i, i + q.length)) }
+        at = i + q.length
     }
 }

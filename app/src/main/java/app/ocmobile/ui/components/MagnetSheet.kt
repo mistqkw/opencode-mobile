@@ -81,6 +81,8 @@ fun MagnetSheet(
     handle: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    // cl0udly: no sheet from the bottom, a card that opens where you tapped
+    if (Oc.look.id == "cloud") { FloatSheet(onDismiss, title, onBack, content); return }
     val c = Oc.c
     val scope = rememberCoroutineScope()
     val haptic = rememberHaptic()

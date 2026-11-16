@@ -33,6 +33,7 @@ sealed interface Route {
     data object Capabilities : Route
     data object OcSettings : Route
     data object Appearance : Route
+    data object SideMenu : Route
     data object PhoneTools : Route
     data object GitHub : Route
     data object Backup : Route
@@ -100,6 +101,7 @@ object NavMemory {
         Route.Capabilities,
         Route.OcSettings,
         Route.Appearance,
+        Route.SideMenu,
         Route.PhoneTools,
         Route.GitHub,
         Route.Backup,

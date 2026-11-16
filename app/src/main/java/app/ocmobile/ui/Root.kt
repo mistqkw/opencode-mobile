@@ -1,5 +1,6 @@
 package app.ocmobile.ui
 
+import app.ocmobile.ui.components.trackTouches
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -60,6 +61,7 @@ import androidx.core.view.WindowCompat
 import app.ocmobile.Graph
 import app.ocmobile.runtime.RuntimeState
 import app.ocmobile.ui.components.Spinner
+import app.ocmobile.ui.components.Ico
 import app.ocmobile.ui.components.Txt
 import app.ocmobile.ui.screens.CapabilitiesScreen
 import app.ocmobile.ui.screens.OcSettingsScreen
@@ -110,7 +112,8 @@ fun OcRoot() {
         }
     }
     val rt by Graph.runtime.state.collectAsState()
-    Box(Modifier.fillMaxSize().background(c.bg)) {
+    // where the finger last went down: cl0udly's windows open right there
+    Box(Modifier.fillMaxSize().background(c.bg).then(Modifier.trackTouches())) {
         if (rt is RuntimeState.NotInstalled || rt is RuntimeState.Installing || rt is RuntimeState.InstallFailed) SetupScreen(rt)
         else { Shell(rt); app.ocmobile.ui.components.UpdateHost() }
         // the welcome tour sits on top of the app and takes all touches: nothing underneath can be pressed
@@ -119,6 +122,7 @@ fun OcRoot() {
         }
         app.ocmobile.ui.components.IntroHost()
         ToastHost()
+        UndoHost()
     }
 }
 
@@ -240,7 +244,11 @@ private fun Shell(rt: RuntimeState) {
                             (slideOutHorizontally(tween(210)) { -it / 4 } + fadeOut(tween(160, delayMillis = 50)))
                         nav.direction < 0 -> (slideInHorizontally(tween(200, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) { -it / 4 } + fadeIn(tween(150))) togetherWith
                             (slideOutHorizontally(tween(200)) { it / 5 } + fadeOut(tween(110)))
-                        else -> fadeIn(tween(140)) togetherWith fadeOut(tween(90))
+                        // from the side menu (chat → settings and back): the new screen rises a little out of
+                        // the old one as it fades in, the old one fades and grows slightly away
+                        else -> (fadeIn(tween(160)) + androidx.compose.animation.scaleIn(tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing), initialScale = 0.95f) +
+                            androidx.compose.animation.slideInVertically(tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 30 }) togetherWith
+                            (fadeOut(tween(110)) + androidx.compose.animation.scaleOut(tween(160), targetScale = 1.03f))
                     }
                 },
                 label = "nav",
@@ -332,6 +340,7 @@ private fun RouteContent(r: Route, nav: Nav, open: () -> Unit) {
         Route.Capabilities -> CapabilitiesScreen(nav)
         Route.OcSettings -> OcSettingsScreen(nav)
         Route.Appearance -> AppearanceScreen(nav)
+        Route.SideMenu -> app.ocmobile.ui.screens.SideMenuScreen(nav)
         Route.PhoneTools -> app.ocmobile.ui.screens.PhoneToolsScreen(nav)
         Route.GitHub -> app.ocmobile.ui.screens.GitHubScreen(nav)
         Route.Backup -> app.ocmobile.ui.screens.BackupScreen(nav)
@@ -382,8 +391,12 @@ private fun ServerBanner(rt: RuntimeState) {
     val c = Oc.c
     val remoteId by Graph.devices.activeId.collectAsState()
     val connected by Graph.events.connected.collectAsState()
+    val online = rememberOnline()
+    // the event stream dropped while the server runs: say so only if it doesn't come back at once
+    var lost by remember { mutableStateOf(false) }
+    LaunchedEffect(connected, rt) { lost = false; if (!connected && rt is RuntimeState.Running) { delay(2500); lost = true } }
     // For a remote device the local server's state doesn't matter; what matters is whether we can reach it.
-    val show = if (remoteId.isNotEmpty()) !connected else rt is RuntimeState.Starting || rt is RuntimeState.Crashed || rt is RuntimeState.Stopped
+    val show = !online || (if (remoteId.isNotEmpty()) !connected else rt is RuntimeState.Starting || rt is RuntimeState.Crashed || rt is RuntimeState.Stopped || lost)
     Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = 60.dp), contentAlignment = Alignment.TopCenter) {
         AnimatedVisibility(show) {
             Row(
@@ -393,11 +406,38 @@ private fun ServerBanner(rt: RuntimeState) {
                     }.padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (remoteId.isNotEmpty()) Txt("Can't reach ${Graph.devices.active()?.name ?: "device"}…", size = 14.sp, color = c.warn) else when (rt) {
+                if (!online) { Ico(app.ocmobile.ui.theme.Ic.Globe, tint = c.textDim, size = 16.dp); Spacer(Modifier.width(10.dp)); Txt("No internet. Replies go on when it's back.", size = 14.sp, color = c.textDim) }
+                else if (remoteId.isNotEmpty()) { Spinner(16.dp, stroke = 2.dp); Spacer(Modifier.width(10.dp)); Txt("Reconnecting to ${Graph.devices.active()?.name ?: "the computer"}…", size = 14.sp, color = c.textDim) }
+                else if (lost && rt is RuntimeState.Running) { Spinner(16.dp, stroke = 2.dp); Spacer(Modifier.width(10.dp)); Txt("Reconnecting…", size = 14.sp, color = c.textDim) }
+                else when (rt) {
                     is RuntimeState.Starting -> { Spinner(16.dp, stroke = 2.dp); Spacer(Modifier.width(10.dp)); Txt("Starting local server…", size = 14.sp) }
                     is RuntimeState.Crashed -> Txt("Server crashed — tap to restart", size = 14.sp, color = c.danger)
                     else -> if (!Graph.paths.localSupported) Txt("This phone can't run OpenCode — tap to connect a computer", size = 14.sp, color = c.textDim)
                         else Txt("Server stopped — tap to start", size = 14.sp, color = c.textDim)
+                }
+            }
+        }
+    }
+}
+
+/** "Chat deleted · Undo" at the bottom for a few seconds after a delete. */
+@Composable
+private fun UndoHost() {
+    val c = Oc.c
+    val u by Graph.chats.undo.collectAsState()
+    Box(Modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 120.dp), contentAlignment = Alignment.BottomCenter) {
+        AnimatedVisibility(u != null, enter = androidx.compose.animation.fadeIn(tween(120)) + androidx.compose.animation.slideInVertically(tween(160)) { it / 2 },
+            exit = androidx.compose.animation.fadeOut(tween(100))) {
+            var last by remember { mutableStateOf(u) }
+            if (u != null) last = u
+            Row(
+                Modifier.padding(horizontal = 24.dp).clip(Oc.round(20.dp)).background(c.text).padding(start = 18.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Txt(last?.text.orEmpty(), size = 15.sp, color = c.bg)
+                Spacer(Modifier.width(14.dp))
+                Box(Modifier.clip(Oc.round(14.dp)).clickable { last?.undo?.invoke(); Graph.chats.undo.value = null }.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                    Txt("Undo", size = 15.sp, color = c.bg, weight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                 }
             }
         }
@@ -420,3 +460,20 @@ private fun ToastHost() {
     }
 }
 
+/** Whether the phone has a working internet connection right now, following Android's default network. */
+@Composable
+private fun rememberOnline(): Boolean {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val cm = remember { ctx.getSystemService(android.net.ConnectivityManager::class.java) }
+    fun now() = cm?.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    var online by remember { mutableStateOf(now()) }
+    androidx.compose.runtime.DisposableEffect(cm) {
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(n: android.net.Network) { online = true }
+            override fun onLost(n: android.net.Network) { online = now() }
+        }
+        runCatching { cm?.registerDefaultNetworkCallback(cb) }
+        onDispose { runCatching { cm?.unregisterNetworkCallback(cb) } }
+    }
+    return online
+}

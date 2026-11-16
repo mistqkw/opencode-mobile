@@ -17,14 +17,24 @@ fun iconLabel(v: ImageVector): String? = when (v.name) {
     else -> null
 }
 
-/** Line icons 24×24 (Feather-style outlines): colored via tint. */
+/**
+ * cl0udly's icons, 24×24: a rounded line, and every closed shape (a folder, a page, a bubble, a dial)
+ * carries a soft fill of the same color behind it. Two tones of one tint, so they read as ours and not
+ * as a stock outline set, and still take any color through tint.
+ */
 object Ic {
+    private const val FILL = 0.16f
+
     private fun icon(name: String, vararg paths: String): ImageVector =
         ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
+            // the fills first, so the lines sit on top of them
+            paths.filter { it.trimEnd().endsWith("z", ignoreCase = true) }.forEach { d ->
+                addPath(pathData = addPathNodes(d), fill = SolidColor(Color.Black), fillAlpha = FILL)
+            }
             paths.forEach { d ->
                 addPath(
                     pathData = addPathNodes(d), fill = null, stroke = SolidColor(Color.Black),
-                    strokeLineWidth = 1.75f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round,
+                    strokeLineWidth = 1.7f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round,
                 )
             }
         }.build()
@@ -76,9 +86,11 @@ object Ic {
     val Wrench by lazy { icon("wrench", "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z") }
     val Globe by lazy { icon("globe", CIRCLE, "M3 12h18", "M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z") }
     val Bot by lazy { icon("bot", "M5 8h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z", "M12 2v6", "M9 14h.01", "M15 14h.01") }
-    val Chat by lazy { icon("chat", "M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z") }
+    // a speech bubble shaped like the mascot's cloud: two bumps on top, a flat base and a short tail
+    val Chat by lazy { icon("chat", "M7 18H6a4 4 0 0 1-.6-7.95A5 5 0 0 1 12 6.2a4.6 4.6 0 0 1 7.6 3.9A4 4 0 0 1 18 18h-6l-4 3z") }
     val FastForward by lazy { icon("ff", "M3 5l8 7-8 7z", "M12 5l8 7-8 7z") }
-    val Sparkle by lazy { icon("sparkle", "M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z") }
+    // memory: a big spark and a small one beside it, like the stars around the mascot
+    val Sparkle by lazy { icon("sparkle", "M10 4l1.7 4.6L16.3 10.3l-4.6 1.7L10 16.6l-1.7-4.6L3.7 10.3l4.6-1.7z", "M18 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z") }
     val Download by lazy { icon("download", "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", "M7 10l5 5 5-5", "M12 15V3") }
     val Server by lazy { icon("server", "M4 3h16a1 1 0 0 1 1 1v6H3V4a1 1 0 0 1 1-1z", "M3 14h18v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z", "M7 7h.01", "M7 17h.01") }
     val Key by lazy { icon("key", "M15 3a6 6 0 1 0 0 12a6 6 0 0 0 0-12z", "M10.8 13.2L3 21", "M7 17l2 2", "M5 19l2 2") }

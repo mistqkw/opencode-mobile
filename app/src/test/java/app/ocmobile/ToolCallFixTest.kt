@@ -68,4 +68,21 @@ class ToolCallFixTest {
         val end = """data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}"""
         assertEquals(end, ToolCallFix.fixLine(end, s))
     }
+
+    @Test fun plainTextErrorBecomesReadable() {
+        val e = OcJson.parseToJsonElement(ToolCallFix.errorBody("copilot-chat", 401, "unauthorized: token authentication failed")).jsonObject["error"]!!.jsonObject
+        val msg = e["message"]!!.jsonPrimitive.content
+        assertTrue(msg.startsWith("GitHub didn't accept the sign-in"))
+        assertTrue(msg.endsWith("(401: unauthorized: token authentication failed)"))
+    }
+
+    @Test fun onlyYourOwnMessageCountsAsUser() {
+        assertEquals("user", ToolCallFix.initiator("""{"messages":[{"role":"system","content":"x"},{"role":"user","content":"hi"}]}""".toByteArray()))
+        assertEquals("agent", ToolCallFix.initiator("""{"messages":[{"role":"user","content":"hi"},{"role":"assistant","tool_calls":[]},{"role":"tool","content":"ok"}]}""".toByteArray()))
+    }
+
+    @Test fun copilotQuotaIsNamed() {
+        val msg = OcJson.parseToJsonElement(ToolCallFix.errorBody("copilot-chat", 403, "You have exceeded your monthly chat limit")).jsonObject["error"]!!.jsonObject["message"]!!.jsonPrimitive.content
+        assertTrue(msg.startsWith(ToolCallFix.COPILOT_CAPPED))
+    }
 }

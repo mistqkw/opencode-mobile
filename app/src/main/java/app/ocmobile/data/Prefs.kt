@@ -41,6 +41,18 @@ class Prefs(ctx: Context) {
         }
     }
 
+    // Side menu: its sections in order (hidden ones are left out), then what the chat list shows
+    var drawerSections by str("drawer_sections", "scheduled,devices,projects,artifacts,memory,mascot,settings")
+    var drawerRecent by str("drawer_recent", "12")
+    var drawerByDay by bool("drawer_by_day", true)
+    var drawerPinned by bool("drawer_pinned", true)
+    var drawerChatIcons by bool("drawer_chat_icons", true)
+    var drawerHelpers by bool("drawer_helpers", true)
+    var drawerStatus by bool("drawer_status", true)
+    var drawerCompact by bool("drawer_compact", false)
+    var drawerSearch by bool("drawer_search", true)
+    var drawerHeader by bool("drawer_header", true)
+
     // Appearance
     var recentModels by str("recent_models", "")      // provider/model, comma-separated, most recent first
     var edition by str("edition", "cloud")           // claude | terminal | desktop
@@ -125,6 +137,8 @@ class Prefs(ctx: Context) {
     var userName by str("user_name", "")
     /** Language for speech recognition and read-aloud: "" means the phone's language. */
     var speechLang by str("speech_lang", "")
+    /** The reading voice by its engine name; empty picks the most natural one for the language. */
+    var ttsVoice by str("tts_voice", "")
     var avatarPath by str("avatar_path", "")
 
     // Server
@@ -182,6 +196,12 @@ class Prefs(ctx: Context) {
         val s = pinnedSet().toMutableSet()
         if (!s.add(id)) s.remove(id)
         pinned = s.joinToString(",")
+    }
+
+    /** What you were typing in a chat, kept until you send it or erase it. */
+    fun draft(sessionId: String): String = sp.getString("draft_$sessionId", null).orEmpty()
+    fun setDraft(sessionId: String, text: String) {
+        sp.edit().apply { if (text.isBlank()) remove("draft_$sessionId") else putString("draft_$sessionId", text) }.apply()
     }
 
     fun setDir(deviceId: String, dir: String) { sp.edit().putString("dir_$deviceId", dir).apply() }

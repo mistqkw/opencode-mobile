@@ -638,95 +638,14 @@ private val SLEEP_Z = listOf(
     listOf("xxxxxxx", ".....x.", "....x..", "...x...", "..x....", ".x.....", "xxxxxxx"),
 )
 
-// ---------- sky above the top bar ----------
+// ---------- pixel colors ----------
 
-// ridge colors: white, two blues, a shadow below (the author's palette)
-private val SKY_TONES = longArrayOf(0xFFFFFFFF, 0xFFCBDBFC, 0xFFAFC4ED, 0xFFADC0E7, 0xFF4C618B)
-// lilac for rare details: folds of some puffs and a couple of stripes in the tail
+// lilac for the mascot's sparks and hearts
 private const val LILAC = 0xFF9F9DF2.toInt()
-// the same, darkened for the dark theme: the blue tint kept, low brightness
-private val DARK_TONES = longArrayOf(0xFF4A5873, 0xFF3A465E, 0xFF2E384D, 0xFF283145, 0xFF1C2333)
-
-private fun bankTones(dark: Boolean, sky: Int, boost: Float = 1f) =
-    if (dark) IntArray(5) { mix(sky, DARK_TONES[it].toInt(), boost.coerceAtMost(1f)).let { c -> if (boost > 1f) mix(c, SKY_TONES[it].toInt(), boost - 1f) else c } } + mix(sky, LILAC, 0.62f * boost)
-    else IntArray(5) { mix(sky, SKY_TONES[it].toInt(), 0.6f) } + mix(sky, LILAC, 0.7f)
 
 private fun mix(a: Int, b: Int, k: Float): Int {
     fun ch(s: Int) = (((a shr s) and 255) * (1 - k) + ((b shr s) and 255) * k).roundToInt()
     return (255 shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
-}
-
-/**
- * A pixel ridge of clouds [gw]×[gh] on an opaque sky. Big full-height puffs on the left,
- * smaller puffs to the right, the ridge thins and breaks into horizontal stripes and wisps.
- * [tones]: highlight, light, middle, bottom, shadow.
- */
-private fun paintBank(gw: Int, gh: Int, sky: Int, tones: IntArray, frame: Int?, reveal: Int = gw): IntArray {
-    val px = IntArray(gw * gh) { sky }
-    val rnd = java.util.Random(11)
-    val h = gh - (if (frame != null) 3 else 1)
-    fun put(x: Int, y: Int, tone: Int) { if (x in 0 until minOf(gw, reveal) && y in 0 until h) px[y * gw + x] = tones[tone] }
-
-    // puffs: left to right, the radius shrinks, the centers sit on a shared bottom
-    class Billow(val x: Float, val y: Float, val r: Float, val lilac: Boolean)
-    val billows = ArrayList<Billow>()
-    var bx = -2f
-    while (true) {
-        val f = bx / gw
-        if (f > 0.66f) break
-        val base = h * (0.86f - 0.22f * f)
-        val r = (h * 0.42f * (1f - f / 0.75f).coerceAtLeast(0.14f) * (0.8f + rnd.nextFloat() * 0.4f)).coerceAtMost((base - 1) / 1.5f)
-        // a puff is now higher, now lower: the ridge top is uneven, like a cumulus cloud
-        billows += Billow(bx, base - r * (0.45f + rnd.nextFloat() * 0.5f), r, billows.size % 2 == 1)
-        bx += r * (0.7f + rnd.nextFloat() * 0.45f)
-    }
-    fun bottom(x: Int): Float { val f = x.toFloat() / gw; return h * (0.86f - 0.22f * f) + (if ((x / 5) % 2 == 0) 0f else 1f) * (1f - f) }
-
-    for (x in 0 until gw) {
-        val cx = x + 0.5f
-        val bot = bottom(x).toInt().coerceAtMost(h - 1)
-        // column top and folds: where one puff's arc passes inside another
-        var top = Int.MAX_VALUE
-        var topLilac = false
-        val creases = HashMap<Int, Boolean>()      // fold row → whether it's lilac
-        for (b in billows) {
-            val dx = cx - b.x
-            if (dx * dx > b.r * b.r) continue
-            val arc = (b.y - kotlin.math.sqrt(b.r * b.r - dx * dx)).toInt()
-            if (arc < top) { if (top != Int.MAX_VALUE) creases[top] = topLilac; top = arc; topLilac = b.lilac } else creases[arc] = b.lilac
-        }
-        if (top == Int.MAX_VALUE || top > bot) continue
-        var depth = 0
-        for (y in top.coerceAtLeast(0)..bot) {
-            if (y in creases && y > top + 1) depth = if (creases[y] == true) -2 else -1
-            val tone = when {
-                y == bot -> 4
-                y == bot - 1 -> 3
-                depth == -2 -> 5                         // lilac fold
-                depth == -1 -> 2                         // fold
-                depth == 0 -> 0                          // highlight along the top of a puff
-                depth <= 2 -> 1
-                depth == 3 -> if ((x + y) % 2 == 0) 1 else 2
-                else -> 2
-            }
-            put(x, y, tone)
-            depth = if (depth < 0) 1 else depth + 1
-        }
-    }
-    // tail: horizontal stripes and wisps, rarer and shorter further right
-    var x = (gw * 0.5f).toInt()
-    while (x < gw) {
-        val f = x.toFloat() / gw
-        val y = (h * (0.55f + rnd.nextFloat() * 0.3f - 0.25f * f)).toInt()
-        val len = (3 + rnd.nextInt(9) * (1.15f - f)).toInt().coerceAtLeast(2)
-        val lilac = rnd.nextInt(2) == 0
-        for (i in 0 until len) {
-            put(x + i, y, if (lilac) 5 else if (i == 0 || i == len - 1) 2 else 1)
-            put(x + i, y + 1, if (i == 0 || i == len - 1) 4 else 3)
-        }
-        x += len + 2 + (rnd.nextInt(5) + 12 * f).toInt()
-    }
-    return px
 }
 
 private fun IntArray.toImage(w: Int, h: Int): ImageBitmap = Bitmap.createBitmap(this, w, h, Bitmap.Config.ARGB_8888).asImageBitmap()
@@ -748,49 +667,80 @@ object CloudBackdrop {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ImageBitmap>) = size > 10
     }
 
-    /** One cloud: puffs in a bell shape (bigger in the middle), a flat bottom on row [base]. */
-    private fun paintCumulus(out: IntArray, gw: Int, gh: Int, billows: List<Triple<Float, Float, Float>>, base: Int, tones: IntArray, ground: Boolean) {
-        val minX = billows.minOf { it.first - it.third }.toInt().coerceAtLeast(0)
-        val maxX = billows.maxOf { it.first + it.third }.toInt().coerceAtMost(gw - 1)
-        for (x in minX..maxX) {
-            val cx = x + 0.5f
-            var top = Int.MAX_VALUE; var topLilac = false
-            val creases = HashMap<Int, Boolean>()
-            billows.forEachIndexed { i, (bx, by, r) ->
-                val dx = cx - bx
-                if (dx * dx > r * r) return@forEachIndexed
-                val arc = (by - kotlin.math.sqrt(r * r - dx * dx)).toInt()
-                val lilac = i % 3 == 1
-                if (arc < top) { if (top != Int.MAX_VALUE) creases[top] = topLilac; top = arc; topLilac = lilac } else creases[arc] = lilac
-            }
-            val bot = base.coerceAtMost(gh - 1)
-            if (top == Int.MAX_VALUE || top > bot) continue
-            var depth = 0
-            for (y in top.coerceAtLeast(0)..bot) {
-                if (y in creases && y > top + 1) depth = if (creases[y] == true) -2 else -1
-                val tone = when {
-                    !ground && y == base -> 4
-                    !ground && y == base - 1 -> 3
-                    depth == -2 -> 5
-                    depth == -1 -> 2
-                    depth == 0 -> 0
-                    depth <= 2 -> 1
-                    depth == 3 -> if ((x + y) % 2 == 0) 1 else 2
-                    else -> 2
-                }
-                out[y * gw + x] = tones[tone]
-                depth = if (depth < 0) 1 else depth + 1
+    /** Cloud tones over the backdrop's sky: lit cap, light body, lower body, base, tail, loose streak. */
+    internal val NIGHT = longArrayOf(0xFFDDD5C7, 0xFFABA090, 0xFF7C7466, 0xFF4F4A42, 0xFF37342F, 0xFF2A2825)
+    internal val DAY = longArrayOf(0xFFFFFFFF, 0xFFE2DCD2, 0xFFCEC6B8, 0xFFB5AC9C, 0xFFC2BAAC, 0xFFCFC8BC)
+
+    /**
+     * One cloud as in a pixel-art night sky: lumps with lit caps on a solid body, smaller lumps inside it,
+     * a flat base that runs out into thin tails, and a few loose streaks by it. [base] is its bottom row.
+     */
+    internal fun paintCloud(out: IntArray, gw: Int, gh: Int, rnd: java.util.Random, cx: Float, base: Int, w: Float, tones: IntArray, bg: Int) {
+        fun put(x: Int, y: Int, c: Int) { if (x in 0 until gw && y in 0 until gh) out[y * gw + x] = c }
+        fun empty(x: Int, y: Int) = x in 0 until gw && y in 0 until gh && out[y * gw + x] == bg
+        fun u(a: Float, b: Float) = a + rnd.nextFloat() * (b - a)
+        class Puff(val x: Float, val y: Float, val r: Float)
+        val core = w * 0.6f
+        val floor = base - 2
+        val n = maxOf(4, (core / 9).toInt())
+        val puffs = List(n) { i ->
+            val f = i / (n - 1f)
+            val bell = kotlin.math.sin(Math.PI.toFloat() * (0.12f + 0.76f * f))
+            val r = core * (0.11f + 0.13f * bell) * u(0.85f, 1.15f)
+            Puff(cx - core / 2 + f * core + u(-1.5f, 1.5f), floor - r * (0.35f + 0.55f * bell), r)
+        }
+        // the silhouette, then a solid body under it: lighter above, a darker lower third
+        val top = HashMap<Int, Int>()
+        puffs.forEach { p ->
+            for (x in (p.x - p.r).toInt()..(p.x + p.r).toInt()) {
+                val dx = x + 0.5f - p.x
+                if (dx * dx > p.r * p.r) continue
+                val a = (p.y - kotlin.math.sqrt(p.r * p.r - dx * dx)).toInt()
+                top[x] = minOf(top[x] ?: Int.MAX_VALUE, a)
             }
         }
-    }
-
-    private fun cumulusBillows(rnd: java.util.Random, cx: Float, base: Int, width: Float): List<Triple<Float, Float, Float>> {
-        val n = (width / 4.5f).toInt().coerceAtLeast(3)
-        return List(n) { i ->
-            val f = i / (n - 1f)
-            val bell = sin(Math.PI.toFloat() * f)
-            val r = (1.8f + bell * width * 0.16f) * (0.8f + rnd.nextFloat() * 0.4f)
-            Triple(cx - width / 2 + f * width, base - r * (0.35f + rnd.nextFloat() * 0.45f), r)
+        if (top.isEmpty()) return
+        top.forEach { (x, t) ->
+            val h = maxOf(1, floor - t)
+            for (y in t until floor) put(x, y, if (y > floor - h * 0.38f) tones[2] else tones[1])
+        }
+        // a lump's lit cap; [inside] keeps it within the body
+        fun cap(p: Puff, edge: Float, hi: Float, inside: Boolean) {
+            for (y in (p.y - p.r).toInt() - 1 until floor) for (x in (p.x - p.r).toInt() - 1..(p.x + p.r).toInt() + 1) {
+                val t = top[x]
+                if (inside && (t == null || y < t + 1)) continue
+                val dx = (x + 0.5f - p.x) / p.r
+                val dy = (y + 0.5f - p.y) / p.r
+                if (dx * dx + dy * dy > 1f || dy > edge) continue
+                put(x, y, if (dy < hi && kotlin.math.abs(dx) < (if (inside) 0.6f else 0.75f)) tones[0] else tones[1])
+            }
+        }
+        // top lumps first, so the lower ones overlap them
+        puffs.sortedBy { it.y }.forEach { cap(it, -0.15f, -0.55f, false) }
+        // smaller lumps inside the body, lower down: their caps catch light too, so it reads as a heap of puffs
+        val xs = top.keys.sorted()
+        val m = xs.size / 8
+        repeat(maxOf(2, n - 1)) {
+            val x = xs[m + rnd.nextInt(maxOf(1, xs.size - 2 * m))]
+            val t = top.getValue(x)
+            val h = floor - t
+            if (h < 6) return@repeat
+            val r = h * u(0.28f, 0.4f)
+            cap(Puff(x + 0.5f, t + h * u(0.45f, 0.6f) + r * 0.3f, r), -0.2f, -0.6f, true)
+        }
+        // the flat base, wider than the body, running out into thin tails
+        val l = xs.first()
+        val rr = xs.last()
+        val tl = (w * u(0.22f, 0.32f)).toInt()
+        val tr = (w * u(0.28f, 0.4f)).toInt()
+        for (x in l - 2..rr + 2) { put(x, floor, tones[3]); put(x, floor + 1, tones[3]) }
+        for (x in l - tl / 2 until rr + tr / 2) if (empty(x, floor + 1)) put(x, floor + 1, tones[4])
+        for (x in l - tl until rr + tr) put(x, floor + 2, if (x in l - 2..rr + 2) tones[4] else tones[5])
+        // loose streaks near the base
+        repeat(3) {
+            val y = floor + intArrayOf(-2, 4, 5, 7)[rnd.nextInt(4)]
+            val x0 = (cx + u(-w * 0.75f, w * 0.55f)).toInt()
+            for (x in x0 until x0 + 6 + rnd.nextInt(13)) if (empty(x, y)) put(x, y, tones[5])
         }
     }
 
@@ -799,8 +749,8 @@ object CloudBackdrop {
         val out = IntArray(gw * gh) { bg }
         val rnd = java.util.Random(variant.hashCode().toLong())
         fun r(a: Float, b: Float) = a + rnd.nextFloat() * (b - a)
-        val tones = if (dark) IntArray(5) { mix(bg, DARK_TONES[it].toInt(), 0.45f) } + mix(bg, LILAC, 0.23f)
-            else IntArray(5) { mix(bg, SKY_TONES[it].toInt(), 0.25f) } + mix(bg, LILAC, 0.2f)
+        // the clouds of a pixel-art night sky in the colors of the photo, faint: they sit behind the work
+        val tones = IntArray(6) { mix(bg, (if (dark) NIGHT else DAY)[it].toInt(), 0.3f) }
         // clouds alternate at the left and right edges, top to bottom; the first one's side depends on the screen
         val n = if (topOnly) 2 else 3 + rnd.nextInt(2)
         val leftFirst = rnd.nextBoolean()
@@ -813,7 +763,7 @@ object CloudBackdrop {
                 else maxOf(clear, gh * ((i + 0.3f + r(0f, 0.5f)) / n))
             Cumulus(if (left) r(-0.02f, 0.2f) else r(0.75f, 1.02f), cy.toInt(), width)
         }
-        spots.forEach { c -> paintCumulus(out, gw, gh, cumulusBillows(rnd, c.cx * gw, c.base, c.width), c.base, tones, false) }
+        spots.forEach { c -> paintCloud(out, gw, gh, rnd, c.cx * gw, c.base, c.width, tones, bg) }
         return out.toImage(gw, gh)
     }
 
@@ -864,50 +814,89 @@ private fun DrawScope.drawPixelWord(s: String, left: Float, top: Float, px: Floa
     }
 }
 
+/** What the splash draws, painted once: the cloud the little cloud lands on, two that drift in, the stars. */
+private class IntroArt(val mid: ImageBitmap, val left: ImageBitmap, val right: ImageBitmap, val landRow: Int, val stars: List<Offset>) {
+    companion object {
+        fun paint(sky: Int, dark: Boolean): IntroArt {
+            fun cloud(gw: Int, gh: Int, w: Float, seed: Long, k: Float): Pair<IntArray, ImageBitmap> {
+                val out = IntArray(gw * gh) { sky }
+                val tones = IntArray(6) { mix(sky, (if (dark) CloudBackdrop.NIGHT else CloudBackdrop.DAY)[it].toInt(), k) }
+                CloudBackdrop.paintCloud(out, gw, gh, java.util.Random(seed), gw / 2f, gh - 9, w, tones, sky)
+                return out to out.toImage(gw, gh)
+            }
+            val (midPx, mid) = cloud(100, 38, 90f, 5, 0.95f)
+            // where the middle cloud's top is under the little cloud
+            val land = (0 until 38).firstOrNull { y -> (44..56).any { x -> midPx[y * 100 + x] != sky } } ?: 12
+            val rnd = java.util.Random(17)
+            val stars = if (dark) List(18) { Offset(rnd.nextFloat(), 0.04f + rnd.nextFloat() * 0.3f) } else emptyList()
+            return IntroArt(mid, cloud(60, 26, 42f, 8, 0.6f).second, cloud(60, 26, 40f, 13, 0.6f).second, land, stars)
+        }
+    }
+}
+
 /**
- * The cl0udly splash: the cloud ridge appears from left to right, the little cloud steps down
- * and lands, blinks and looks around, the letters "cl0udly" pop up one by one, the cloud cheers.
+ * The cl0udly splash, a pixel-art night sky: stars blink, two clouds drift in from the sides, the middle
+ * cloud appears from left to right, the little cloud steps down and lands on it, blinks and looks around,
+ * the letters "cl0udly" pop up one by one, the cloud cheers. On exit the clouds part and drift away.
  */
 @Composable
 internal fun CloudIntro(t: Float, exit: Float = 0f) {
     val c = Oc.c
     val sky = c.bg.toArgb()
-    val banks = remember { HashMap<Int, ImageBitmap>() }     // ridge reveal frames, by the number of open columns
+    val art = remember(sky, c.isDark) { IntroArt.paint(sky, c.isDark) }
     Canvas(Modifier.fillMaxSize()) {
         // exit: the background dissolves, the home screen is already underneath
         val e = exit.coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
-        drawRect(c.bg.copy(alpha = 1f - e))
+        val a = 1f - e
+        drawRect(c.bg.copy(alpha = a))
         val px = floor(size.width / 100f).coerceAtLeast(2f)
-        val gw = 100; val gh = 22
-        val bankTop = size.height * 0.4f
-        // ridge: columns open from left to right during the first 40%
-        val reveal = ((t / 0.4f).coerceIn(0f, 1f) * gw).toInt()
-        val img = banks.getOrPut(reveal) { paintBank(gw, gh, sky, bankTones(c.isDark, sky, 1.12f), null, reveal).toImage(gw, gh) }
-        if (e == 0f) pixels(img, (size.width - gw * px) / 2, bankTop, px)
-        else {
-            // the ridge parts: the left half goes left, the right half right
-            val half = gw / 2
-            val x0 = (size.width - gw * px) / 2
-            val shift = e * size.width * 0.7f
-            val a = 1f - e
-            drawImage(img, IntOffset(0, 0), IntSize(half, gh), IntOffset((x0 - shift).roundToInt(), bankTop.roundToInt()), IntSize((half * px).roundToInt(), (gh * px).roundToInt()), alpha = a, filterQuality = FilterQuality.None)
-            drawImage(img, IntOffset(half, 0), IntSize(gw - half, gh), IntOffset((x0 + half * px + shift).roundToInt(), bankTop.roundToInt()), IntSize(((gw - half) * px).roundToInt(), (gh * px).roundToInt()), alpha = a, filterQuality = FilterQuality.None)
+        fun snap(v: Float) = floor(v / px) * px
+        fun blit(img: ImageBitmap, x: Float, y: Float, cols: Int = img.width, from: Int = 0, alpha: Float = a) {
+            if (cols <= 0) return
+            drawImage(img, IntOffset(from, 0), IntSize(cols, img.height), IntOffset(x.roundToInt(), y.roundToInt()),
+                IntSize((cols * px).roundToInt(), (img.height * px).roundToInt()), alpha = alpha, filterQuality = FilterQuality.None)
         }
 
-        // the little cloud steps down and lands on the ridge
+        // stars: single pixels, each blinking on its own beat, in steps (no glow)
+        val beat = (t * 36f).toInt()
+        art.stars.forEachIndexed { i, s ->
+            if ((beat + i * 5) % 9 > 1) drawRect(c.textDim.copy(alpha = a * (if (i % 3 == 0) 0.9f else 0.45f)), Offset(snap(s.x * size.width), snap(s.y * size.height)), Size(px, px))
+        }
+
+        // the side clouds slide in whole pixels at a time, and back out on exit
+        val slide = (t / 0.5f).coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
+        val sw = art.left.width * px
+        val lRest = -sw * 0.22f; val lOut = -sw
+        val rRest = size.width - sw * 0.78f; val rOut = size.width
+        blit(art.left, snap(lOut + (lRest - lOut) * slide + (lOut - lRest) * e), snap(size.height * 0.15f))
+        blit(art.right, snap(rOut + (rRest - rOut) * slide + (rOut - rRest) * e), snap(size.height * 0.7f))
+
+        // the middle cloud: columns open from left to right during the first 40%, then it parts on exit
+        val gw = art.mid.width; val gh = art.mid.height
+        val x0 = snap((size.width - gw * px) / 2)
+        val top = snap(size.height * 0.36f)
+        if (e == 0f) blit(art.mid, x0, top, ((t / 0.4f).coerceIn(0f, 1f) * gw).toInt())
+        else {
+            val half = gw / 2
+            val shift = e * size.width * 0.7f
+            blit(art.mid, x0 - shift, top, half)
+            blit(art.mid, x0 + half * px + shift, top, gw - half, half)
+        }
+
+        // the little cloud steps down and lands on the middle cloud
         val w = size.width * 0.34f
         val k = w / CW
         val step = floor(26f * k)
-        // the little cloud starts where the system launch screen's cloud was (centered) and rises onto the ridge
+        // it starts where the system launch screen's cloud was (centered)
         val fall = (t / 0.4f).coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
         val bounce = if (t in 0.43f..0.48f) 1 else 0
         val mood = if (t > 0.82f) CloudMood.Happy else CloudMood.Idle
         val blink = if (t in 0.56f..0.6f) 1f else 0f
         val eyeDx = if (t in 0.62f..0.69f) -0.04f else if (t in 0.69f..0.76f) 0.04f else 0f
-        // the little cloud: by the end of the exit it's where the home screen cloud is, and melts on top of it
+        // by the end of the exit it's where the home screen cloud is, and melts on top of it
         val wHome = size.width * 0.295f
         val wNow = w + (wHome - w) * e
-        val yLand = bankTop - CH * k * 0.55f
+        val yLand = top + art.landRow * px - CH * k * 0.55f
         val ySplash = size.height * 0.5f - CH * k / 2
         val yStart = ySplash + floor((yLand - ySplash) * fall / step) * step + bounce * step
         val yHome = size.height * 0.375f - CH * (wHome / CW) / 2
@@ -923,7 +912,7 @@ internal fun CloudIntro(t: Float, exit: Float = 0f) {
         val word = "cl0udly"
         val shown = ((t - 0.5f) / 0.3f).coerceIn(0f, 1f) * word.length
         val wa = (1f - e * 2f).coerceIn(0f, 1f)
-        if (wa > 0f) drawPixelWord(word, ((size.width - wordWidth(word) * px) / 2).roundToInt().toFloat(), bankTop + (gh + 6) * px + e * 60f, px, shown, c.text.copy(alpha = wa), c.accent.copy(alpha = wa))
+        if (wa > 0f) drawPixelWord(word, snap((size.width - wordWidth(word) * px) / 2), top + (gh + 2) * px + e * 60f, px, shown, c.text.copy(alpha = wa), c.accent.copy(alpha = wa))
     }
 }
 
@@ -1077,6 +1066,31 @@ internal fun CloudThinking(work: Work, modifier: Modifier) {
         CloudWorkGlyph(work, 32.dp)
         androidx.compose.foundation.layout.Spacer(Modifier.width(10.dp))
         Txt(work.label + ".".repeat(dots), size = 15.sp, color = c.textDim)
+    }
+}
+
+/**
+ * The mini cloud right after a reply ends, only by its eyes and a few pixels around it:
+ * [ok] closes them into "^ ^" with two sparks rising; a failed reply looks down, a drop slides off.
+ */
+@Composable
+fun CloudOutcomeGlyph(ok: Boolean, size: androidx.compose.ui.unit.Dp) {
+    val ink = miniInk()
+    val fS = rememberSteps(160)
+    Canvas(Modifier.size(width = size * 16f / 12f, height = size)) {
+        val f = fS.value
+        val px = floor(this.size.height / 12f).coerceAtLeast(1f)
+        if (ok) {
+            drawMini(ink, 0, 3, px, eyes = 0)
+            for (ex in intArrayOf(4, 7)) { cell(ex, 5, px, ink.eye); cell(ex - 1, 6, px, ink.eye); cell(ex + 1, 6, px, ink.eye) }
+            val s = f % 8
+            if (s < 6) cell(12, 4 - s / 2, px, ink.accent)
+            if (s in 2..7) cell(14, 6 - (s - 2) / 2, px, ink.lilac)
+        } else {
+            drawMini(ink, 0, 3, px, eyes = 1)
+            val s = f % 6
+            cell(11, 4 + s, px, ink.accent, 1, if (s < 4) 2 else 1)
+        }
     }
 }
 

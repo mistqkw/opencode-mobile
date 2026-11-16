@@ -22,7 +22,7 @@ object MascotSignals {
     var drawer by mutableFloatStateOf(0f)
 }
 
-class Outcome(val ok: Boolean, val at: Long = System.currentTimeMillis())
+class Outcome(val ok: Boolean, val at: Long = System.currentTimeMillis(), val sessionId: String? = null)
 
 /**
  * A holiday or season: the mascot's outfit and what flies around it.

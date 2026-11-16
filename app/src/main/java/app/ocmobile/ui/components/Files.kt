@@ -236,10 +236,10 @@ fun MediaTile(f: File) {
                 Txt(f.nameWithoutExtension, size = 11.sp, color = c.textDim, maxLines = 1, modifier = Modifier.align(Alignment.BottomCenter).padding(start = 8.dp, end = 8.dp, bottom = 7.dp))
             }
         }
-        androidx.compose.material3.DropdownMenu(menu, { menu = false }, containerColor = c.surface) {
-            androidx.compose.material3.DropdownMenuItem(text = { Txt("Save to Downloads", size = 16.sp) }, onClick = { menu = false; scope.launch { runCatching { OutFiles.save(ctx, f) } } })
-            androidx.compose.material3.DropdownMenuItem(text = { Txt("Share", size = 16.sp) }, onClick = { menu = false; OutFiles.share(ctx, f) })
-        }
+        if (menu) FloatMenu({ menu = false }, listOf(
+            FloatItem("Save to Downloads", app.ocmobile.ui.theme.Ic.Download) { scope.launch { runCatching { OutFiles.save(ctx, f) } } },
+            FloatItem("Share", app.ocmobile.ui.theme.Ic.Share) { OutFiles.share(ctx, f) },
+        ))
     }
 }
 

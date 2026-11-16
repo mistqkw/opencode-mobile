@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.draw.drawBehind
@@ -125,6 +126,8 @@ fun ComposerHost(
     dashed: Boolean = false,
     modifier: Modifier = Modifier,
     onVoice: (() -> Unit)? = null,
+    /** Over the chat, which shows a little through it. */
+    floating: Boolean = false,
 ) {
     val ctx = LocalContext.current
     val c = Oc.c
@@ -168,6 +171,18 @@ fun ComposerHost(
     // in Messenger/Hairline/Cards/Notebook the send button is colored too; in ChatGPT/Kimi it's white, like the originals
     val readyCol = if (Oc.look.compact) null else sendCol
     var focused by remember { mutableStateOf(false) }
+    // cl0udly: a hairline that darkens a little while you type, no glow
+    // cl0udly: the keyboard going away (back, swipe) ends typing, so the input folds back into one line
+    if (look == "cloud") {
+        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+        val imeUp = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
+        var imeSeen by remember { mutableStateOf(false) }
+        androidx.compose.runtime.LaunchedEffect(imeUp) {
+            if (imeUp) imeSeen = true
+            else if (imeSeen) { imeSeen = false; if (focused) focusManager.clearFocus() }
+        }
+    }
+    val cloudEdge by animateColorAsState(if (focused) c.textDim.copy(alpha = 0.6f) else c.border, tween(120), label = "edge")
 
     Column(modifier) {
     SlashMenu(state, nav)
@@ -179,7 +194,7 @@ fun ComposerHost(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
             .then(if (look == "cloud") Modifier else Modifier.animateContentSize(tween(140)))
             .clip(if (compact) RoundedCornerShape(if (look.kimiLike) 34.dp else 28.dp) else Oc.round(30.dp))
-            .background(when { compact -> c.surfaceHigh; look == "hairline" || look == "notebook" -> c.bg; else -> c.surface })
+            .background(when { compact -> c.surfaceHigh; look == "hairline" || look == "notebook" -> c.bg; else -> c.surface }.let { if (floating) it.copy(alpha = it.alpha * 0.88f) else it })
             .then(
                 when {
                     dashed -> Modifier.dashedBorder(c.textDim, 30.dp)
@@ -189,6 +204,7 @@ fun ComposerHost(
                     compact -> Modifier.border(1.dp, c.border, RoundedCornerShape(if (look.kimiLike) 34.dp else 28.dp))
                     Oc.terminal -> Modifier.drawBehind { drawRect(c.link, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
                     Oc.desktop -> Modifier.border(1.dp, c.border, Oc.round(30.dp))
+                    look == "cloud" -> Modifier.border(1.dp, cloudEdge, Oc.round(30.dp))
                     else -> Modifier.border(1.5.dp, c.border, Oc.round(30.dp))
                 },
             ),
@@ -203,17 +219,22 @@ fun ComposerHost(
         }
         if (look == "cloud" && !dict.active) {
             val ready = busy || state.canSend
-            val voice = !ready && onVoice != null
+            // the call lives in + → Call; here the button only sends or stops
+            val voice = false
+            val stopping = busy && !state.canSend
             CloudInput(
-                expanded = focused || state.text.isNotEmpty() || state.attachments.isNotEmpty(),
+                // only while typing: with the keyboard down even a written draft sits in one line
+                expanded = focused,
                 hint = costHintText(sessionId?.let { Graph.chats.chat(it) }, state.text, state.attachments.size),
+                micShown = true,
                 field = {
-                    Box(contentAlignment = Alignment.CenterStart) {
+                    // grows line by line instead of jumping; past six lines it scrolls inside
+                    Box(Modifier.animateContentSize(tween(140)), contentAlignment = Alignment.CenterStart) {
                         if (state.text.isEmpty()) Txt(placeholder, size = 17.sp, color = c.textDim, maxLines = 1)
                         BasicTextField(
                             value = state.input, onValueChange = { state.input = it }, visualTransformation = skillColors,
                             textStyle = TextStyle(color = c.text, fontSize = 17.sp, fontFamily = Oc.body),
-                            cursorBrush = SolidColor(c.text), maxLines = 8,
+                            cursorBrush = SolidColor(c.text), maxLines = if (focused) 6 else 1,
                             modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
                         )
                     }
@@ -221,16 +242,32 @@ fun ComposerHost(
                 plus = { IconBtn(Ic.Plus, { haptic(); state.showAdd = true }, size = 44.dp, bg = c.text.copy(alpha = 0.08f)) },
                 mic = { IconBtn(Ic.Mic, { haptic(); startDict() }, size = 44.dp, tint = c.text) },
                 send = {
-                    val bg by animateColorAsState(if (ready) readyCol ?: c.text else if (voice) sendCol ?: c.border else c.border, tween(90), label = "sendBg")
+                    val bg by animateColorAsState(if (ready) readyCol ?: c.text else if (voice) sendCol ?: c.border else c.border, tween(120), label = "sendBg")
+                    val ink = if (ready) (if (readyCol != null) androidx.compose.ui.graphics.Color.White else c.bg) else if (voice && sendCol != null) androidx.compose.ui.graphics.Color.White else c.text
+                    // while the answer comes, a thin arc runs around the stop square (a line, not a pulse)
+                    val spin = if (stopping && app.ocmobile.ui.theme.rememberMotionEnabled())
+                        androidx.compose.animation.core.rememberInfiniteTransition(label = "spin").animateFloat(0f, 360f, androidx.compose.animation.core.infiniteRepeatable(tween(1100, easing = androidx.compose.animation.core.LinearEasing)), label = "spinA")
+                    else null
                     Box(
                         Modifier.size(44.dp).clip(CircleShape).background(bg)
-                            .tap(enabled = ready || voice) { haptic(); if (voice) onVoice?.invoke() else if (busy && !state.canSend) onStop() else onSend() },
+                            .drawBehind {
+                                val a = spin?.value ?: return@drawBehind
+                                val sw = 1.5.dp.toPx(); val inset = 4.dp.toPx()
+                                drawArc(ink.copy(alpha = 0.55f), a, 80f, false, androidx.compose.ui.geometry.Offset(inset, inset),
+                                    androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height - inset * 2), style = Stroke(sw, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                            }
+                            .tap(enabled = ready || voice) { haptic(); if (voice) onVoice?.invoke() else if (stopping) onStop() else onSend() },
                         contentAlignment = Alignment.Center,
                     ) {
                         androidx.compose.animation.AnimatedContent(
-                            if (voice) 2 else if (busy && !state.canSend) 1 else 0, label = "sendIcon",
-                            transitionSpec = { (androidx.compose.animation.fadeIn(tween(90)) + androidx.compose.animation.scaleIn(tween(140), 0.8f)) togetherWith androidx.compose.animation.fadeOut(tween(60)) },
-                        ) { k -> Ico(when (k) { 2 -> Ic.Waveform; 1 -> Ic.Stop; else -> Ic.ArrowUp }, tint = if (ready) (if (readyCol != null) androidx.compose.ui.graphics.Color.White else c.bg) else if (voice && sendCol != null) androidx.compose.ui.graphics.Color.White else c.text, size = 20.dp) }
+                            if (voice) 2 else if (stopping) 1 else 0, label = "sendIcon",
+                            transitionSpec = {
+                                // the arrow comes up from below, the others grow in place
+                                val enter = if (targetState == 0) androidx.compose.animation.slideInVertically(tween(140)) { it / 2 } + androidx.compose.animation.fadeIn(tween(100))
+                                else androidx.compose.animation.scaleIn(tween(140), 0.6f) + androidx.compose.animation.fadeIn(tween(100))
+                                enter togetherWith (androidx.compose.animation.fadeOut(tween(70)) + androidx.compose.animation.scaleOut(tween(70), 0.8f))
+                            },
+                        ) { k -> Ico(when (k) { 2 -> Ic.Waveform; 1 -> Ic.Stop; else -> Ic.ArrowUp }, tint = ink, size = 20.dp) }
                     }
                 },
             )
@@ -351,7 +388,22 @@ fun ComposerHost(
     if (!dict.active && look != "cloud") CostHint(sessionId?.let { Graph.chats.chat(it) }, state.text, state.attachments.size)
     }
 
-    if (state.showAdd) {
+    if (state.showAdd && look.kimiLike) {
+        KimiAddPanel(
+            onDismiss = { state.showAdd = false },
+            sessionId = sessionId,
+            nav = nav,
+            onCamera = {
+                val f = File(ctx.cacheDir, "camera").apply { mkdirs() }.let { File(it, "cam-${System.currentTimeMillis()}.jpg") }
+                val u = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
+                cameraUri = u
+                camera.launch(u)
+            },
+            onPhotos = { photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onFiles = { files.launch(arrayOf("*/*")) },
+            onVoice = onVoice,
+        )
+    } else if (state.showAdd) {
         AddSheet(
             onDismiss = { state.showAdd = false },
             sessionId = sessionId,
@@ -633,6 +685,7 @@ fun ModelSheet(start: String = "main", onTeam: (() -> Unit)? = null, onDismiss: 
 private fun CloudInput(
     expanded: Boolean,
     hint: String?,
+    micShown: Boolean,
     field: @Composable () -> Unit,
     plus: @Composable () -> Unit,
     mic: @Composable () -> Unit,
@@ -642,6 +695,7 @@ private fun CloudInput(
     val t = androidx.compose.animation.core.animateFloatAsState(
         if (expanded) 1f else 0f, tween(210, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "inputMorph",
     )
+    val m = androidx.compose.animation.core.animateFloatAsState(if (micShown) 1f else 0f, tween(140), label = "micIn")
     // the price fades with the card and keeps its last text while it fades out
     var lastHint by remember { mutableStateOf("") }
     if (hint != null) lastHint = hint
@@ -670,7 +724,11 @@ private fun CloudInput(
         val hi = hintM.first().measure(androidx.compose.ui.unit.Constraints(maxWidth = (micX - 12.dp.toPx() - hintX).toInt().coerceAtLeast(0)))
         layout(w, h.toInt()) {
             f.place(fieldX.toInt(), fieldY.toInt())
-            pl.place(pad.toInt(), btnY.toInt()); mi.place(micX.toInt(), btnY.toInt()); se.place(sendX.toInt(), btnY.toInt())
+            val mv = m.value
+            pl.place(pad.toInt(), btnY.toInt())
+            // the mic hides under send (placed after it, so send takes the taps)
+            mi.placeWithLayer((sendX + (micX - sendX) * mv).toInt(), btnY.toInt()) { alpha = mv; scaleX = 0.7f + 0.3f * mv; scaleY = scaleX }
+            se.place(sendX.toInt(), btnY.toInt())
             if (p > 0f) hi.placeWithLayer(hintX.toInt(), (btnY + (btn - hi.height) / 2f).toInt()) { alpha = if (hint != null) p else 0f }
         }
     }
@@ -686,7 +744,10 @@ internal fun pickModel(providerId: String, m: app.ocmobile.api.ModelInfo) {
     prefs.providerId = providerId; prefs.modelId = m.id
     if (prefs.variant !in m.variantNames) prefs.variant = ""
     val key = "$providerId/${m.id}"
-    prefs.recentModels = (listOf(key) + prefs.recentModels.split(',').filter { it.isNotBlank() && it != key }).take(6).joinToString(",")
+    val recent = prefs.recentModels.split(',').filter { it.isNotBlank() }
+    // a model already in the short list keeps its place: picking the second one must not make it the first
+    if (key in recent.take(3)) return
+    prefs.recentModels = (listOf(key) + recent.filter { it != key }).take(6).joinToString(",")
 }
 
 /** The main model picker page, like Claude mobile: a short list as a card, a hint, Effort and "More models". */
@@ -699,8 +760,9 @@ private fun ClaudeModelMain(current: app.ocmobile.api.ModelInfo?, onDismiss: () 
     val featured = remember(providers, prefs.recentModels, prefs.providerId, prefs.modelId) {
         val out = LinkedHashMap<String, Pair<String, app.ocmobile.api.ModelInfo>>()
         fun add(pid: String, m: app.ocmobile.api.ModelInfo?) { if (m != null) out.putIfAbsent("$pid/${m.id}", pid to m) }
-        add(prefs.providerId, Graph.catalog.model(prefs.providerId, prefs.modelId))
+        // the order of the recent list, not "selected first": the picked model stays where it was
         prefs.recentModels.split(',').filter { it.contains('/') }.forEach { k -> add(k.substringBefore('/'), Graph.catalog.model(k.substringBefore('/'), k.substringAfter('/'))) }
+        add(prefs.providerId, Graph.catalog.model(prefs.providerId, prefs.modelId))
         providers.firstOrNull { it.id == prefs.providerId }?.models?.values
             ?.sortedByDescending { it.release_date ?: "" }?.forEach { add(prefs.providerId, it) }
         out.values.take(4).toList()

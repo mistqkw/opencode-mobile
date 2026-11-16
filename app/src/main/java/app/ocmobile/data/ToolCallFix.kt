@@ -26,6 +26,9 @@ object ToolCallFix {
         FreeModels.COPILOT_ID to "https://api.githubcopilot.com",
     )
 
+    /** ChatHub looks for these words to move the chat to Pollinations. */
+    const val COPILOT_CAPPED = "Copilot's free limit for this month is used up."
+
     fun baseUrl(provider: String) = "http://127.0.0.1:${PhoneBridge.PORT}/llm/${PhoneBridge.token}/$provider"
 
     private val client = OkHttpClient.Builder()
@@ -39,10 +42,18 @@ object ToolCallFix {
         val base = upstream[provider] ?: return status(out, 404)
         val req = Request.Builder().url(base + rest).apply {
             passHeaders.forEach { h -> headers[h]?.let { header(h, it) } }
+            if (provider == FreeModels.COPILOT_ID && method == "POST") {
+                header("x-initiator", initiator(body)); header("openai-intent", "conversation-edits")
+            }
             if (method == "GET") get() else method(method, body.toRequestBody(headers["content-type"]?.toMediaTypeOrNull()))
         }.build()
         val resp = runCatching { client.newCall(req).execute() }.getOrElse { return status(out, 502) }
         resp.use { r ->
+            if (!r.isSuccessful) {
+                val b = errorBody(provider, r.code, r.body.string()).toByteArray()
+                out.write("HTTP/1.1 ${r.code} Error\r\nContent-Type: application/json\r\nContent-Length: ${b.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                out.write(b); out.flush(); return
+            }
             val type = r.header("content-type") ?: "application/json"
             // no length: the body ends when the connection closes, so the stream can go out line by line
             out.write("HTTP/1.1 ${r.code} OK\r\nContent-Type: $type\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n".toByteArray())
@@ -57,6 +68,36 @@ object ToolCallFix {
             }
             out.flush()
         }
+    }
+
+    /**
+     * Copilot counts every request marked "user" against the free plan's ~50 chat messages a month.
+     * OpenCode marks its own Copilot requests, but not ours, so each step of the agent (a tool result
+     * going back) used one up and the month was gone in an hour. Only a request that ends with your
+     * message is "user"; the steps after it are "agent", as in OpenCode and VS Code.
+     */
+    fun initiator(body: ByteArray): String = runCatching {
+        val msgs = app.ocmobile.api.OcJson.parseToJsonElement(body.decodeToString()).jsonObject["messages"] as JsonArray
+        if ((((msgs.last() as JsonObject)["role"]) as JsonPrimitive).content == "user") "user" else "agent"
+    }.getOrDefault("user")
+
+    /**
+     * A refused request as the OpenAI error the SDK reads. Copilot answers errors in plain text, and the
+     * SDK, unable to parse it, showed only the status line ("OK" from us): the reason
+     * goes in readable words, with what the provider said after it.
+     */
+    fun errorBody(provider: String, code: Int, raw: String): String {
+        val said = raw.trim().take(300)
+        val hint = when {
+            provider == "copilot-chat" && (code == 402 || code == 429 || Regex("quota|limit|exceeded", RegexOption.IGNORE_CASE).containsMatchIn(said)) -> COPILOT_CAPPED
+            provider == "copilot-chat" && code == 401 -> "GitHub didn't accept the sign-in. Sign in to GitHub again in the model list."
+            provider == "copilot-chat" && code == 403 -> "This GitHub account can't use Copilot. Turn on Copilot Free at github.com/settings/copilot, then try again."
+            provider == "copilot-chat" && code == 400 && said.contains("model", true) -> "Copilot doesn't offer this model on your plan. Pick another one."
+            code == 429 -> "Too many requests to the free model. Wait a minute and try again."
+            else -> "The model's server refused the request ($code)."
+        }
+        val msg = if (said.isEmpty()) hint else "$hint ($code: $said)"
+        return JsonObject(mapOf("error" to JsonObject(mapOf("message" to JsonPrimitive(msg), "code" to JsonPrimitive(code))))).toString()
     }
 
     /** What one streamed answer has passed on so far. */

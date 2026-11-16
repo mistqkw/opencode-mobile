@@ -1,5 +1,6 @@
 package app.ocmobile.ui.screens
 
+import androidx.compose.animation.togetherWith
 import app.ocmobile.ui.theme.screenBackdrop
 import app.ocmobile.ui.theme.kimiLike
 import androidx.compose.foundation.Image
@@ -56,8 +57,10 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
     val sessions = Graph.chats.chatsOnly(Graph.chats.sessions.collectAsState().value)
     val statuses by Graph.chats.statuses.collectAsState()
     val pinnedIds = Graph.prefs.pinnedSet()
-    val pinned = sessions.filter { it.id in pinnedIds }
-    val recent = sessions.filter { it.id !in pinnedIds }.take(12)
+    val pinned = if (Graph.prefs.drawerPinned) sessions.filter { it.id in pinnedIds } else emptyList()
+    val prefs = Graph.prefs
+    val showPinned = prefs.drawerPinned
+    val recent = sessions.filter { !showPinned || it.id !in pinnedIds }.let { l -> prefs.drawerRecent.toIntOrNull()?.let { l.take(it) } ?: l }
     fun go(r: Route) { close(); nav.root(r) }
 
     Box(Modifier.fillMaxSize().screenBackdrop("DrawerContent1")) {
@@ -66,15 +69,11 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
         val loaded = Graph.chats.loaded.collectAsState().value
         val cloudLook = Oc.look.id == "cloud"
         LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 112.dp + navBar)) {
-            item { DrawerHeader { go(it) } }
+            if (prefs.drawerHeader) item { DrawerHeader { go(it) } }
             item {
                 // the same sections in every look: a look changes how the app looks, never what it can do
-                val navs = listOf(
-                    Triple("Scheduled tasks", Ic.Clock2, Route.Scheduled), Triple("Remote devices", Ic.Laptop, Route.Code), Triple("Projects", Ic.Folder, Route.Projects),
-                    Triple("Artifacts", Ic.Puzzle, Route.Artifacts), Triple("Memory", Ic.Sparkle, Route.Memory),
-                    // cl0udly has its own room: chat and play while the agent works
-                    Triple("cl0udly", Ic.Cloud, Route.Mascot),
-                ) + (if (Oc.look.id.kimiLike) emptyList() else listOf(Triple("Settings", Ic.Sliders, Route.Settings)))
+                // the sections, in the order and with the ones picked in Settings → Side menu
+                val navs = DrawerSections.shown().filter { it.key != "settings" || !Oc.look.id.kimiLike }.map { Triple(it.label, it.icon, it.route) }
                 if (Oc.look.id == "cards") {
                     // Cards: sections as 2×2 tiles
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -89,7 +88,7 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
                         }
                     }
                 } else Column(Modifier.padding(top = 8.dp)) { navs.forEach { (l, ic, r) -> NavItem(l, ic) { go(r) } } }
-                if (Oc.look.id != "cards") Box(Modifier.padding(horizontal = 20.dp, vertical = 14.dp).fillMaxWidth().height(1.dp).background(c.border))
+                if (Oc.look.id != "cards" && navs.isNotEmpty()) Box(Modifier.padding(horizontal = 20.dp, vertical = 14.dp).fillMaxWidth().height(1.dp).background(c.border))
             }
             if (pinned.isNotEmpty()) {
                 item { Txt("Pinned", Modifier.padding(start = 24.dp, top = 6.dp, bottom = 6.dp), size = if (cloudLook) 13.sp else 16.sp, color = c.textDim) }
@@ -97,7 +96,7 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
             }
             if (!loaded && recent.isEmpty() && pinned.isEmpty()) {
                 item { app.ocmobile.ui.components.Skeleton(Modifier.padding(horizontal = 24.dp, vertical = 14.dp), lines = 5, height = 18.dp) }
-            } else if (cloudLook) {
+            } else if (cloudLook && prefs.drawerByDay) {
                 // cl0udly: recent chats by day
                 dayGroups(recent).forEach { (label, list) ->
                     item(key = "h$label") { Txt(label, Modifier.padding(start = 24.dp, top = 14.dp, bottom = 6.dp), size = 13.sp, color = c.textDim) }
@@ -119,12 +118,12 @@ fun DrawerContent(nav: Nav, close: () -> Unit) {
         ) {
             if (Oc.look.id.kimiLike) {
                 // Kimi: history search at the bottom and a round settings button
-                Row(
+                if (prefs.drawerSearch) Row(
                     Modifier.weight(1f).height(52.dp).clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.7f)).border(1.dp, c.border, CircleShape)
                         .tap(scale = 0.98f) { SearchHandoff.pending = true; go(Route.Recents) }.padding(horizontal = 18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) { Ico(Ic.Search, tint = c.textDim, size = 22.dp); Spacer(Modifier.width(12.dp)); Txt("Search", size = 17.sp, color = c.textDim) }
-                Spacer(Modifier.width(10.dp))
+                if (prefs.drawerSearch) Spacer(Modifier.width(10.dp)) else Spacer(Modifier.weight(1f))
                 if (Oc.look.id == "cloud") app.ocmobile.ui.components.KimiCircleBtn(Ic.Edit, { go(Route.Home) }, size = 52.dp)
                 else app.ocmobile.ui.components.KimiCircleBtn(Ic.Sliders, { go(Route.Settings) }, size = 52.dp)
             } else {
@@ -208,7 +207,7 @@ private fun DrawerHeader(go: (Route) -> Unit) {
 @Composable
 private fun NavItem(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
     val c = Oc.c
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = if (Oc.look.id == "messenger") 13.dp else 15.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = if (Graph.prefs.drawerCompact) 10.dp else if (Oc.look.id == "messenger") 13.dp else 15.dp), verticalAlignment = Alignment.CenterVertically) {
         when (Oc.look.id) {
             "hairline" -> { Ico(icon, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(18.dp)); Txt(label.uppercase(), Modifier.weight(1f), size = 13.sp, family = Oc.label); Txt("→", size = 13.sp, color = c.textDim, family = Oc.label) }
             "messenger" -> { Ico(icon, tint = c.textDim, size = 24.dp); Spacer(Modifier.width(28.dp)); Txt(label, size = 16.sp) }
@@ -227,7 +226,7 @@ private fun SessionRow(s: Session, status: String?, nav: Nav, close: () -> Unit)
     val needs = Graph.chats.questions.collectAsState().value.any { it.sessionID == s.id } || Graph.chats.permissions.collectAsState().value.any { it.sessionID == s.id }
     Row(
         Modifier.padding(horizontal = 10.dp).fillMaxWidth().clip(Oc.round(18.dp)).background(if (current || actions) c.surfaceHigh else androidx.compose.ui.graphics.Color.Transparent)
-            .tap(scale = 1f, onLongClick = { actions = true }) { close(); nav.openChat(s.id) }.padding(horizontal = 14.dp, vertical = 14.dp),
+            .tap(scale = 1f, onLongClick = { actions = true }) { close(); nav.openChat(s.id) }.padding(horizontal = 14.dp, vertical = if (Graph.prefs.drawerCompact) 9.dp else 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SessionActionsMenu(s, actions) { actions = false }
@@ -238,7 +237,7 @@ private fun SessionRow(s: Session, status: String?, nav: Nav, close: () -> Unit)
                 Txt(s.displayTitle.take(1).uppercase(), size = 18.sp, color = androidx.compose.ui.graphics.Color.White, weight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             }
             Spacer(Modifier.width(14.dp))
-        } else if (Oc.look.id == "cloud") {
+        } else if (Oc.look.id == "cloud" && Graph.prefs.drawerChatIcons) {
             // cl0udly: icon by chat type
             Ico(
                 when (app.ocmobile.data.ChatKind.of(s)) {
@@ -255,11 +254,15 @@ private fun SessionRow(s: Session, status: String?, nav: Nav, close: () -> Unit)
             Ico(if (s.directory == app.ocmobile.data.CHAT_DIR) Ic.Chat else if (s.directory.isBlank()) Ic.Terminal else Ic.Code, tint = c.textDim, size = if (Oc.look.id == "hairline") 18.dp else 22.dp)
             Spacer(Modifier.width(18.dp))
         }
-        Txt(s.displayTitle, Modifier.weight(1f), size = if (Oc.look.id == "hairline") 15.sp else if (Oc.look.id == "messenger") 16.sp else 18.sp, maxLines = 1, family = if (Oc.look.id == "notebook") Oc.reply else null)
+        // a new chat gets its name a moment after the first reply: it fades in instead of jumping
+        androidx.compose.animation.AnimatedContent(s.displayTitle, Modifier.weight(1f), label = "title", transitionSpec = {
+            (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(220)) + androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(220)) { it / 3 }) togetherWith
+                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120))
+        }) { t -> Txt(t, size = if (Oc.look.id == "hairline") 15.sp else if (Oc.look.id == "messenger") 16.sp else 18.sp, maxLines = 1, family = if (Oc.look.id == "notebook") Oc.reply else null) }
         // how many helpers worked in this chat
         val all = Graph.chats.allSessions.collectAsState().value
         val helpers = androidx.compose.runtime.remember(all, s.id) { all.values.count { it.parentID == s.id } }
-        if (helpers > 0) {
+        if (helpers > 0 && Graph.prefs.drawerHelpers) {
             Spacer(Modifier.width(10.dp))
             Row(Modifier.clip(CircleShape).background(c.surfaceHigh).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 Ico(Ic.Users, tint = c.textDim, size = 13.dp); Spacer(Modifier.width(4.dp))
@@ -267,7 +270,7 @@ private fun SessionRow(s: Session, status: String?, nav: Nav, close: () -> Unit)
             }
         }
         val done = s.id in Graph.chats.doneUnseen.collectAsState().value
-        if (needs || status != null || done) {
+        if (Graph.prefs.drawerStatus && (needs || status != null || done)) {
             Spacer(Modifier.width(12.dp))
             if (needs) Box(Modifier.size(11.dp).clip(CircleShape).background(c.link))
             else app.ocmobile.ui.components.WorkDot(working = status != null && !done, size = 11.dp)

@@ -308,7 +308,7 @@ private fun TextLines(text: String) {
         }
         Row(
             Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp).clip(Oc.pill).background(c.surfaceHigh).border(1.dp, c.border, Oc.pill)
-                .tap { clip.setText(AnnotatedString(text)); Graph.chats.toasts.tryEmit("Copied") }.padding(horizontal = 16.dp, vertical = 10.dp),
+                .tap { clip.setText(AnnotatedString(text)); app.ocmobile.ui.components.copiedNote() }.padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) { Ico(Ic.Copy, tint = c.text, size = 18.dp); Spacer(Modifier.width(8.dp)); Txt("Copy all", size = 14.sp) }
     }

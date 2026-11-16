@@ -225,8 +225,9 @@ fun KimiModelPanel(onDismiss: () -> Unit, onMore: () -> Unit, onTeam: (() -> Uni
     val featured = remember(providers, prefs.recentModels, prefs.providerId, prefs.modelId) {
         val out = LinkedHashMap<String, Pair<String, ModelInfo>>()
         fun add(pid: String, m: ModelInfo?) { if (m != null) out.putIfAbsent("$pid/${m.id}", pid to m) }
-        add(prefs.providerId, Graph.catalog.model(prefs.providerId, prefs.modelId))
+        // the order of the recent list, not "selected first": the picked model stays where it was
         prefs.recentModels.split(',').filter { it.contains('/') }.forEach { k -> add(k.substringBefore('/'), Graph.catalog.model(k.substringBefore('/'), k.substringAfter('/'))) }
+        add(prefs.providerId, Graph.catalog.model(prefs.providerId, prefs.modelId))
         providers.firstOrNull { it.id == prefs.providerId }?.models?.values?.sortedByDescending { it.release_date ?: "" }?.forEach { add(prefs.providerId, it) }
         out.values.take(3).toList()
     }
@@ -389,3 +390,146 @@ fun KimiHero(code: Boolean, typing: Boolean = false, onMore: () -> Unit) {
         }
     }
 }
+
+/**
+ * "Add to session" in the cl0udly and Kimi looks: the same floating panel as the model picker, only
+ * rising from the input instead of dropping from the top bar, with the same pages sliding in and out.
+ */
+@Composable
+fun KimiAddPanel(
+    onDismiss: () -> Unit,
+    sessionId: String?,
+    nav: Nav,
+    onCamera: () -> Unit,
+    onPhotos: () -> Unit,
+    onFiles: () -> Unit,
+    onVoice: (() -> Unit)?,
+) {
+    val c = Oc.c
+    val prefs = Graph.prefs
+    val scope = rememberCoroutineScope()
+    var page by remember { mutableStateOf("main") }
+    val agents by Graph.catalog.agents.collectAsState()
+    val enter = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { enter.animateTo(1f, tween(220, easing = FastOutSlowInEasing)) }
+    var memHere by remember { mutableStateOf(prefs.memoryOn(sessionId)) }
+    fun go(to: () -> Unit) { onDismiss(); to() }
+    val permLabel = mapOf("ask" to "Ask", "edits" to "Auto-edit", "auto" to "Auto")
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Box(Modifier.fillMaxSize().clickable(remember { MutableInteractionSource() }, null, onClick = onDismiss), contentAlignment = Alignment.BottomCenter) {
+            Column(
+                Modifier.navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth()
+                    .graphicsLayer { alpha = enter.value; translationY = (1 - enter.value) * 24.dp.toPx(); scaleY = 0.96f + 0.04f * enter.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f) }
+                    .clip(RoundedCornerShape(32.dp)).background(c.surfaceHigh).border(1.dp, c.border, RoundedCornerShape(32.dp))
+                    .clickable(remember { MutableInteractionSource() }, null) {}
+                    .animateContentSize(tween(240, easing = FastOutSlowInEasing))
+                    .padding(vertical = 10.dp),
+            ) {
+                androidx.compose.animation.AnimatedContent(page, label = "add", transitionSpec = {
+                    val dir = if (targetState != "main") 1 else -1
+                    (androidx.compose.animation.slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { it / 3 * dir } + androidx.compose.animation.fadeIn(tween(200))) togetherWith
+                        (androidx.compose.animation.slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { -it / 3 * dir } + androidx.compose.animation.fadeOut(tween(140)))
+                }) { pg ->
+                    Column(Modifier.heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
+                        when (pg) {
+                            "perm" -> {
+                                KimiBackRow("Permission") { page = "main" }
+                                listOf(
+                                    Triple("ask", "Ask", "Confirm every file edit and command"),
+                                    Triple("edits", "Auto-edit", "Edit files freely, ask before commands and web"),
+                                    Triple("auto", "Auto", "Run everything without asking"),
+                                ).forEach { (k, l, d) ->
+                                    KimiPanelRow(l, d, prefs.permissionMode == k) {
+                                        prefs.permissionMode = k
+                                        if (sessionId != null) scope.launch {
+                                            runCatching {
+                                                Graph.api.setSessionPermission(sessionId, Graph.chats.session(sessionId)?.directory,
+                                                    Graph.chats.permissionRules(k, sessionId) ?: kotlinx.serialization.json.JsonArray(emptyList()))
+                                            }
+                                        }
+                                        page = "main"
+                                    }
+                                }
+                            }
+                            "agent" -> {
+                                KimiBackRow("Agent") { page = "main" }
+                                agents.filter { it.mode != "subagent" && !it.hidden }.ifEmpty { agents }.forEach { a ->
+                                    KimiPanelRow(a.name.replaceFirstChar { it.uppercase() }, a.description, prefs.agent == a.name) { prefs.agent = a.name; page = "main" }
+                                }
+                            }
+                            else -> {
+                                // what to attach: three round buttons, like the input's own
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    AddTile("Camera", Ic.Camera, Modifier.weight(1f)) { go(onCamera) }
+                                    AddTile("Photos", Ic.Image, Modifier.weight(1f)) { go(onPhotos) }
+                                    AddTile("Files", Ic.FileUp, Modifier.weight(1f)) { go(onFiles) }
+                                }
+                                KimiDivider()
+                                KimiNavRow("Permission", permLabel[prefs.permissionMode]) { page = "perm" }
+                                KimiNavRow("Agent", prefs.agent.replaceFirstChar { it.uppercase() }) { page = "agent" }
+                                KimiToggleRow("Plan mode", prefs.agent == "plan") { prefs.agent = if (it) "plan" else "build" }
+                                KimiDivider()
+                                KimiNavRow("Sub-agents", teamLabel()) { go { nav.push(Route.Team) } }
+                                KimiNavRow("Connectors", null) { go { nav.push(Route.Connectors) } }
+                                KimiNavRow("Skills", null) { go { nav.push(Route.Skills) } }
+                                KimiNavRow("Scheduled", null) { go { nav.root(Route.Scheduled) } }
+                                KimiNavRow("Devices", null) { go { nav.push(Route.Code) } }
+                                if (onVoice != null) KimiNavRow("Call", null) { go(onVoice) }
+                                KimiDivider()
+                                KimiToggleRow("Memory", prefs.memoryEnabled) { prefs.memoryEnabled = it; memHere = prefs.memoryOn(sessionId); app.ocmobile.data.Memory.sync() }
+                                if (sessionId != null && prefs.memoryEnabled) KimiToggleRow("Memory in this chat", memHere) { memHere = it; Graph.chats.setChatMemory(sessionId, it) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddTile(label: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit) {
+    val c = Oc.c
+    Column(
+        modifier.clip(RoundedCornerShape(24.dp)).background(c.text.copy(alpha = 0.06f)).tap(scale = 0.95f, onClick = onClick).padding(vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(Modifier.size(48.dp).clip(CircleShape).background(c.text.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) { Ico(icon, size = 24.dp) }
+        Spacer(Modifier.height(8.dp))
+        Txt(label, size = 16.sp)
+    }
+}
+
+@Composable
+private fun KimiToggleRow(title: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().tap(scale = 1f) { onChange(!on) }.padding(horizontal = 28.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Txt(title, Modifier.weight(1f), size = 19.sp, weight = FontWeight.Medium, maxLines = 1)
+        OcSwitch(on, onChange)
+    }
+}
+
+/** Three things to ask, under the greeting of a new chat; a different three every time. Tapping one puts it in the input. */
+@Composable
+fun AskIdeas(code: Boolean, onPick: (String) -> Unit) {
+    val c = Oc.c
+    val ideas = remember(code) { (if (code) CODE_IDEAS else CHAT_IDEAS).shuffled().take(3) }
+    Column(Modifier.padding(horizontal = 32.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ideas.forEach { t ->
+            Box(Modifier.clip(RoundedCornerShape(18.dp)).background(c.text.copy(alpha = 0.06f)).tap(scale = 0.97f) { onPick(t) }.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                Txt(t, size = 15.sp, color = c.textDim, maxLines = 1)
+            }
+        }
+    }
+}
+
+private val CHAT_IDEAS = listOf(
+    "Plan my week from a messy list", "Explain something like I'm new to it", "Write a short message for me",
+    "Help me choose between two options", "Sum up a long text I paste", "Make a packing list for a trip",
+    "Turn my notes into a clear plan", "Ask me questions to find a gift idea",
+)
+
+private val CODE_IDEAS = listOf(
+    "Make a small web page with a button", "Find and fix a bug in my project", "Explain what this repo does",
+    "Write a script that renames my photos", "Add tests to a file", "Set up a new project for me",
+    "Make a tiny game I can play here", "Clean up messy code without changing it",
+)

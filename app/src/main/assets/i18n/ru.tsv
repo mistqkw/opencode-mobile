@@ -646,3 +646,11 @@ OpenCode updates itself, and you can go back to the previous version in Server s
 A dot on the menu breathes while the agent works and turns blue when the task is done	Точка на меню мерцает, пока агент работает, и становится синей, когда задача готова
 Russian and English, voice talk with the cloud, a task timeline and limit warnings	Русский и английский, голосовой разговор с облачком, таймлайн задачи и предупреждения о лимитах
 Settings and every section are in every look now	Настройки и все разделы теперь есть в любом стиле
+New look: a night sky with pixel clouds, and a new launch screen	Новый вид: ночное небо с пиксельными облаками и новая заставка
+Menus and windows open right where you tap, as floating cards	Меню и окна открываются прямо там, где нажал, плавающими карточками
+The input has a thin frame and one button, grows smoothly and keeps a draft in every chat	У поля ввода тонкая рамка и одна кнопка, оно плавно растёт и хранит черновик в каждом чате
+Code in replies: line numbers, highlighting, copy, save and preview	Код в ответах: номера строк, подсветка, копирование, сохранение и просмотр
+Search finds words inside messages, whatever the letter case	Поиск находит слова внутри сообщений, в любом регистре
+A deleted chat can be brought back, and errors say what to do	Удалённый чат можно вернуть, а ошибки подсказывают, что делать
+Fixed: the "OK" error and the used-up free limit with GitHub Copilot, broken replies from GPT-OSS	Исправлено: ошибка «OK» и съеденный бесплатный лимит GitHub Copilot, сломанные ответы GPT-OSS
+The chat stays where you left it when you scroll up a little	Чат остаётся на месте, если чуть прокрутить вверх

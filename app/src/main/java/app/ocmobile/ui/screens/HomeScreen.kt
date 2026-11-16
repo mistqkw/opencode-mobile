@@ -143,6 +143,9 @@ fun HomeScreen(nav: Nav, onMenu: () -> Unit, code: Boolean = false) {
                         } else {
                             if (Oc.look.id.kimiLike) {
                                 app.ocmobile.ui.components.KimiHero(code, typing = state.text.isNotEmpty()) { nav.push(app.ocmobile.ui.Route.Providers) }
+                                androidx.compose.animation.AnimatedVisibility(state.text.isEmpty(), enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(140)), exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(100))) {
+                                    Column { Spacer(Modifier.height(22.dp)); app.ocmobile.ui.components.AskIdeas(code) { state.text = it } }
+                                }
                             } else if (Oc.look.id in lookHomes) {
                                 LookHome(Oc.look.id, code) { state.text = it }
                             } else if (Oc.desktop) {

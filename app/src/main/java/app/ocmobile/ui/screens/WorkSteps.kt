@@ -223,8 +223,8 @@ private fun StepRow(p: Part, onImage: (String) -> Unit) {
                     p.type == "reasoning" -> Txt(p.text.trim(), size = 14.sp, color = c.textDim, lineHeight = 21.sp, modifier = Modifier.padding(horizontal = 2.dp))
                     name == "bash" -> CommandView(p)
                     status == "error" -> OutputBox(st?.str("error").orEmpty(), bad = true)
-                    name in EDITS -> st?.obj("metadata")?.str("diff")?.takeIf { it.isNotBlank() }?.let { DiffView(it) } ?: OutputBox(st?.str("output").orEmpty())
-                    name == "write" -> CodeBlock(input?.str("content").orEmpty().take(6000), input?.str("filePath")?.substringAfterLast('.').orEmpty())
+                    name in EDITS -> st?.obj("metadata")?.str("diff")?.takeIf { it.isNotBlank() }?.let { app.ocmobile.ui.components.DiffView(it, fileOf(p)) } ?: OutputBox(st?.str("output").orEmpty())
+                    name == "write" -> CodeBlock(input?.str("content").orEmpty().take(20000), input?.str("filePath")?.substringAfterLast('.').orEmpty(), file = input?.str("filePath"))
                     else -> {
                         OutputBox(st?.str("output").orEmpty())
                         st?.arr("attachments")?.forEach { a ->

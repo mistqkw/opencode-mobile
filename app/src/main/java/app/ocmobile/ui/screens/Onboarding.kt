@@ -172,6 +172,11 @@ fun Onboarding() {
                     Modifier.fillMaxWidth().height(56.dp).clip(Oc.pill).background(c.text).tap { go(step + 1) },
                     contentAlignment = Alignment.Center,
                 ) { Txt(when { step == 0 -> "Show me around"; step < TOUR - 1 -> "Next"; step == TOUR - 1 -> "Let's set up"; else -> "Continue" }, size = 17.sp, color = c.bg, weight = FontWeight.Medium) }
+                // the short way: no tour and no setup, a free model, and the chat as soon as OpenCode is ready
+                if (step == 0) Box(
+                    Modifier.fillMaxWidth().padding(top = 8.dp).height(48.dp).clip(Oc.pill).tap { account = "free"; if (ready) finish("free") else go(STEPS.lastIndex) },
+                    contentAlignment = Alignment.Center,
+                ) { Txt("Start chatting right away", size = 16.sp, color = c.textDim) }
             }
             Spacer(Modifier.height(12.dp))
             SetupLine(rt)

@@ -27,8 +27,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -42,7 +40,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -54,6 +54,7 @@ import app.ocmobile.api.str
 import app.ocmobile.data.ChatMessage
 import app.ocmobile.ui.Nav
 import app.ocmobile.ui.components.ComposerHost
+import app.ocmobile.ui.components.DiffView
 import app.ocmobile.ui.components.Ico
 import app.ocmobile.ui.components.IconBtn
 import app.ocmobile.ui.components.ImageViewer
@@ -68,6 +69,7 @@ import app.ocmobile.ui.components.rememberComposerState
 import app.ocmobile.ui.theme.Ic
 import app.ocmobile.ui.theme.Oc
 import app.ocmobile.ui.theme.lookBackdrop
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.gestures.scrollBy
@@ -89,8 +91,11 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
     val incognito = hub.isIncognito(id)
     val busy = statuses[id] == "busy" || statuses[id] == "retry"
     val state = rememberComposerState()
-    LaunchedEffect(id) { Graph.chats.drafts.remove(id)?.let { state.text = it } }
     val listState = rememberLazyListState()
+    // an error card's "Change model" opens this chat's picker
+    val pickReq = app.ocmobile.ui.components.UiRequests.pickModel
+    val pickStart = remember(id) { pickReq }
+    LaunchedEffect(pickReq) { if (pickReq > pickStart) state.showModel = true }
     var viewer by remember { mutableStateOf<Pair<List<String>, Int>?>(null) }
     var menu by remember { mutableStateOf(false) }
     var rename by remember { mutableStateOf(false) }
@@ -104,6 +109,15 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
     var stick by remember { mutableStateOf(true) }
     var voice by remember { mutableStateOf(false) }
     var sendingNow by remember { mutableStateOf(false) }
+    // what you were typing stays with the chat (across leaving it and closing the app) until you send or erase it
+    LaunchedEffect(id) {
+        (Graph.chats.drafts.remove(id) ?: Graph.prefs.draft(id).takeIf { it.isNotEmpty() })?.let { state.text = it }
+        snapshotFlow { state.text }.collectLatest { t ->
+            kotlinx.coroutines.delay(300)
+            if (!incognito && editing == null) Graph.prefs.setDraft(id, t)
+        }
+    }
+    DisposableEffect(id) { onDispose { if (!incognito && editing == null) Graph.prefs.setDraft(id, state.text) } }
 
     LaunchedEffect(id) {
         if (chat.directory == null) chat.directory = hub.session(id)?.directory
@@ -117,17 +131,31 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
     }
 
     // "Sticking" to the bottom: drag the list and it unsticks; reach the end (yourself or with the button) and it sticks again.
+    // "At the bottom" is near it, not exactly at it: while a reply grows, the end moves away under
+    // the finger, and an exact check left the chat unstuck after you had scrolled all the way down.
+    // But only on the way down: a small pull up from the bottom stays where you left it.
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    fun nearEnd(): Boolean {
+        val i = listState.layoutInfo
+        val last = i.visibleItemsInfo.lastOrNull() ?: return true
+        if (last.index < i.totalItemsCount - 1) return false
+        return last.offset + last.size - (i.viewportEndOffset - i.afterContentPadding) < with(density) { 160.dp.toPx() }
+    }
     LaunchedEffect(listState) {
         listState.interactionSource.interactions.collect {
             when (it) {
                 is androidx.compose.foundation.interaction.DragInteraction.Start -> stick = false
                 is androidx.compose.foundation.interaction.DragInteraction.Stop, is androidx.compose.foundation.interaction.DragInteraction.Cancel ->
-                    if (!listState.canScrollForward) stick = true
+                    if (listState.lastScrolledForward && nearEnd()) stick = true
             }
         }
     }
     LaunchedEffect(listState) {
         snapshotFlow { listState.canScrollForward }.collect { if (!it) stick = true }
+    }
+    // a fling that ends by the bottom sticks too
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }.collect { if (!it && !stick && listState.lastScrolledForward && nearEnd()) stick = true }
     }
     // While stuck, the bottom is caught up smoothly frame by frame, not with a jump on every incoming chunk.
     LaunchedEffect(listState) {
@@ -188,53 +216,16 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
     }
     val selBar = remember { app.ocmobile.ui.components.ChatTextToolbar() }
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalUriHandler provides uris) {
-    Column(Modifier.fillMaxSize().lookBackdrop().imePadding()) {
-        TopBar(
-            title = null,
-            left = { Row(verticalAlignment = Alignment.CenterVertically) { if (incognito) IconBtn(Ic.Close, { nav.pop() }) else app.ocmobile.ui.components.MenuBtn(onMenu); app.ocmobile.ui.components.TopModelPill(state) } },
-            right = {
-                app.ocmobile.ui.components.UsageRing(chat, nav)
-                if (!incognito) {
-                    // no title over the chat: rename, pin, memory, changes, fork, compact, archive and delete live here
-                    Box {
-                        // the same round button as the usage ring next to it, so the two sit as a pair
-                        if (Oc.look.id == "kimi" || Oc.look.id == "cloud") {
-                            Spacer(Modifier.width(8.dp))
-                            Box(
-                                Modifier.size(48.dp).clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.7f)).border(1.dp, c.border, CircleShape).tap { menu = true },
-                                contentAlignment = Alignment.Center,
-                            ) { Ico(Ic.More, size = 22.dp) }
-                        } else IconBtn(Ic.More, { menu = true })
-                    DropdownMenu(menu, { menu = false }, containerColor = c.surface) {
-                        val items = listOf(
-                            "Rename" to { rename = true },
-                            (if (id in pinned) "Unpin" else "Pin") to { Graph.prefs.togglePin(id) },
-                        ) + (if (!Graph.prefs.memoryEnabled) emptyList() else listOf(
-                            (if (Graph.prefs.memoryOn(id)) "Turn off memory here" else "Turn on memory here") to {
-                                val on = !Graph.prefs.memoryOn(id)
-                                hub.setChatMemory(id, on)
-                                hub.toasts.tryEmit(if (on) "Memory is on in this chat" else "This chat won't read or save memory"); Unit
-                            },
-                        )) + listOf(
-                            "Timeline" to { showTimeline = true },
-                            "Changes" to { showDiff = true },
-                            "Fork" to { scope.launch { runCatching { Graph.api.forkSession(id, chat.directory, null) }.getOrNull()?.let { nav.openChat(it.id) } } },
-                            "Compact context" to { scope.launch { runCatching { Graph.api.summarize(id, chat.directory, Graph.prefs.providerId, Graph.prefs.modelId) } } },
-                            "Archive" to { scope.launch { runCatching { Graph.api.archiveSession(id, chat.directory) }; nav.pop() } },
-                            "Delete" to { confirmDelete = true },
-                        )
-                        items.forEach { (label, act) ->
-                            DropdownMenuItem(text = { Txt(label, size = 16.sp, color = if (label == "Delete") c.danger else c.text) }, onClick = { menu = false; act() })
-                        }
-                    }
-                    }
-                }
-            },
-        )
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+    // the messages run under the top bar and the input, which float over them half see-through:
+    // no edge the text stops at, and the padding keeps the first and last lines clear of both
+    val dens = androidx.compose.ui.platform.LocalDensity.current
+    var topPad by remember { mutableStateOf(0.dp) }
+    var bottomPad by remember { mutableStateOf(0.dp) }
+    Box(Modifier.fillMaxSize().lookBackdrop().imePadding()) {
+        Box(Modifier.fillMaxSize()) {
             if (chat.loading && chat.messages.isEmpty()) {
                 // the shape of a conversation while it loads: a short question on the right, a reply under it
-                Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
+                Column(Modifier.fillMaxSize().padding(top = topPad).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
                     Row { Spacer(Modifier.weight(0.4f)); app.ocmobile.ui.components.Skeleton(Modifier.weight(0.6f), lines = 1, height = 40.dp) }
                     app.ocmobile.ui.components.Skeleton(lines = 4)
                     Row { Spacer(Modifier.weight(0.5f)); app.ocmobile.ui.components.Skeleton(Modifier.weight(0.5f), lines = 1, height = 40.dp) }
@@ -261,7 +252,7 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
                     androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(dens.density, dens.fontScale * CHAT_TEXT),
                     app.ocmobile.ui.components.LocalChatText provides true,
                 ) {
-                LazyColumn(Modifier.fillMaxSize(), state = listState, verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)) {
+                LazyColumn(Modifier.fillMaxSize(), state = listState, verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(top = topPad + 8.dp, bottom = bottomPad + 12.dp)) {
                     items(turns, key = { it.first().id }) { turn ->
                         val m = turn.last()
                         val head = turn.first()
@@ -280,6 +271,15 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
                         // "Thinking…" fades in and out: without it the chat tail jumped in height
                         Column(Modifier.fillMaxWidth().animateContentSize(tween(140)).padding(horizontal = 20.dp)) {
                             chat.loadError?.let { Txt(it, size = 14.sp, color = c.danger) }
+                            // right after a reply ends the mascot reacts for a moment, by its eyes
+                            val outcome = app.ocmobile.ui.components.MascotSignals.outcome
+                            var reacting by remember { mutableStateOf(false) }
+                            LaunchedEffect(outcome) { if (outcome != null && System.currentTimeMillis() - outcome.at < 1000) { reacting = true; kotlinx.coroutines.delay(1800); reacting = false } }
+                            if (!busy && reacting && outcome != null && outcome.sessionId == id && Oc.look.id == "cloud") Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                app.ocmobile.ui.components.CloudOutcomeGlyph(outcome.ok, 32.dp)
+                                Spacer(Modifier.width(10.dp))
+                                Txt(if (outcome.ok) "Done" else "That didn't work", size = 15.sp, color = c.textDim)
+                            }
                             if (busy) app.ocmobile.ui.components.ThinkingIndicator(
                                 if (statuses[id] == "retry") app.ocmobile.ui.components.Work.Wait else workKind(chat.messages.lastOrNull()),
                                 Modifier.padding(vertical = 4.dp),
@@ -297,7 +297,7 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
             }
             // "down": by the right edge so it doesn't cover the text, a 48 dp target around a 40 dp circle
             androidx.compose.animation.AnimatedVisibility(
-                !stick, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 8.dp),
+                !stick, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = bottomPad + 8.dp),
                 enter = androidx.compose.animation.fadeIn(tween(140)) + androidx.compose.animation.scaleIn(tween(140), initialScale = 0.8f),
                 exit = androidx.compose.animation.fadeOut(tween(140)) + androidx.compose.animation.scaleOut(tween(140), targetScale = 0.8f),
             ) {
@@ -312,54 +312,110 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
                 }
             }
         }
-        // the chat's own requests first, then its helpers' (they would wait unseen otherwise)
-        val allS by hub.allSessions.collectAsState()
-        val myPerm = perms.firstOrNull { it.sessionID == id } ?: perms.firstOrNull { p -> allS[p.sessionID]?.parentID == id }
-        val myQuestion = questions.firstOrNull { it.sessionID == id }
-        editing?.let {
-            Row(
-                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(18.dp)).background(c.surface).padding(start = 16.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Ico(Ic.Edit, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(10.dp))
-                Txt("Editing message — session rewinds to it", size = 14.sp, color = c.textDim, modifier = Modifier.weight(1f))
-                IconBtn(Ic.Close, { editing = null; state.clear() }, size = 40.dp, iconSize = 18.dp)
-            }
-        }
-        app.ocmobile.ui.components.InterruptedCard(id)
-        if (myQuestion == null && myPerm == null) app.ocmobile.ui.components.PreviewChips(chat, id, nav)
-        if (myQuestion == null && myPerm == null) app.ocmobile.ui.components.HelperClouds(id)
-        if (myQuestion != null || myPerm != null) Box(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
-            androidx.compose.animation.AnimatedContent(myQuestion?.id ?: myPerm?.id, label = "ask", transitionSpec = {
-                (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(140)) + androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(160)) { it / 4 }) togetherWith
-                    androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90))
-            }) { _ ->
-                if (myQuestion != null) QuestionPanel(myQuestion, chat.directory)
-                else if (myPerm != null && myPerm.permission == "task") app.ocmobile.ui.components.TaskPermissionPanel(myPerm, chat.directory)
-                else if (myPerm != null) Column {
-                    if (myPerm.sessionID != id) Txt("${app.ocmobile.data.Team.display(allS[myPerm.sessionID]?.agent)} asks", Modifier.padding(start = 24.dp, bottom = 6.dp), size = 13.sp, color = Oc.c.accent)
-                    PermissionPanel(myPerm, chat.directory)
-                }
-            }
-        } else Box(Modifier.navigationBarsPadding()) {
-            ComposerHost(
-                state = state, nav = nav, busy = busy || sendingNow, sessionId = id,
-                placeholder = if (sendingNow) "Sending…" else if (editing != null) "Edit your message" else "Reply to ${if (app.ocmobile.data.Persona.on) "cl0udly" else "OpenCode"}…",
-                dashed = incognito,
-                onSend = {
-                    val text = state.text.trim()
-                    val atts = state.attachments.toList()
-                    val e = editing
-                    state.clear(); stick = true; editing = null; sendingNow = true
-                    scope.launch {
-                        runCatching { if (e != null) hub.edit(ctx, id, e, text, atts) else hub.send(ctx, id, text, atts) }
-                            .onFailure { hub.toasts.tryEmit(it.message ?: "Send failed") }
-                        sendingNow = false
+        // the top darkens the messages that go under it, fading out a little below the bar instead of a hard edge
+        val shade = c.bg
+        Box(
+            Modifier.align(Alignment.TopCenter).fillMaxWidth().onSizeChanged { topPad = with(dens) { it.height.toDp() } }
+                .drawBehind {
+                    val h = size.height + 36.dp.toPx()
+                    drawRect(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            0f to shade.copy(alpha = 0.92f), 0.55f to shade.copy(alpha = 0.75f), 1f to shade.copy(alpha = 0f), endY = h,
+                        ),
+                        size = androidx.compose.ui.geometry.Size(size.width, h),
+                    )
+                },
+        ) {
+            TopBar(
+                title = null,
+                left = { Row(verticalAlignment = Alignment.CenterVertically) { if (incognito) IconBtn(Ic.Close, { nav.pop() }) else app.ocmobile.ui.components.MenuBtn(onMenu); app.ocmobile.ui.components.TopModelPill(state) } },
+                right = {
+                    app.ocmobile.ui.components.UsageRing(chat, nav)
+                    if (!incognito) {
+                        // no title over the chat: rename, pin, memory, changes, fork, compact, archive and delete live here
+                        Box {
+                            // the same round button as the usage ring next to it, so the two sit as a pair
+                            if (Oc.look.id == "kimi" || Oc.look.id == "cloud") {
+                                Spacer(Modifier.width(8.dp))
+                                Box(
+                                    Modifier.size(48.dp).clip(CircleShape).background(c.surfaceHigh.copy(alpha = 0.7f)).border(1.dp, c.border, CircleShape).tap { menu = true },
+                                    contentAlignment = Alignment.Center,
+                                ) { Ico(Ic.More, size = 22.dp) }
+                            } else IconBtn(Ic.More, { menu = true })
+                            if (menu) ChatMenu(
+                                onDismiss = { menu = false },
+                                items = listOfNotNull(
+                                    MenuItem("Rename", Ic.Edit) { rename = true },
+                                    MenuItem(if (id in pinned) "Unpin" else "Pin", Ic.Pin) { Graph.prefs.togglePin(id) },
+                                    if (!Graph.prefs.memoryEnabled) null else Graph.prefs.memoryOn(id).let { on ->
+                                        MenuItem(if (on) "Turn off memory here" else "Turn on memory here", Ic.Sparkle) {
+                                            hub.setChatMemory(id, !on)
+                                            hub.toasts.tryEmit(if (!on) "Memory is on in this chat" else "This chat won't read or save memory")
+                                        }
+                                    },
+                                    MenuItem("Timeline", Ic.Clock) { showTimeline = true },
+                                    MenuItem("Changes", Ic.Diff) { showDiff = true },
+                                    MenuItem("Fork", Ic.Branch) { scope.launch { runCatching { Graph.api.forkSession(id, chat.directory, null) }.getOrNull()?.let { nav.openChat(it.id) } } },
+                                    MenuItem("Compact context", Ic.Scroll) { scope.launch { runCatching { Graph.api.summarize(id, chat.directory, Graph.prefs.providerId, Graph.prefs.modelId) } } },
+                                    MenuItem("Archive", Ic.Archive) { scope.launch { runCatching { Graph.api.archiveSession(id, chat.directory) }; nav.pop() } },
+                                    MenuItem("Delete", Ic.Trash, danger = true) { confirmDelete = true },
+                                ),
+                            )
+                        }
                     }
                 },
-                onStop = { scope.launch { runCatching { Graph.api.abort(id, chat.directory) } } },
-                onVoice = if (incognito) null else ({ voice = true }),
             )
+        }
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().onSizeChanged { bottomPad = with(dens) { it.height.toDp() } }) {
+            // the chat's own requests first, then its helpers' (they would wait unseen otherwise)
+            val allS by hub.allSessions.collectAsState()
+            val myPerm = perms.firstOrNull { it.sessionID == id } ?: perms.firstOrNull { p -> allS[p.sessionID]?.parentID == id }
+            val myQuestion = questions.firstOrNull { it.sessionID == id }
+            editing?.let {
+                Row(
+                    Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(Oc.round(18.dp)).background(c.surface).padding(start = 16.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Ico(Ic.Edit, tint = c.textDim, size = 18.dp); Spacer(Modifier.width(10.dp))
+                    Txt("Editing message — session rewinds to it", size = 14.sp, color = c.textDim, modifier = Modifier.weight(1f))
+                    IconBtn(Ic.Close, { editing = null; state.clear() }, size = 40.dp, iconSize = 18.dp)
+                }
+            }
+            app.ocmobile.ui.components.InterruptedCard(id)
+            if (myQuestion == null && myPerm == null) app.ocmobile.ui.components.PreviewChips(chat, id, nav)
+            if (myQuestion == null && myPerm == null) app.ocmobile.ui.components.HelperClouds(id)
+            if (myQuestion != null || myPerm != null) Box(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
+                androidx.compose.animation.AnimatedContent(myQuestion?.id ?: myPerm?.id, label = "ask", transitionSpec = {
+                    (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(140)) + androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(160)) { it / 4 }) togetherWith
+                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90))
+                }) { _ ->
+                    if (myQuestion != null) QuestionPanel(myQuestion, chat.directory)
+                    else if (myPerm != null && myPerm.permission == "task") app.ocmobile.ui.components.TaskPermissionPanel(myPerm, chat.directory)
+                    else if (myPerm != null) Column {
+                        if (myPerm.sessionID != id) Txt("${app.ocmobile.data.Team.display(allS[myPerm.sessionID]?.agent)} asks", Modifier.padding(start = 24.dp, bottom = 6.dp), size = 13.sp, color = Oc.c.accent)
+                        PermissionPanel(myPerm, chat.directory)
+                    }
+                }
+            } else Box(Modifier.navigationBarsPadding()) {
+                ComposerHost(
+                    state = state, nav = nav, busy = busy || sendingNow, sessionId = id,
+                    placeholder = if (sendingNow) "Sending…" else if (editing != null) "Edit your message" else "Reply to ${if (app.ocmobile.data.Persona.on) "cl0udly" else "OpenCode"}…",
+                    dashed = incognito, floating = true,
+                    onSend = {
+                        val text = state.text.trim()
+                        val atts = state.attachments.toList()
+                        val e = editing
+                        state.clear(); stick = true; editing = null; sendingNow = true
+                        scope.launch {
+                            runCatching { if (e != null) hub.edit(ctx, id, e, text, atts) else hub.send(ctx, id, text, atts) }
+                                .onFailure { hub.toasts.tryEmit(it.message ?: "Send failed") }
+                            sendingNow = false
+                        }
+                    },
+                    onStop = { scope.launch { runCatching { Graph.api.abort(id, chat.directory) } } },
+                    onVoice = if (incognito) null else ({ voice = true }),
+                )
+            }
         }
     }
 
@@ -392,12 +448,8 @@ fun ChatScreen(id: String, nav: Nav, onMenu: () -> Unit) {
             scope.launch { runCatching { Graph.api.renameSession(id, chat.directory, t) } }
         }) { OcTextField(t, { t = it }) }
     }
-    if (confirmDelete) {
-        OcDialog("Delete session?", { confirmDelete = false }, "Delete", {
-            confirmDelete = false
-            scope.launch { runCatching { Graph.api.deleteSession(id, chat.directory) }; hub.forget(id); hub.refreshSessions(); nav.pop() }
-        }, danger = true) { Txt("This permanently removes the conversation and its history.", size = 16.sp, color = c.textDim) }
-    }
+    // no "are you sure?": leave the chat, it disappears, and "Undo" at the bottom brings it back
+    if (confirmDelete) LaunchedEffect(Unit) { confirmDelete = false; nav.pop(); hub.deleteWithUndo(listOf(id)) }
     if (showDiff) DiffSheet(id, chat.directory) { showDiff = false }
     if (showTimeline) TimelineSheet(chat) { showTimeline = false }
 }
@@ -523,3 +575,43 @@ private fun workKind(m: app.ocmobile.data.ChatMessage?): app.ocmobile.ui.compone
 
 /** How much bigger the chat's text is than the rest of the app: 18 sp × 0.88 (the default text size) × 1.1 ≈ Kimi's 17.4 sp. */
 private const val CHAT_TEXT = 1.1f
+
+private class MenuItem(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val danger: Boolean = false, val act: () -> Unit)
+
+/** The chat's menu: a card floating under the three dots, the chat showing just a little through it. */
+@Composable
+private fun ChatMenu(onDismiss: () -> Unit, items: List<MenuItem>) {
+    val c = Oc.c
+    val dens = androidx.compose.ui.platform.LocalDensity.current
+    val shown = remember { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
+    val shape = RoundedCornerShape(22.dp)
+    androidx.compose.ui.window.Popup(
+        alignment = Alignment.TopEnd,
+        offset = with(dens) { androidx.compose.ui.unit.IntOffset(0, 56.dp.roundToPx()) },
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.PopupProperties(focusable = true),
+    ) {
+        androidx.compose.animation.AnimatedVisibility(
+            shown,
+            enter = androidx.compose.animation.fadeIn(tween(110)) +
+                androidx.compose.animation.scaleIn(tween(130), initialScale = 0.92f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0f)),
+        ) {
+            Column(
+                Modifier.padding(end = 4.dp).width(260.dp).clip(shape).background(c.surface.copy(alpha = 0.94f))
+                    .border(1.dp, c.border, shape).padding(vertical = 8.dp),
+            ) {
+                items.forEach { item ->
+                    val col = if (item.danger) c.danger else c.text
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onDismiss(); item.act() }.padding(horizontal = 22.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Ico(item.icon, tint = col, size = 22.dp)
+                        Spacer(Modifier.width(20.dp))
+                        Txt(item.label, size = 17.sp, color = col, maxLines = 1)
+                    }
+                }
+            }
+        }
+    }
+}

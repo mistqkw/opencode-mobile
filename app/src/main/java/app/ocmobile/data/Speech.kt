@@ -58,4 +58,23 @@ object Speech {
         text.any { it in 'а'..'я' || it in 'А'..'Я' } -> Locale.forLanguageTag("ru-RU")
         else -> Locale.getDefault()
     }
+
+    /**
+     * Sets up reading: the language, then the most natural installed voice for it (or the one picked in
+     * Settings), at a normal pitch and pace. The engine's default voice is often its oldest, flattest one,
+     * which is what made reading sound robotic.
+     */
+    fun applyVoice(tts: android.speech.tts.TextToSpeech, text: String, pitch: Float = 1f) {
+        val loc = ttsLocale(text)
+        tts.language = loc
+        voicesFor(tts, loc).let { vs -> (vs.firstOrNull { it.name == Graph.prefs.ttsVoice } ?: vs.firstOrNull())?.let { tts.voice = it } }
+        tts.setPitch(pitch)
+        tts.setSpeechRate(1f)
+    }
+
+    /** Installed voices for a language, the best first: higher quality, then on the phone before online. */
+    fun voicesFor(tts: android.speech.tts.TextToSpeech, loc: Locale): List<android.speech.tts.Voice> =
+        runCatching { tts.voices }.getOrNull().orEmpty()
+            .filter { it.locale.language == loc.language && android.speech.tts.TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED !in it.features }
+            .sortedWith(compareByDescending<android.speech.tts.Voice> { it.quality }.thenBy { it.isNetworkConnectionRequired }.thenBy { it.name })
 }

@@ -196,6 +196,16 @@ private fun WhatsNewHost() {
 /** What each version brought, said simply. The newest goes on top; add a line per feature when it lands. */
 object WhatsNew {
     val notes: Map<String, List<String>> = mapOf(
+        "0.0.2 beta-2" to listOf(
+            "New look: a night sky with pixel clouds, and a new launch screen",
+            "Menus and windows open right where you tap, as floating cards",
+            "The input has a thin frame and one button, grows smoothly and keeps a draft in every chat",
+            "Code in replies: line numbers, highlighting, copy, save and preview",
+            "Search finds words inside messages, whatever the letter case",
+            "A deleted chat can be brought back, and errors say what to do",
+            "Fixed: the \"OK\" error and the used-up free limit with GitHub Copilot, broken replies from GPT-OSS",
+            "The chat stays where you left it when you scroll up a little",
+        ),
         "0.0.2 beta-1" to listOf(
             "Chats and memory move between the phone and the computer by themselves when you're home",
             "Remember this? cards: the agent offers what it heard about you, you decide",

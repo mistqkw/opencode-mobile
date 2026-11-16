@@ -107,8 +107,8 @@ fun VoiceMode(sessionId: String?, forceCloud: Boolean = false, onClose: (String?
         val t = tts
         if (!speaker || t == null || text.isBlank()) { talk = Talk.Idle; listenNext(); return }
         val clean = text.replace(Regex("```[\\s\\S]*?```"), " code omitted. ").replace(Regex("[`*#>_|\\[\\]]"), "").replace(Regex("\\((/|https?://)[^)]*\\)"), "").take(2500)
-        t.language = app.ocmobile.data.Speech.ttsLocale(clean)
-        t.setPitch(if (cloud) 1.25f else 1f)
+        // the mascot speaks only a touch higher: raising the pitch more made any voice sound synthetic
+        app.ocmobile.data.Speech.applyVoice(t, clean, pitch = if (cloud) 1.06f else 1f)
         talk = Talk.Speaking
         t.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "voice")
     }

@@ -26,14 +26,14 @@ object Search {
         if (!f.exists()) return@withContext emptyList()
         runCatching {
             SQLiteDatabase.openDatabase(f.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                val like = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-                // only message text and only main chats (no team helpers)
+                // only message text and only main chats (no team helpers); the words are matched here, not by
+                // SQLite's LIKE, which ignores case only for Latin letters ("привет" didn't find "Привет")
                 db.rawQuery(
                     """SELECT p.session_id, s.title, p.data, m.data, p.time_created FROM part p
                        JOIN session s ON s.id = p.session_id JOIN message m ON m.id = p.message_id
-                       WHERE s.parent_id IS NULL AND p.data LIKE ? ESCAPE '\' AND p.data LIKE '%"type":"text"%'
-                       ORDER BY p.time_created DESC LIMIT 400""",
-                    arrayOf(like),
+                       WHERE s.parent_id IS NULL AND p.data LIKE '%"type":"text"%'
+                       ORDER BY p.time_created DESC LIMIT 6000""",
+                    null,
                 ).use { cur ->
                     val seen = HashMap<String, Int>()
                     val out = ArrayList<Hit>()

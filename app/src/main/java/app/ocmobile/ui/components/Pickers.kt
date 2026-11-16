@@ -44,6 +44,7 @@ fun PickerFrame(
     skipHalf: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (Oc.look.id == "cloud") { FloatSheet(onDismiss, title, onBack, content); return }
     if (Oc.claudeLike) { OcSheet(onDismiss = onDismiss, title = title, onBack = onBack, skipHalf = skipHalf, content = content); return }
     val c = Oc.c
     val terminal = Oc.terminal

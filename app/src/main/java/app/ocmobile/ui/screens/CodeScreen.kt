@@ -127,11 +127,10 @@ fun CodeScreen(nav: Nav, onMenu: () -> Unit) {
                                 Txt(mapOf("all" to "All", "pinned" to "Pinned", "working" to "Working", "input" to "Needs input")[filter]!!, size = 16.sp, color = c.textDim)
                                 Spacer(Modifier.width(4.dp)); Ico(Ic.ChevronDown, tint = c.textDim, size = 18.dp)
                             }
-                            DropdownMenu(filterMenu, { filterMenu = false }, containerColor = c.surface) {
-                                listOf("all" to "All", "pinned" to "Pinned", "working" to "Working", "input" to "Needs input").forEach { (k, l) ->
-                                    DropdownMenuItem(text = { Txt(l, size = 17.sp, color = if (filter == k) c.link else c.text) }, onClick = { filter = k; filterMenu = false })
-                                }
-                            }
+                            if (filterMenu) app.ocmobile.ui.components.FloatMenu({ filterMenu = false },
+                                listOf("all" to "All", "pinned" to "Pinned", "working" to "Working", "input" to "Needs input").map { (k, l) ->
+                                    app.ocmobile.ui.components.FloatItem(l, selected = filter == k) { filter = k }
+                                })
                         }
                     }
                 }

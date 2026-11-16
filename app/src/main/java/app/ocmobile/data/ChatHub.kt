@@ -153,8 +153,34 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
         publish()
     }
 
+    /** Something that can be taken back for a few seconds: the bar at the bottom shows [text] and "Undo". */
+    class Undo(val text: String, val undo: () -> Unit, val id: Long = System.nanoTime())
+    val undo = MutableStateFlow<Undo?>(null)
+    private val leaving = java.util.Collections.synchronizedSet(HashSet<String>())
+
+    /**
+     * Deletes chats the way a phone app should: they disappear at once, and for four seconds "Undo" brings
+     * them back. Only after that are they removed on the server, so nothing is lost by a slip of the finger.
+     */
+    fun deleteWithUndo(ids: List<String>) {
+        if (ids.isEmpty()) return
+        val dirs = ids.associateWith { session(it)?.directory }
+        leaving += ids; publish()
+        var undone = false
+        val u = Undo(if (ids.size == 1) "Chat deleted" else "${ids.size} chats deleted", { undone = true; leaving -= ids.toSet(); publish() })
+        undo.value = u
+        Graph.scope.launch {
+            delay(4200)
+            if (undo.value === u) undo.value = null
+            if (undone) return@launch
+            ids.forEach { id -> runCatching { api.deleteSession(id, dirs[id]) }; forget(id) }
+            leaving -= ids.toSet()
+            refreshSessions()
+        }
+    }
+
     private fun publish() {
-        val hidden = incognitoSet()
+        val hidden = incognitoSet() + leaving
         sessions.value = all.value.values
             .filter { it.parentID == null && it.time.archived == null && it.id !in hidden }
             .sortedByDescending { it.time.updated }
@@ -186,6 +212,9 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
                     val a = st.obj("action")
                     retries.update { it + (id to RetryInfo(st.str("message") ?: "Retrying…", a?.str("label"), a?.str("link"), a?.str("title"), st.str("next")?.toLongOrNull())) }
                     if (st.str("message")?.contains("Free usage", ignoreCase = true) == true && prefs.providerId != FreeModels.POLLINATIONS_ID) fallToPollinations(id)
+                    // a 429 from Copilot is retried by OpenCode rather than failed
+                    if (st.str("message")?.contains(ToolCallFix.COPILOT_CAPPED) == true && prefs.providerId == FreeModels.COPILOT_ID)
+                        fallToPollinations(id, "Copilot's free limit is used up — switched to GPT-OSS 20B (Pollinations)")
                 } else retries.update { it - id }
             }
             "session.idle" -> p.str("sessionID")?.let { id -> val was = statuses.value[id]; statuses.update { it - id }; saveBusy(); if (was != null) finished(id) }
@@ -206,8 +235,18 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             "session.error" -> {
                 val msg = p.obj("error")?.obj("data")?.str("message") ?: p.obj("error")?.str("name")
                 if (msg != null) toasts.tryEmit(msg)
-                if (foreground) Sounds.play(Sounds.S.Error)
-                app.ocmobile.ui.components.MascotSignals.outcome = app.ocmobile.ui.components.Outcome(ok = false)
+                // Copilot's month is used up: carry on with the model that needs no account
+                val sid = p.str("sessionID")
+                if (sid != null && msg?.contains(ToolCallFix.COPILOT_CAPPED) == true && prefs.providerId == FreeModels.COPILOT_ID)
+                    fallToPollinations(sid, "Copilot's free limit is used up — switched to GPT-OSS 20B (Pollinations)")
+                if (foreground) {
+                    Sounds.play(Sounds.S.Error)
+                    // a double knock for a failed reply, unlike the single tick of a finished one
+                    if (prefs.haptics) runCatching {
+                        Graph.app.getSystemService(android.os.Vibrator::class.java)?.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_DOUBLE_CLICK))
+                    }
+                }
+                app.ocmobile.ui.components.MascotSignals.outcome = app.ocmobile.ui.components.Outcome(ok = false, sessionId = p.str("sessionID"))
             }
             else -> {
                 val sid = p.str("sessionID") ?: p.obj("info")?.str("sessionID") ?: p.obj("part")?.str("sessionID")
@@ -362,7 +401,10 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
 
     /** The agent finished: a light vibration in the app, a notification with the start of the reply in the background. */
     private fun finished(id: String) {
-        app.ocmobile.ui.components.MascotSignals.outcome = app.ocmobile.ui.components.Outcome(ok = true)
+        // a failed reply also ends with "idle": don't let it turn the sad reaction into a happy one
+        val was = app.ocmobile.ui.components.MascotSignals.outcome
+        if (!(was != null && !was.ok && was.sessionId == id && System.currentTimeMillis() - was.at < 3000))
+            app.ocmobile.ui.components.MascotSignals.outcome = app.ocmobile.ui.components.Outcome(ok = true, sessionId = id)
         if (isIncognito(id)) return
         if (!(foreground && viewing == id)) doneUnseen.update { it + id }
         Limits.checkSpending()
@@ -398,8 +440,8 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
 
     private var switching = false
 
-    /** Zen answered with a limit: switch to Pollinations (no account) and resend the last message. */
-    private fun fallToPollinations(id: String) {
+    /** Zen or Copilot answered with a limit: switch to Pollinations (no account) and resend the last message. */
+    private fun fallToPollinations(id: String, toast: String = "Zen is capped — switched to GPT-OSS 20B (Pollinations)") {
         if (switching) return
         switching = true
         Graph.scope.launch {
@@ -408,7 +450,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
                 val text = last.parts.filter { it.type == "text" && it.raw.str("synthetic") != "true" }.joinToString("\n") { it.text }
                 if (text.isBlank()) return@launch
                 FreeModels.enablePollinations()
-                toasts.tryEmit("Zen is capped — switched to GPT-OSS 20B (Pollinations)")
+                toasts.tryEmit(toast)
                 edit(Graph.app, id, last, text, emptyList())
             } catch (e: Exception) {
                 toasts.tryEmit(e.message ?: "Could not switch the model")

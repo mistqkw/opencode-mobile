@@ -194,7 +194,7 @@ fun MemoryScreen(nav: Nav) {
 
             SectionLabel("Shelves")
             if (shelves.isEmpty()) {
-                Txt("Nothing here yet. Say \"remember that…\" in a chat, or add a fact below.", Modifier.padding(horizontal = 20.dp), size = 15.sp, color = c.textDim, lineHeight = 21.sp)
+                app.ocmobile.ui.components.EmptyState(Ic.Sparkle, "Nothing remembered yet", "Say \"remember that…\" in a chat, or add a fact below. I'll ask before keeping anything.")
             } else Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 shelves.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
