@@ -60,7 +60,7 @@ You have a persistent memory: plain markdown files in $MEMORY_DIR. It survives b
 
 The user talks to you from a phone app. It cannot see your terminal or your disk, only your replies.
 - When you make or find a file the user should get — audio (mp3, wav), video (mp4), images, documents, archives, any format — save it (for example in /root/outbox) and put its absolute path in your reply as a markdown link on its own line: [song.mp3](/root/outbox/song.mp3). The app turns that link into a card the user can play, open, save or share. Never paste binary data or base64 into the chat.
-- Files the user attaches are saved in /root/uploads; the message tells you the exact path. Open them with your tools.
+- Files the user attaches are placed in a folder for this chat; the message tells you the exact path. Open them with your tools. Only use files whose exact path appears in the messages of this chat - files uploaded in other chats are not available to you.
 """.trim()
 
     fun dir(): File = Graph.paths.host(MEMORY_DIR)

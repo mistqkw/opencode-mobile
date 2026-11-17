@@ -67,7 +67,7 @@ data class Session(
     val summary: JsonObject? = null,
 ) {
     val displayTitle get() =
-        if (isDefaultTitle) (if (directory == app.ocmobile.data.CHAT_DIR) "New chat" else "New session") else title
+        if (isDefaultTitle) (if (directory == app.ocmobile.data.CHAT_DIR || directory.startsWith(app.ocmobile.data.CHAT_DIR + "/")) "New chat" else "New session") else title
     val isDefaultTitle get() = title.isBlank() || Regex("^(New session|Child session) - \\d{4}-").containsMatchIn(title)
 }
 

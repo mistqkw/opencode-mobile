@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -61,6 +62,7 @@ import androidx.core.view.WindowCompat
 import app.ocmobile.Graph
 import app.ocmobile.runtime.RuntimeState
 import app.ocmobile.ui.components.Spinner
+import app.ocmobile.ui.components.Pill
 import app.ocmobile.ui.components.Ico
 import app.ocmobile.ui.components.Txt
 import app.ocmobile.ui.screens.CapabilitiesScreen
@@ -114,8 +116,14 @@ fun OcRoot() {
     val rt by Graph.runtime.state.collectAsState()
     // where the finger last went down: cl0udly's windows open right there
     Box(Modifier.fillMaxSize().background(c.bg).then(Modifier.trackTouches())) {
+        // Start the server here, not inside Shell: Shell is now only shown once the server is up.
+        var autostarted by remember { mutableStateOf(false) }
+        LaunchedEffect(rt) {
+            if (!autostarted && rt is RuntimeState.Stopped && Graph.prefs.autoStartServer) { autostarted = true; Graph.runtime.startServer() }
+        }
         if (rt is RuntimeState.NotInstalled || rt is RuntimeState.Installing || rt is RuntimeState.InstallFailed) SetupScreen(rt)
-        else { Shell(rt); app.ocmobile.ui.components.UpdateHost() }
+        else if (!Graph.paths.localSupported || rt is RuntimeState.Running) { Shell(rt); app.ocmobile.ui.components.UpdateHost() }
+        else StartingScreen(rt)
         // the welcome tour sits on top of the app and takes all touches: nothing underneath can be pressed
         if (!Graph.prefs.onboarded) Box(Modifier.fillMaxSize().pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }) {
             app.ocmobile.ui.screens.Onboarding()
@@ -123,6 +131,31 @@ fun OcRoot() {
         app.ocmobile.ui.components.IntroHost()
         ToastHost()
         UndoHost()
+    }
+}
+
+/** Shown while the local server is booting (or after a crash): no app chrome until it's ready. */
+@Composable
+private fun StartingScreen(rt: RuntimeState) {
+    val c = Oc.c
+    Column(
+        Modifier.fillMaxSize().background(c.bg).statusBarsPadding().navigationBarsPadding(),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+    ) {
+        Spinner()
+        Spacer(Modifier.height(18.dp))
+        Txt(
+            when (rt) {
+                is RuntimeState.Crashed -> "Server stopped. Restarting…"
+                is RuntimeState.Starting -> "Starting server…"
+                else -> "Waiting for the server…"
+            },
+            size = 15.sp, color = c.textDim,
+        )
+        if (rt is RuntimeState.Stopped) {
+            Spacer(Modifier.height(18.dp))
+            Pill("Start server", { Graph.runtime.startServer() })
+        }
     }
 }
 
@@ -177,11 +210,6 @@ private fun Shell(rt: RuntimeState) {
         snapshotFlow { (drawerProgress() * 20).toInt() / 20f }.collect { app.ocmobile.ui.components.MascotSignals.drawer = it }
     }
 
-    // The server starts by itself when the app opens.
-    var autostarted by remember { mutableStateOf(false) }
-    LaunchedEffect(rt) {
-        if (!autostarted && rt is RuntimeState.Stopped && Graph.prefs.autoStartServer) { autostarted = true; Graph.runtime.startServer() }
-    }
     LaunchedEffect(rt is RuntimeState.Running) {
         if (rt is RuntimeState.Running) { Graph.catalog.refresh(); Graph.chats.refreshSessions() }
     }

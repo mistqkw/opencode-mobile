@@ -16,7 +16,7 @@ enum class ChatKind { Code, Task, Research, Writing, Talk;
         private val writing = Regex("""(?i)\b(write|essay|post|letter|email|story|poem|translat|lyrics|caption|article|reply)\w*|напиши|текст|пост|письм|перев|стих|статья""")
 
         fun of(s: Session): ChatKind {
-            if (s.directory.isNotBlank() && s.directory != CHAT_DIR) return Code
+            if (s.directory.isNotBlank() && s.directory != CHAT_DIR && !s.directory.startsWith("$CHAT_DIR/")) return Code
             // the agent changed files: that's code work, whatever the chat is called
             val sm = s.summary
             if (sm != null && ((sm["files"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0) +

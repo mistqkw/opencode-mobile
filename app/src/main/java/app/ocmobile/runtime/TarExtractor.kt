@@ -15,7 +15,7 @@ import java.util.zip.GZIPInputStream
 object TarExtractor {
     class Result(val files: Int, val skipped: Int)
 
-    fun extract(archive: File, dest: File, onProgress: (done: Long, total: Long) -> Unit = { _, _ -> }): Result {
+    fun extract(archive: File, dest: File, strip: Int = 0, onProgress: (done: Long, total: Long) -> Unit = { _, _ -> }): Result {
         dest.mkdirs()
         val destCanon = dest.canonicalFile
         val total = archive.length()
@@ -62,7 +62,11 @@ object TarExtractor {
                 (paxLink ?: longLink)?.let { link = it }
                 longName = null; longLink = null; paxPath = null; paxLink = null
 
-                val rel = name.removePrefix("./").trimStart('/').trimEnd('/')
+                val stripped = { s: String ->
+                    val parts = s.removePrefix("./").trimStart('/').trimEnd('/').split('/')
+                    if (strip > 0 && parts.size > strip) parts.drop(strip).joinToString("/") else parts.joinToString("/")
+                }
+                val rel = stripped(name)
                 if (rel.isEmpty() || rel.split('/').any { it == ".." }) {
                     skip(gz, size + pad(size)); skipped++; continue
                 }
@@ -84,7 +88,7 @@ object TarExtractor {
                         files++
                     }
                     '1' -> {
-                        val src = File(dest, link.trimStart('/').removePrefix("./"))
+                        val src = File(dest, stripped(link))
                         target.delete()
                         if (src.exists()) src.copyTo(target, overwrite = true)
                         Os.chmod(target.path, (mode and 0xFFF and 0x1FF) or 0x180)

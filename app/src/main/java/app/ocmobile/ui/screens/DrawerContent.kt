@@ -251,7 +251,7 @@ private fun SessionRow(s: Session, status: String?, nav: Nav, close: () -> Unit)
             )
             Spacer(Modifier.width(16.dp))
         } else if (!Oc.look.id.kimiLike) {
-            Ico(if (s.directory == app.ocmobile.data.CHAT_DIR) Ic.Chat else if (s.directory.isBlank()) Ic.Terminal else Ic.Code, tint = c.textDim, size = if (Oc.look.id == "hairline") 18.dp else 22.dp)
+            Ico(if (s.directory == app.ocmobile.data.CHAT_DIR || s.directory.startsWith(app.ocmobile.data.CHAT_DIR + "/")) Ic.Chat else if (s.directory.isBlank()) Ic.Terminal else Ic.Code, tint = c.textDim, size = if (Oc.look.id == "hairline") 18.dp else 22.dp)
             Spacer(Modifier.width(18.dp))
         }
         // a new chat gets its name a moment after the first reply: it fades in instead of jumping

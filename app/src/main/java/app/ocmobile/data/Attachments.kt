@@ -31,7 +31,7 @@ object Attachments {
      * A prompt part for an attachment. Models only take what they can (images, sometimes PDF);
      * the rest (audio, video, archives, any files) goes onto the environment's disk and the agent is told where.
      */
-    fun toPart(ctx: Context, a: Attachment): JsonObject {
+    fun toPart(ctx: Context, a: Attachment, sessionId: String): JsonObject {
         val m = app.ocmobile.Graph.catalog.model(app.ocmobile.Graph.prefs.providerId, app.ocmobile.Graph.prefs.modelId)
         val inline = (a.isImage && m?.supportsImages != false) || (a.mime == "application/pdf" && m?.capabilities?.input?.pdf == true)
         if (inline) return toFilePart(ctx, a)
@@ -41,19 +41,26 @@ object Attachments {
             if (!isTextLike(a.mime, a.name) || bytes.size > 256_000) throw java.io.IOException("Only images and text files can be sent to a remote device")
             return synthetic("<attached-file name=\"${a.name}\" mime=\"${a.mime}\" size=\"${bytes.size}\"/>\nContents of ${a.name}:\n```\n${String(bytes)}\n```")
         }
-        val dir = app.ocmobile.Graph.paths.host(UPLOADS).apply { mkdirs() }
+        val dir = uploadsHost(sessionId).apply { mkdirs() }
         var f = java.io.File(dir, safeName(a.name))
         var i = 2
         while (f.exists()) { f = java.io.File(dir, safeName(a.name).let { n -> n.substringBeforeLast('.', n) + "-$i" + (if ('.' in n) "." + n.substringAfterLast('.') else "") }); i++ }
         f.writeBytes(bytes)
-        val guest = "$UPLOADS/${f.name}"
+        val guest = "${uploadsDir(sessionId)}/${f.name}"
         return synthetic(
             "<attached-file path=\"$guest\" name=\"${a.name}\" mime=\"${a.mime}\" size=\"${bytes.size}\"/>\n" +
                 "The user attached the file ${a.name} (${a.mime}, ${human(bytes.size.toLong())}). It is saved at $guest — open it with your tools when needed.",
         )
     }
 
-    const val UPLOADS = "/root/uploads"
+    /** Guest folder for one chat's attachments, always under its own session folder. */
+    fun uploadsDir(sessionId: String): String = "$CHAT_DIR/${safeName(sessionId)}/uploads"
+
+    /** The same folder on the host (inside the rootfs). */
+    fun uploadsHost(sessionId: String) = app.ocmobile.Graph.paths.host(uploadsDir(sessionId))
+
+    /** Removes every file this chat attached. Safe to call when the folder does not exist. */
+    fun deleteUploads(sessionId: String) { runCatching { uploadsHost(sessionId).deleteRecursively() } }
 
     fun synthetic(text: String) = buildJsonObject { put("type", "text"); put("text", text); put("synthetic", true) }
 

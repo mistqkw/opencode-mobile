@@ -135,8 +135,9 @@ class OpenCodeApi(private val prefs: Prefs) {
             call("GET", "/session", dir(directory) + mapOf("limit" to limit.toString(), "search" to search)) ?: JsonArray(emptyList()),
         )
 
-    suspend fun createSession(directory: String, title: String? = null, permission: JsonArray? = null): Session {
+    suspend fun createSession(directory: String, title: String? = null, permission: JsonArray? = null, id: String? = null): Session {
         val body = buildJsonObject {
+            id?.let { put("id", it) }
             title?.let { put("title", it) }
             permission?.let { put("permission", it) }
         }

@@ -34,6 +34,11 @@ class RuntimeController(
         const val OC_VERSION = "1.19.4"
         const val OC_SHA = "8568230ccd847dc93e95b9f6894379077d3e014a16b48040743573e77c23e85f"
         const val OC_BIN = "/usr/local/bin/opencode"
+        // Node.js for the agent to run JS/npm; OpenCode itself is self-contained and doesn't need it.
+        const val NODE_VERSION = "26.13.0"
+        const val NODE_URL = "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-arm64.tar.gz"
+        const val NODE_SHA = "439e9c438acdf6a6ffe47418da709153d66c4bed812e30a473faacb107dd2791"
+        const val NODE_BIN = "/usr/local/bin/node"
         fun ocUrl(v: String) = "https://github.com/anomalyco/opencode/releases/download/v$v/opencode-linux-arm64.tar.gz"
     }
 
@@ -43,6 +48,7 @@ class RuntimeController(
     val log = MutableStateFlow<List<String>>(emptyList())
 
     private val proot = ProotCommand(paths, prefs)
+    @Volatile private var nodeInstalling = false
     @Volatile private var process: Process? = null
     @Volatile private var stopRequested = false
     @Volatile private var installing = false
@@ -73,6 +79,8 @@ class RuntimeController(
 
             Vault.restore()
             installOpencode(OC_VERSION, OC_URL_OR(OC_VERSION), if (OC_VERSION == "1.19.4") OC_SHA else null)
+            installNode()
+            installBasePackages()
             smokeTest()
 
             prefs.runtimeReady = true
@@ -103,6 +111,27 @@ class RuntimeController(
         tmp.deleteRecursively()
         tgz.delete()
         prefs.opencodeVersion = version
+    }
+
+    /** Node.js + npm for the agent. The archive has one top folder, stripped into /usr/local. */
+    private fun installNode(quiet: Boolean = false) {
+        val bin = paths.host(NODE_BIN)
+        if (bin.exists() || nodeInstalling) return
+        nodeInstalling = true
+        try {
+        val tgz = File(paths.downloads, "node-$NODE_VERSION.tar.gz")
+        if (!quiet) step("Downloading Node.js $NODE_VERSION", 0f)
+        Downloader.fetch(NODE_URL, tgz, NODE_SHA) { d, t ->
+            if (!quiet) step("Downloading Node.js $NODE_VERSION", frac(d, t), mb(d, t))
+        }
+        if (!quiet) step("Installing Node.js", 0f)
+        TarExtractor.extract(tgz, paths.host("/usr/local"), strip = 1) { d, t ->
+            if (!quiet) step("Installing Node.js", frac(d, t))
+        }
+        bin.setExecutable(true, false)
+        tgz.delete()
+        logLine("node.js: $NODE_VERSION")
+        } finally { nodeInstalling = false }
     }
 
     private suspend fun smokeTest() {
@@ -158,6 +187,11 @@ class RuntimeController(
 
     suspend fun supervise() = withContext(Dispatchers.IO) {
         stopRequested = false
+        // Already-installed apps won't run install() again: add Node/Python on first start after the update.
+        if (paths.localSupported && paths.opencodeBin.exists()) {
+            runCatching { installNode(quiet = true) }
+            runCatching { installBasePackages() }
+        }
         var failures = 0
         var windowStart = System.currentTimeMillis()
         while (isActive && !stopRequested) {
@@ -273,6 +307,24 @@ class RuntimeController(
         if (!done) { rd.cancel(); return@withContext -1 }
         rd.join()
         p.exitValue()
+    }
+
+    /** Neither python3 nor Node's libatomic is in Ubuntu Base; add both by default. */
+    private suspend fun installBasePackages() {
+        // Ubuntu only ships python3; add the plain `python` alias people expect.
+        runCatching {
+            val link = paths.host("/usr/local/bin/python")
+            if (!link.exists()) android.system.Os.symlink("/usr/bin/python3", link.path)
+        }
+        val missing = mutableListOf<String>()
+        if (!paths.host("/usr/bin/python3").exists()) missing += "python3"
+        if (!paths.host("/usr/lib/aarch64-linux-gnu/libatomic.so.1").exists()) missing += "libatomic1"
+        if (missing.isEmpty()) return
+        val rc = runGuest(
+            listOf("/bin/bash", "-lc", "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ${missing.joinToString(" ")}"),
+            timeoutSec = 900,
+        ) { logLine(it) }
+        if (rc != 0) logLine("base packages install failed (code $rc)")
     }
 
     /** git, ripgrep and the like: without them the agent in Ubuntu is nearly useless. */
