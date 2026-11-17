@@ -48,7 +48,6 @@ class RuntimeController(
     val log = MutableStateFlow<List<String>>(emptyList())
 
     private val proot = ProotCommand(paths, prefs)
-    @Volatile private var nodeInstalling = false
     @Volatile private var process: Process? = null
     @Volatile private var stopRequested = false
     @Volatile private var installing = false
@@ -79,8 +78,6 @@ class RuntimeController(
 
             Vault.restore()
             installOpencode(OC_VERSION, OC_URL_OR(OC_VERSION), if (OC_VERSION == "1.19.4") OC_SHA else null)
-            installNode()
-            installBasePackages()
             smokeTest()
 
             prefs.runtimeReady = true
@@ -113,25 +110,20 @@ class RuntimeController(
         prefs.opencodeVersion = version
     }
 
-    /** Node.js + npm for the agent. The archive has one top folder, stripped into /usr/local. */
-    private fun installNode(quiet: Boolean = false) {
+    /** Node.js + npm for the agent. Only called from the explicit "Install dev tools" action. */
+    private fun installNode(onLine: (String) -> Unit) {
         val bin = paths.host(NODE_BIN)
-        if (bin.exists() || nodeInstalling) return
-        nodeInstalling = true
-        try {
+        if (bin.exists()) return
         val tgz = File(paths.downloads, "node-$NODE_VERSION.tar.gz")
-        if (!quiet) step("Downloading Node.js $NODE_VERSION", 0f)
         Downloader.fetch(NODE_URL, tgz, NODE_SHA) { d, t ->
-            if (!quiet) step("Downloading Node.js $NODE_VERSION", frac(d, t), mb(d, t))
+            onLine("Downloading Node.js $NODE_VERSION: ${mb(d, t)}")
         }
-        if (!quiet) step("Installing Node.js", 0f)
         TarExtractor.extract(tgz, paths.host("/usr/local"), strip = 1) { d, t ->
-            if (!quiet) step("Installing Node.js", frac(d, t))
+            onLine("Installing Node.js: ${(frac(d, t) ?: 0f).toInt() * 100}%")
         }
         bin.setExecutable(true, false)
         tgz.delete()
-        logLine("node.js: $NODE_VERSION")
-        } finally { nodeInstalling = false }
+        onLine("node.js: $NODE_VERSION")
     }
 
     private suspend fun smokeTest() {
@@ -187,11 +179,6 @@ class RuntimeController(
 
     suspend fun supervise() = withContext(Dispatchers.IO) {
         stopRequested = false
-        // Already-installed apps won't run install() again: add Node/Python on first start after the update.
-        if (paths.localSupported && paths.opencodeBin.exists()) {
-            runCatching { installNode(quiet = true) }
-            runCatching { installBasePackages() }
-        }
         var failures = 0
         var windowStart = System.currentTimeMillis()
         while (isActive && !stopRequested) {
@@ -310,26 +297,15 @@ class RuntimeController(
     }
 
     /** Neither python3 nor Node's libatomic is in Ubuntu Base; add both by default. */
-    private suspend fun installBasePackages() {
-        // Ubuntu only ships python3; add the plain `python` alias people expect.
-        runCatching {
-            val link = paths.host("/usr/local/bin/python")
-            if (!link.exists()) android.system.Os.symlink("/usr/bin/python3", link.path)
-        }
-        val missing = mutableListOf<String>()
-        if (!paths.host("/usr/bin/python3").exists()) missing += "python3"
-        if (!paths.host("/usr/lib/aarch64-linux-gnu/libatomic.so.1").exists()) missing += "libatomic1"
-        if (missing.isEmpty()) return
-        val rc = runGuest(
-            listOf("/bin/bash", "-lc", "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ${missing.joinToString(" ")}"),
-            timeoutSec = 900,
-        ) { logLine(it) }
-        if (rc != 0) logLine("base packages install failed (code $rc)")
-    }
-
-    /** git, ripgrep and the like: without them the agent in Ubuntu is nearly useless. */
+    /**
+     * Explicit "Install dev tools" action. Node, python3 and libatomic used to download on server
+     * start, which cost 30+ MB on mobile data without asking. They are installed only here now.
+     */
     suspend fun installDevTools(onLine: (String) -> Unit): Int {
-        val script = "apt-get update && apt-get install -y --no-install-recommends git ripgrep curl ca-certificates openssh-client unzip less nano python3 build-essential"
+        withContext(Dispatchers.IO) { installNode(onLine) }
+        val script = "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends " +
+            "git ripgrep curl ca-certificates openssh-client unzip less nano build-essential python3 libatomic1 && " +
+            "ln -sf /usr/bin/python3 /usr/local/bin/python"
         return runGuest(listOf("/bin/bash", "-lc", script), onLine = onLine)
     }
 

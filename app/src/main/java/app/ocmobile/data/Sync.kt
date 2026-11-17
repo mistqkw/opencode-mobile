@@ -28,6 +28,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 /**
@@ -116,12 +117,10 @@ object Sync {
 
     /** Plain chats of a server: id → updated time. */
     private fun chats(server: Pair<String, String>, dir: String): Map<String, Long> {
-        // chats now sit in a folder each, under CHAT_DIR, so match by prefix rather than equality
-        val arr = app.ocmobile.api.OcJson.parseToJsonElement(get("${server.first}/session?limit=500", server.second)) as JsonArray
+        val arr = app.ocmobile.api.OcJson.parseToJsonElement(get("${server.first}/session?directory=${enc(dir)}", server.second)) as JsonArray
         return arr.mapNotNull { e ->
             val o = e.jsonObject
-            val d = (o["directory"] as? JsonPrimitive)?.content ?: return@mapNotNull null
-            if (!d.startsWith(dir) || o["parentID"].let { it != null && it !is kotlinx.serialization.json.JsonNull }) return@mapNotNull null
+            if ((o["directory"] as? JsonPrimitive)?.content != dir || o["parentID"].let { it != null && it !is kotlinx.serialization.json.JsonNull }) return@mapNotNull null
             val id = (o["id"] as? JsonPrimitive)?.content ?: return@mapNotNull null
             id to ((o["time"] as? JsonObject)?.get("updated") as? JsonPrimitive)?.longOrNull.let { it ?: 0L }
         }.toMap()
@@ -129,9 +128,8 @@ object Sync {
 
     /** The same JSON as `opencode export`: the chat and its messages with their parts. */
     private fun export(server: Pair<String, String>, dir: String, id: String): JsonObject {
-        // session ids are unique: no directory filter, so a per-chat folder works too
-        val info = JsonObjectOf(get("${server.first}/session/$id", server.second))
-        val messages = app.ocmobile.api.OcJson.parseToJsonElement(get("${server.first}/session/$id/message", server.second))
+        val info = JsonObjectOf(get("${server.first}/session/$id?directory=${enc(dir)}", server.second))
+        val messages = app.ocmobile.api.OcJson.parseToJsonElement(get("${server.first}/session/$id/message?directory=${enc(dir)}", server.second))
         return buildJsonObject { put("info", info); put("messages", messages) }
     }
 
@@ -187,4 +185,5 @@ object Sync {
     private fun JsonObjectOf(text: String) = app.ocmobile.api.OcJson.parseToJsonElement(text) as JsonObject
     private fun String.toHttpHost() = removePrefix("http://").removePrefix("https://").substringBefore('/').substringBeforeLast(':')
     private fun String.toPort() = removePrefix("http://").removePrefix("https://").substringBefore('/').substringAfterLast(':', "").toIntOrNull() ?: 4096
+    private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 }

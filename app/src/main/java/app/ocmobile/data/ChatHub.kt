@@ -102,8 +102,18 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     /** Child sessions of [id]: helpers the main agent started with the task tool. */
     fun children(id: String): List<Session> = all.value.values.filter { it.parentID == id }.sortedBy { it.time.created }
 
-    fun chat(id: String): Chat = chats.getOrPut(id) {
-        Chat(id, api).also { it.directory = session(id)?.directory }
+    @Volatile private var exposedChat: String? = null
+
+    /** Only the open chat's uploads are present inside the environment. */
+    fun exposeChat(id: String) {
+        if (exposedChat == id) return
+        exposedChat = id
+        Attachments.expose(id)
+    }
+
+    fun chat(id: String): Chat {
+        exposeChat(id)
+        return chats.getOrPut(id) { Chat(id, api).also { it.directory = session(id)?.directory } }
     }
 
     fun forget(id: String) { chats.remove(id) }
@@ -288,14 +298,14 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             "edits" -> listOf(rule("*", "allow"), rule("bash", "ask"), rule("webfetch", "ask"))
             else -> listOf(rule("*", "allow"))
         }
-        // Only add memory rules when it is OFF for this chat: "allow" is already the default, so
-        // emitting allow rules for every chat just adds permission-check work to every tool call.
-        val mem = if (!prefs.memoryOn(sessionId) && prefs.memoryEnabled)
-            listOf("external_directory", "read", "edit").flatMap { perm ->
-                listOf("$MEMORY_DIR/*", "$MEMORY_DIR/**").map { rule(perm, "deny", it) }
-            } else emptyList()
-        // Isolation in two rules: deny other chats' folders, allow this chat's own uploads last.
-        // Everything else keeps the default, so no long allowlist is evaluated on every call.
+        // Memory lives outside the project. Keep explicit allow rules even when memory is on: in
+        // "ask" mode the base rule is "* ask", so without them every memory read would prompt.
+        val memAccess = if (prefs.memoryOn(sessionId)) "allow" else if (prefs.memoryEnabled) "deny" else null
+        val mem = if (memAccess != null) listOf("external_directory", "read", "edit").flatMap { perm ->
+            listOf("$MEMORY_DIR/*", "$MEMORY_DIR/**").map { rule(perm, memAccess, it) }
+        } else emptyList()
+        // The uploads of other chats are kept outside the rootfs and only the open chat's folder is
+        // materialized, so no deny rules are needed to hide them. Keep the original two rules only.
         val isolation = if (sessionId == null || Graph.devices.isRemote) emptyList() else listOf(
             rule("external_directory", "deny", "$CHAT_DIR/ses_*"),
             rule("external_directory", "allow", "${Attachments.uploadsDir(sessionId)}*"),
@@ -482,19 +492,8 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     }
 
     suspend fun createSession(directory: String): Session {
-        // Local chats get their own working directory, named after the session id. Since OpenCode accepts
-        // a caller-supplied id, the folder can exist before the session does. Everything outside the
-        // folder is then blocked by the external_directory rules below - a path check, not a guess at
-        // command strings. Code chats and remote devices keep their own directories.
-        val localChat = !Graph.devices.isRemote && directory.trimEnd('/') == CHAT_DIR
-        if (localChat) {
-            val id = "ses_" + java.util.UUID.randomUUID().toString().replace("-", "")
-            val own = "$CHAT_DIR/$id"
-            Graph.paths.host(own).mkdirs()
-            val s = api.createSession(own, permission = permissionRules(sessionId = id), id = id)
-            upsert(s)
-            return s
-        }
+        // OpenCode 1.19.4 ignores a caller-supplied session id, so create normally. Uploads use the
+        // server's real id (Attachments.uploadsDir), which is also what deletion cleans up.
         val s = api.createSession(directory, permission = permissionRules())
         upsert(s)
         return s

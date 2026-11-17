@@ -41,11 +41,13 @@ object Attachments {
             if (!isTextLike(a.mime, a.name) || bytes.size > 256_000) throw java.io.IOException("Only images and text files can be sent to a remote device")
             return synthetic("<attached-file name=\"${a.name}\" mime=\"${a.mime}\" size=\"${bytes.size}\"/>\nContents of ${a.name}:\n```\n${String(bytes)}\n```")
         }
-        val dir = uploadsHost(sessionId).apply { mkdirs() }
+        // Write into the host vault (outside the rootfs), then expose only this chat's folder to the agent.
+        val dir = vault(sessionId).apply { mkdirs() }
         var f = java.io.File(dir, safeName(a.name))
         var i = 2
         while (f.exists()) { f = java.io.File(dir, safeName(a.name).let { n -> n.substringBeforeLast('.', n) + "-$i" + (if ('.' in n) "." + n.substringAfterLast('.') else "") }); i++ }
         f.writeBytes(bytes)
+        expose(sessionId)
         val guest = "${uploadsDir(sessionId)}/${f.name}"
         return synthetic(
             "<attached-file path=\"$guest\" name=\"${a.name}\" mime=\"${a.mime}\" size=\"${bytes.size}\"/>\n" +
@@ -59,8 +61,28 @@ object Attachments {
     /** The same folder on the host (inside the rootfs). */
     fun uploadsHost(sessionId: String) = app.ocmobile.Graph.paths.host(uploadsDir(sessionId))
 
-    /** Removes every file this chat attached. Safe to call when the folder does not exist. */
-    fun deleteUploads(sessionId: String) { runCatching { uploadsHost(sessionId).deleteRecursively() } }
+    /**
+     * Authoritative copy on the app side, outside the rootfs. The agent (root inside proot) can never
+     * reach this directory: proot cannot escape the rootfs, so other chats' uploads are not just hidden
+     * by rules — they do not exist in the agent's filesystem at all.
+     */
+    private fun vault(sessionId: String) = java.io.File(app.ocmobile.Graph.paths.rootfs.parentFile, "uploadvault/${safeName(sessionId)}")
+
+    /** Make only [sessionId]'s uploads visible inside the environment. Call when a chat becomes active. */
+    fun expose(sessionId: String) {
+        runCatching {
+            val chats = java.io.File(app.ocmobile.Graph.paths.rootfs, CHAT_DIR.trimStart('/'))
+            chats.listFiles { f -> f.isDirectory && f.name.startsWith("ses_") }?.forEach { it.deleteRecursively() }
+            val src = vault(sessionId)
+            if (src.isDirectory) src.copyRecursively(uploadsHost(sessionId), overwrite = true)
+        }
+    }
+
+    /** Removes every file this chat attached, wherever it lives. */
+    fun deleteUploads(sessionId: String) {
+        runCatching { uploadsHost(sessionId).deleteRecursively() }
+        runCatching { vault(sessionId).deleteRecursively() }
+    }
 
     fun synthetic(text: String) = buildJsonObject { put("type", "text"); put("text", text); put("synthetic", true) }
 

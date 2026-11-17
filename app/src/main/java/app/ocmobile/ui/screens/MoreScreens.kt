@@ -189,7 +189,7 @@ fun ServerScreen(nav: Nav) {
                 up.previous?.let { v ->
                     SettingsRow("Go back to the previous version", subtitle = "OpenCode $v is kept", icon = Ic.Undo, onClick = { scope.launch { up.rollback() } })
                 }
-                SettingsRow("Install dev tools", subtitle = "git, ripgrep, curl, python3, build-essential", icon = Ic.Terminal, onClick = {
+                SettingsRow("Install dev tools", subtitle = "git, ripgrep, curl, node, python3, libatomic1, build-essential", icon = Ic.Terminal, onClick = {
                     val lines = mutableStateListOf<String>(); tools = lines
                     scope.launch {
                         val code = Graph.runtime.installDevTools { l -> scope.launch(Dispatchers.Main) { lines.add(l) } }

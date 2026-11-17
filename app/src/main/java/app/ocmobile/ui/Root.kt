@@ -116,14 +116,8 @@ fun OcRoot() {
     val rt by Graph.runtime.state.collectAsState()
     // where the finger last went down: cl0udly's windows open right there
     Box(Modifier.fillMaxSize().background(c.bg).then(Modifier.trackTouches())) {
-        // Start the server here, not inside Shell: Shell is now only shown once the server is up.
-        var autostarted by remember { mutableStateOf(false) }
-        LaunchedEffect(rt) {
-            if (!autostarted && rt is RuntimeState.Stopped && Graph.prefs.autoStartServer) { autostarted = true; Graph.runtime.startServer() }
-        }
         if (rt is RuntimeState.NotInstalled || rt is RuntimeState.Installing || rt is RuntimeState.InstallFailed) SetupScreen(rt)
-        else if (!Graph.paths.localSupported || rt is RuntimeState.Running) { Shell(rt); app.ocmobile.ui.components.UpdateHost() }
-        else StartingScreen(rt)
+        else { Shell(rt); app.ocmobile.ui.components.UpdateHost() }
         // the welcome tour sits on top of the app and takes all touches: nothing underneath can be pressed
         if (!Graph.prefs.onboarded) Box(Modifier.fillMaxSize().pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }) {
             app.ocmobile.ui.screens.Onboarding()
@@ -134,31 +128,6 @@ fun OcRoot() {
     }
 }
 
-/** Shown while the local server is booting (or after a crash): no app chrome until it's ready. */
-@Composable
-private fun StartingScreen(rt: RuntimeState) {
-    val c = Oc.c
-    Column(
-        Modifier.fillMaxSize().background(c.bg).statusBarsPadding().navigationBarsPadding(),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-    ) {
-        Spinner()
-        Spacer(Modifier.height(18.dp))
-        Txt(
-            when (rt) {
-                is RuntimeState.Crashed -> "Server stopped. Restarting…"
-                is RuntimeState.Starting -> "Starting server…"
-                else -> "Waiting for the server…"
-            },
-            size = 15.sp, color = c.textDim,
-        )
-        if (rt is RuntimeState.Stopped) {
-            Spacer(Modifier.height(18.dp))
-            Pill("Start server", { Graph.runtime.startServer() })
-        }
-    }
-}
-
 @Composable
 private fun Shell(rt: RuntimeState) {
     val c = Oc.c
@@ -166,6 +135,11 @@ private fun Shell(rt: RuntimeState) {
     val openReq by Graph.chats.openRequest.collectAsState()
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    // The server starts by itself when the app opens.
+    var autostarted by remember { mutableStateOf(false) }
+    LaunchedEffect(rt) {
+        if (!autostarted && rt is RuntimeState.Stopped && Graph.prefs.autoStartServer) { autostarted = true; Graph.runtime.startServer() }
+    }
     LaunchedEffect(openReq) {
         openReq?.let { r ->
             when (r) {
