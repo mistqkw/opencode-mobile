@@ -478,7 +478,7 @@ private fun SetupStep(icon: String, onIcon: (String) -> Unit) {
         Txt("Theme", Modifier.padding(horizontal = 24.dp), size = 14.sp, color = c.textDim)
         Spacer(Modifier.height(8.dp))
         Box(Modifier.padding(horizontal = 20.dp)) {
-            app.ocmobile.ui.components.Segmented(listOf("system" to "System", "dark" to "Dark", "light" to "Light"), mode, { mode = it; p.colorMode = it })
+            app.ocmobile.ui.components.Segmented(listOf("system" to "System", "dark" to "Dark", "amoled" to "AMOLED", "light" to "Light"), mode, { mode = it; p.colorMode = it })
         }
         Spacer(Modifier.height(22.dp))
         Txt("Icon on your home screen", Modifier.padding(horizontal = 24.dp), size = 14.sp, color = c.textDim)

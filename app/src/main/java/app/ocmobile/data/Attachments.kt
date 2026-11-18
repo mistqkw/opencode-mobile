@@ -18,6 +18,11 @@ object Attachments {
     private const val MAX_EDGE = 2048
     private const val RECOMPRESS_ABOVE = 1_500_000
 
+    // safeName is called for every session id used in upload paths; these must not be rebuilt each time.
+    private val UNSAFE_NAME = Regex("[/\\\\:*?\"<>|]")
+    private val TEXT_MIMES = setOf("application/json", "application/xml", "application/javascript", "application/x-sh", "application/yaml", "application/toml")
+    private val TEXT_EXTS = setOf("txt", "md", "json", "kt", "java", "py", "js", "ts", "tsx", "c", "h", "cpp", "rs", "go", "sh", "yml", "yaml", "toml", "xml", "html", "css", "csv", "log", "ini", "conf", "gradle", "kts", "sql")
+
     fun describe(ctx: Context, uri: Uri): Attachment {
         var name = uri.lastPathSegment ?: "file"
         ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
@@ -86,10 +91,10 @@ object Attachments {
 
     fun synthetic(text: String) = buildJsonObject { put("type", "text"); put("text", text); put("synthetic", true) }
 
-    private fun safeName(n: String) = n.replace(Regex("[/\\\\:*?\"<>|]"), "_").ifBlank { "file" }
+    private fun safeName(n: String) = n.replace(UNSAFE_NAME, "_").ifBlank { "file" }
 
-    fun isTextLike(mime: String, name: String) = mime.startsWith("text/") || mime in setOf("application/json", "application/xml", "application/javascript", "application/x-sh", "application/yaml", "application/toml") ||
-        name.substringAfterLast('.', "").lowercase() in setOf("txt", "md", "json", "kt", "java", "py", "js", "ts", "tsx", "c", "h", "cpp", "rs", "go", "sh", "yml", "yaml", "toml", "xml", "html", "css", "csv", "log", "ini", "conf", "gradle", "kts", "sql")
+    fun isTextLike(mime: String, name: String) = mime.startsWith("text/") || mime in TEXT_MIMES ||
+        name.substringAfterLast('.', "").lowercase() in TEXT_EXTS
 
     fun human(b: Long) = when { b >= 1_000_000 -> "%.1f MB".format(b / 1e6); b >= 1000 -> "%.0f KB".format(b / 1e3); else -> "$b B" }
 

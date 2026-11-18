@@ -20,6 +20,9 @@ val OcJson = Json {
     encodeDefaults = false
 }
 
+/** Checked for every session row on every render; build the pattern once. */
+private val DEFAULT_TITLE_RE = Regex("^(New session|Child session) - \\d{4}-")
+
 @Serializable
 data class CacheTokens(val read: Long = 0, val write: Long = 0)
 
@@ -68,7 +71,7 @@ data class Session(
 ) {
     val displayTitle get() =
         if (isDefaultTitle) (if (directory == app.ocmobile.data.CHAT_DIR || directory.startsWith(app.ocmobile.data.CHAT_DIR + "/")) "New chat" else "New session") else title
-    val isDefaultTitle get() = title.isBlank() || Regex("^(New session|Child session) - \\d{4}-").containsMatchIn(title)
+    val isDefaultTitle get() = title.isBlank() || DEFAULT_TITLE_RE.containsMatchIn(title)
 }
 
 @Serializable

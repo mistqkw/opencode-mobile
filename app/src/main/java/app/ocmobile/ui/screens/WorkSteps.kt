@@ -81,17 +81,17 @@ internal fun StepsTimeline(parts: List<Part>, running: Boolean, onImage: (String
     // the chevron turns with a little spring; quick, like the rest of the app
     val rot by androidx.compose.animation.core.animateFloatAsState(if (open) 90f else 0f, androidx.compose.animation.core.spring(0.8f, androidx.compose.animation.core.Spring.StiffnessMedium), label = "steps")
     Column {
-        // the main way to open the steps: a full 48 dp row, brighter than a caption
+        // the main way to open the steps: a full, quiet row, like Claude's compact step line
         Row(
-            Modifier.heightIn(min = 48.dp).clip(Oc.round(10.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = if (open) "Hide steps" else "Show steps") { open = !open }.padding(vertical = 4.dp),
+            Modifier.heightIn(min = 44.dp).clip(Oc.round(10.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = if (open) "Hide steps" else "Show steps") { open = !open }.padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AnimatedContent(richSummary(parts), label = "sum", modifier = Modifier.weight(1f, fill = false), transitionSpec = {
                 (fadeIn(tween(96)) + androidx.compose.animation.slideInVertically(tween(120)) { it / 2 }) togetherWith
                     (fadeOut(tween(60)) + androidx.compose.animation.slideOutVertically(tween(84)) { -it / 2 })
-            }) { t -> Text(t, color = c.text.copy(alpha = 0.72f), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }) { t -> Text(t, color = c.textDim, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             Spacer(Modifier.width(6.dp))
-            Ico(Ic.ChevronRight, tint = c.text.copy(alpha = 0.72f), size = 18.dp, modifier = Modifier.graphicsLayer { rotationZ = rot })
+            Ico(Ic.ChevronRight, tint = c.textDim, size = 16.dp, modifier = Modifier.graphicsLayer { rotationZ = rot })
             if (running) { Spacer(Modifier.width(8.dp)); Spinner(12.dp, color = c.textDim, stroke = 1.5.dp) }
         }
         // collapsed while a command runs: its terminal is visible right away
@@ -121,6 +121,7 @@ internal fun Part.statusOf(): String =
     else raw.obj("state")?.str("status") ?: "pending"
 
 private val EDITS = setOf("edit", "multiedit", "patch", "apply_patch")
+private val SEARCH = setOf("grep", "glob", "list", "codesearch")
 
 /** Group summary: verbs in grey, file name bright, +/− in green and red. */
 @Composable
@@ -194,7 +195,7 @@ private fun StepRow(p: Part, onImage: (String) -> Unit) {
             name == "write" -> { append(if (live) "Writing " else if (st?.obj("metadata")?.str("exists") == "true") "Rewrote " else "Created "); file(fileOf(p).orEmpty())
                 input?.str("content")?.lines()?.size?.let { withStyle(androidx.compose.ui.text.SpanStyle(color = c.ok)) { append(" +$it") } } }
             name == "read" -> { append("Read "); file(fileOf(p).orEmpty()) }
-            name in setOf("grep", "glob", "list", "codesearch") -> { append("Searched "); file(toolSummary(input)) }
+            name in SEARCH -> { append("Searched "); file(toolSummary(input)) }
             name.startsWith("web") -> { append("Opened "); file(input?.firstStr("url")?.substringAfter("://")?.substringBefore('/') ?: toolSummary(input)) }
             name == "task" -> append("Helper: " + input?.firstStr("description").orEmpty())
             else -> append(name.replaceFirstChar { it.uppercase() } + toolSummary(input).let { if (it.isBlank()) "" else " $it" })

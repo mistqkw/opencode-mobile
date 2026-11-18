@@ -185,12 +185,23 @@ object Oc {
         }
 }
 
+/** Dark palette with true-black backgrounds, so AMOLED pixels switch off. Accents stay from the look. */
+private fun amoled(c: OcColors) = OcColors(
+    isDark = true,
+    bg = Color.Black, surface = Color(0xFF0A0A0A), surfaceHigh = Color(0xFF121212),
+    text = c.text, textDim = c.textDim, border = c.border,
+    accent = c.accent, link = c.link, toggleOn = c.toggleOn,
+    progressTrack = c.progressTrack, progressFill = c.progressFill,
+    danger = c.danger, ok = c.ok, warn = c.warn,
+    userBubble = Color(0xFF101010), codeBg = Color.Black, scrim = c.scrim,
+)
+
 @Composable
 fun OcTheme(content: @Composable () -> Unit) {
     val mode = Graph.prefs.colorMode
-    val dark = when (mode) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
+    val dark = when (mode) { "dark", "amoled" -> true; "light" -> false; else -> isSystemInDarkTheme() }
     val look = Looks.of(Graph.prefs.edition)
-    val colors = if (dark) look.dark else look.light
+    val colors = when (mode) { "amoled" -> amoled(look.dark); else -> if (dark) look.dark else look.light }
     // Claude's fonts are noticeably smaller than my originals: a base factor of 0.88 taken from phone screenshots.
     val scale = when (Graph.prefs.textSize) { "small" -> 0.8f; "large" -> 1f; else -> 0.88f }
     val ui = (Graph.prefs.uiScale.toFloatOrNull() ?: 100f) / 100f

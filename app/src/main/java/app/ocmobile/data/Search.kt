@@ -19,6 +19,7 @@ object Search {
 
     private const val DB = "/root/.local/share/opencode/opencode.db"
     private val json = Json { ignoreUnknownKeys = true }
+    private val WS = Regex("\\s+")
 
     suspend fun chats(q: String, limit: Int = 60): List<Hit> = withContext(Dispatchers.IO) {
         if (q.length < 2 || Graph.devices.isRemote) return@withContext emptyList()
@@ -64,6 +65,6 @@ object Search {
     private fun snippet(text: String, at: Int, len: Int): String {
         val from = (at - 50).coerceAtLeast(0)
         val to = (at + len + 90).coerceAtMost(text.length)
-        return (if (from > 0) "…" else "") + text.substring(from, to).replace(Regex("\\s+"), " ").trim() + if (to < text.length) "…" else ""
+        return (if (from > 0) "…" else "") + text.substring(from, to).replace(WS, " ").trim() + if (to < text.length) "…" else ""
     }
 }

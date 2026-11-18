@@ -118,7 +118,8 @@ object Looks {
     )
 
     val all = listOf(cloud, claude, terminal, desktop, hairline, notebook, messenger, cards, chatgpt, kimi)
-    fun of(id: String): Look = all.firstOrNull { it.id == id } ?: cloud
+    private val byId = all.associateBy { it.id }
+    fun of(id: String): Look = byId[id] ?: cloud
 }
 
 /** Looks on the Kimi frame: round buttons, model pill on top, mascot on the home screen. */

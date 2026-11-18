@@ -56,7 +56,7 @@ class Prefs(ctx: Context) {
     // Appearance
     var recentModels by str("recent_models", "")      // provider/model, comma-separated, most recent first
     var edition by str("edition", "cloud")           // claude | terminal | desktop
-    var colorMode by str("color_mode", "system")      // system | light | dark
+    var colorMode by str("color_mode", "system")      // system | light | dark | amoled
     var fontStyle by str("font_style", "default")     // default | system
     var textSize by str("text_size", "medium")        // small | medium | large
     var codeFont by str("code_font", "mono")          // mono | system
