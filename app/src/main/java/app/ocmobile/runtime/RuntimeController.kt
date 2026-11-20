@@ -34,6 +34,11 @@ class RuntimeController(
         const val OC_VERSION = "1.19.4"
         const val OC_SHA = "8568230ccd847dc93e95b9f6894379077d3e014a16b48040743573e77c23e85f"
         const val OC_BIN = "/usr/local/bin/opencode"
+        // Node.js for the agent to run JS/npm; OpenCode itself is self-contained and doesn't need it.
+        const val NODE_VERSION = "26.13.0"
+        const val NODE_URL = "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-arm64.tar.gz"
+        const val NODE_SHA = "439e9c438acdf6a6ffe47418da709153d66c4bed812e30a473faacb107dd2791"
+        const val NODE_BIN = "/usr/local/bin/node"
         fun ocUrl(v: String) = "https://github.com/anomalyco/opencode/releases/download/v$v/opencode-linux-arm64.tar.gz"
     }
 
@@ -103,6 +108,22 @@ class RuntimeController(
         tmp.deleteRecursively()
         tgz.delete()
         prefs.opencodeVersion = version
+    }
+
+    /** Node.js + npm for the agent. Only called from the explicit "Install dev tools" action. */
+    private fun installNode(onLine: (String) -> Unit) {
+        val bin = paths.host(NODE_BIN)
+        if (bin.exists()) return
+        val tgz = File(paths.downloads, "node-$NODE_VERSION.tar.gz")
+        Downloader.fetch(NODE_URL, tgz, NODE_SHA) { d, t ->
+            onLine("Downloading Node.js $NODE_VERSION: ${mb(d, t)}")
+        }
+        TarExtractor.extract(tgz, paths.host("/usr/local"), strip = 1) { d, t ->
+            onLine("Installing Node.js: ${(frac(d, t) ?: 0f).toInt() * 100}%")
+        }
+        bin.setExecutable(true, false)
+        tgz.delete()
+        onLine("node.js: $NODE_VERSION")
     }
 
     private suspend fun smokeTest() {
@@ -275,9 +296,16 @@ class RuntimeController(
         p.exitValue()
     }
 
-    /** git, ripgrep and the like: without them the agent in Ubuntu is nearly useless. */
+    /** Neither python3 nor Node's libatomic is in Ubuntu Base; add both by default. */
+    /**
+     * Explicit "Install dev tools" action. Node, python3 and libatomic used to download on server
+     * start, which cost 30+ MB on mobile data without asking. They are installed only here now.
+     */
     suspend fun installDevTools(onLine: (String) -> Unit): Int {
-        val script = "apt-get update && apt-get install -y --no-install-recommends git ripgrep curl ca-certificates openssh-client unzip less nano python3 build-essential"
+        withContext(Dispatchers.IO) { installNode(onLine) }
+        val script = "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends " +
+            "git ripgrep curl ca-certificates openssh-client unzip less nano build-essential python3 libatomic1 && " +
+            "ln -sf /usr/bin/python3 /usr/local/bin/python"
         return runGuest(listOf("/bin/bash", "-lc", script), onLine = onLine)
     }
 

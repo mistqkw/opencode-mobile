@@ -27,6 +27,10 @@ object LiveNotify {
     private const val CH_LIVE = "live"
     private const val CH_ASK = "ask"
 
+    // Built on every tool event otherwise; the notification label runs for each step of each agent.
+    private val EDIT_TOOLS = setOf("edit", "write", "apply_patch", "patch", "multiedit")
+    private val SEARCH_TOOLS = setOf("glob", "grep", "list")
+
     private class Run(var step: String = "Thinking…", var steps: Int = 0, val files: MutableSet<String> = linkedSetOf(), val started: Long = System.currentTimeMillis())
     private val runs = HashMap<String, Run>()
 
@@ -69,7 +73,7 @@ object LiveNotify {
                             "running", "pending" -> r.step = label(tool, input)
                             "completed" -> {
                                 r.steps++
-                                if (tool in setOf("edit", "write", "apply_patch", "patch", "multiedit")) input?.str("filePath")?.let { r.files += it }
+                                if (tool in EDIT_TOOLS) input?.str("filePath")?.let { r.files += it }
                             }
                         }
                     }
@@ -95,8 +99,8 @@ object LiveNotify {
     private fun label(tool: String, input: kotlinx.serialization.json.JsonObject?): String = when {
         tool == "bash" -> input?.str("description")?.let { it.replaceFirstChar { c -> c.uppercase() } } ?: "Running a command"
         tool == "read" -> "Reading " + (input?.str("filePath")?.let(::base) ?: "a file")
-        tool in setOf("edit", "write", "apply_patch", "patch", "multiedit") -> "Editing " + (input?.str("filePath")?.let(::base) ?: "files")
-        tool in setOf("glob", "grep", "list") -> "Searching the code"
+        tool in EDIT_TOOLS -> "Editing " + (input?.str("filePath")?.let(::base) ?: "files")
+        tool in SEARCH_TOOLS -> "Searching the code"
         tool == "webfetch" -> "Reading a web page"
         tool == "websearch" -> "Searching the web"
         tool == "task" -> "Working with a subagent"

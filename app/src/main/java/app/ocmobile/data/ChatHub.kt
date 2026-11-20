@@ -147,6 +147,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     suspend fun dropIncognito(id: String) {
         val dir = session(id)?.directory
         runCatching { api.deleteSession(id, dir) }
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Attachments.deleteUploads(id) }
         prefs.incognitoIds = (incognitoSet() - id).joinToString(",")
         chats.remove(id)
         all.update { it - id }
@@ -173,7 +174,11 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             delay(4200)
             if (undo.value === u) undo.value = null
             if (undone) return@launch
-            ids.forEach { id -> runCatching { api.deleteSession(id, dirs[id]) }; forget(id) }
+            ids.forEach { id ->
+                runCatching { api.deleteSession(id, dirs[id]) }
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Attachments.deleteUploads(id) }
+                forget(id)
+            }
             leaving -= ids.toSet()
             refreshSessions()
         }
@@ -195,10 +200,22 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     private fun handle(e: EventHub.Event) {
         val p = e.props
         when (e.type) {
-            "session.created", "session.updated" -> p.obj("info")?.let {
+            "session.created" -> p.obj("info")?.let {
+                runCatching { OcJson.decodeFromJsonElement(Session.serializer(), it) }.getOrNull()?.let { s ->
+                    upsert(s)
+                    // A helper is a child session with its own permissions: give it the parent's upload rules.
+                    s.parentID?.takeIf { it != s.id }?.let { parent -> Graph.scope.launch {
+                        runCatching { api.setSessionPermission(s.id, s.directory, permissionRules(sessionId = parent) ?: JsonArray(emptyList())) }
+                    } }
+                }
+            }
+            "session.updated" -> p.obj("info")?.let {
                 runCatching { OcJson.decodeFromJsonElement(Session.serializer(), it) }.getOrNull()?.let(::upsert)
             }
-            "session.deleted" -> p.obj("info")?.str("id")?.let { id -> all.update { it - id }; publish() }
+            "session.deleted" -> p.obj("info")?.str("id")?.let { id ->
+                all.update { it - id }; publish()
+                Graph.scope.launch { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Attachments.deleteUploads(id) } }
+            }
             "session.status" -> {
                 val id = p.str("sessionID") ?: return
                 val t = p.obj("status")?.str("type") ?: return
@@ -271,21 +288,37 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
             "edits" -> listOf(rule("*", "allow"), rule("bash", "ask"), rule("webfetch", "ask"))
             else -> listOf(rule("*", "allow"))
         }
-        // memory lives outside the project: the agent reaches it without asking (rules at the end win)
-        // memory turned off for this chat: the agent can't open or change it here at all
-        val access = if (prefs.memoryOn(sessionId)) "allow" else if (prefs.memoryEnabled) "deny" else null
-        val mem = if (access != null) listOf("external_directory", "read", "edit").flatMap { perm ->
-            listOf("$MEMORY_DIR/*", "$MEMORY_DIR/**").map { rule(perm, access, it) }
+        // Memory lives outside the project. Keep explicit allow rules even when memory is on: in
+        // "ask" mode the base rule is "* ask", so without them every memory read would prompt.
+        val memAccess = if (prefs.memoryOn(sessionId)) "allow" else if (prefs.memoryEnabled) "deny" else null
+        val mem = if (memAccess != null) listOf("external_directory", "read", "edit").flatMap { perm ->
+            listOf("$MEMORY_DIR/*", "$MEMORY_DIR/**").map { rule(perm, memAccess, it) }
         } else emptyList()
+        // Each chat has its own file root outside the project directory. Deny every chat's root, then
+        // allow only this session's own root (the last matching rule wins).
+        val isolation = if (sessionId == null || Graph.devices.isRemote) emptyList() else {
+            val own = Attachments.chatRoot(sessionId)
+            listOf(
+                rule("external_directory", "deny", "${Attachments.CHAT_FILES}/*"),
+                rule("read", "deny", "${Attachments.CHAT_FILES}/*"),
+                rule("edit", "deny", "${Attachments.CHAT_FILES}/*"),
+                rule("external_directory", "allow", "$own/*"),
+                rule("external_directory", "allow", "$own/**"),
+                rule("read", "allow", "$own/*"),
+                rule("read", "allow", "$own/**"),
+                rule("edit", "allow", "$own/*"),
+                rule("edit", "allow", "$own/**"),
+            )
+        }
         // a helper model is the user's call in every mode, except the ones they always allow
         val team = if (Team.on) listOf(rule("task", "ask")) + Team.always.mapNotNull { ref ->
             Team.helperFor(ref)?.let { rule("task", "allow", it) }
         } else emptyList()
-        val all = base + mem + team
-        return if (all.isEmpty()) null else buildJsonArray { all.forEach { add(it) } }
+        val rules = base + isolation + mem + team
+        return if (rules.isEmpty()) null else buildJsonArray { rules.forEach { add(it) } }
     }
 
-    fun isChat(s: Session) = s.directory.trimEnd('/') == CHAT_DIR
+    fun isChat(s: Session) = s.directory.trimEnd('/') == CHAT_DIR || s.directory.startsWith("$CHAT_DIR/")
     /** Regular chats go to the menu and "Recents"; project ones to the Code tab. A remote device has no such split. */
     fun chatsOnly(l: List<Session>) = if (Graph.devices.isRemote) l else l.filter { isChat(it) }
     /**
@@ -322,7 +355,7 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
         // fresh memory goes into the instructions before the request (the agent may have changed it in the last reply)
         if (prefs.memoryEnabled && !Graph.devices.isRemote) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Memory.sync() }
         try {
-            val attParts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { atts.map { Attachments.toPart(ctx, it) } }
+            val attParts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { atts.map { Attachments.toPart(ctx, it, sessionId) } }
             val parts = buildJsonArray {
                 if (text.isNotBlank() || (keepParts.isEmpty() && attParts.isEmpty())) add(buildJsonObject { put("type", "text"); put("text", text) })
                 keepParts.forEach { add(it) }
@@ -459,6 +492,8 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     }
 
     suspend fun createSession(directory: String): Session {
+        // OpenCode 1.19.4 ignores a caller-supplied session id, so create normally. Uploads use the
+        // server's real id (Attachments.uploadsDir), which is also what deletion cleans up.
         val s = api.createSession(directory, permission = permissionRules())
         upsert(s)
         return s

@@ -18,6 +18,11 @@ object Attachments {
     private const val MAX_EDGE = 2048
     private const val RECOMPRESS_ABOVE = 1_500_000
 
+    // safeName is called for every session id used in upload paths; these must not be rebuilt each time.
+    private val UNSAFE_NAME = Regex("[/\\\\:*?\"<>|]")
+    private val TEXT_MIMES = setOf("application/json", "application/xml", "application/javascript", "application/x-sh", "application/yaml", "application/toml")
+    private val TEXT_EXTS = setOf("txt", "md", "json", "kt", "java", "py", "js", "ts", "tsx", "c", "h", "cpp", "rs", "go", "sh", "yml", "yaml", "toml", "xml", "html", "css", "csv", "log", "ini", "conf", "gradle", "kts", "sql")
+
     fun describe(ctx: Context, uri: Uri): Attachment {
         var name = uri.lastPathSegment ?: "file"
         ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
@@ -31,7 +36,7 @@ object Attachments {
      * A prompt part for an attachment. Models only take what they can (images, sometimes PDF);
      * the rest (audio, video, archives, any files) goes onto the environment's disk and the agent is told where.
      */
-    fun toPart(ctx: Context, a: Attachment): JsonObject {
+    fun toPart(ctx: Context, a: Attachment, sessionId: String): JsonObject {
         val m = app.ocmobile.Graph.catalog.model(app.ocmobile.Graph.prefs.providerId, app.ocmobile.Graph.prefs.modelId)
         val inline = (a.isImage && m?.supportsImages != false) || (a.mime == "application/pdf" && m?.capabilities?.input?.pdf == true)
         if (inline) return toFilePart(ctx, a)
@@ -41,26 +46,51 @@ object Attachments {
             if (!isTextLike(a.mime, a.name) || bytes.size > 256_000) throw java.io.IOException("Only images and text files can be sent to a remote device")
             return synthetic("<attached-file name=\"${a.name}\" mime=\"${a.mime}\" size=\"${bytes.size}\"/>\nContents of ${a.name}:\n```\n${String(bytes)}\n```")
         }
-        val dir = app.ocmobile.Graph.paths.host(UPLOADS).apply { mkdirs() }
+        // Files live in this chat's own folder and stay there. Each session gets permission rules that
+        // allow only its own folder, so no copying/exposing is needed (and a running agent never loses
+        // its files when another chat is opened).
+        val dir = uploadsHost(sessionId).apply { mkdirs() }
         var f = java.io.File(dir, safeName(a.name))
         var i = 2
         while (f.exists()) { f = java.io.File(dir, safeName(a.name).let { n -> n.substringBeforeLast('.', n) + "-$i" + (if ('.' in n) "." + n.substringAfterLast('.') else "") }); i++ }
         f.writeBytes(bytes)
-        val guest = "$UPLOADS/${f.name}"
+        val guest = "${uploadsDir(sessionId)}/${f.name}"
         return synthetic(
             "<attached-file path=\"$guest\" name=\"${a.name}\" mime=\"${a.mime}\" size=\"${bytes.size}\"/>\n" +
                 "The user attached the file ${a.name} (${a.mime}, ${human(bytes.size.toLong())}). It is saved at $guest — open it with your tools when needed.",
         )
     }
 
-    const val UPLOADS = "/root/uploads"
+    /**
+     * Per-chat file root, outside the session project directory (CHAT_DIR). Because it is external to
+     * the project, OpenCode's `external_directory` permission rules apply to it. Every session is denied
+     * the whole root and then allowed only its own folder (last matching rule wins), so one chat can
+     * never read another chat's files. Files are never moved or deleted when switching chats.
+     */
+    const val CHAT_FILES = "/root/chatfiles"
+
+    /** This chat's isolated file root. */
+    fun chatRoot(sessionId: String): String = "$CHAT_FILES/${safeName(sessionId)}"
+
+    /** Guest folder for one chat's attachments. */
+    fun uploadsDir(sessionId: String): String = "${chatRoot(sessionId)}/uploads"
+
+    /** The same folder on the host (inside the rootfs). */
+    fun uploadsHost(sessionId: String) = app.ocmobile.Graph.paths.host(uploadsDir(sessionId))
+
+    /** Removes this chat's file root. Old locations from earlier builds are cleaned up too. */
+    fun deleteUploads(sessionId: String) {
+        runCatching { app.ocmobile.Graph.paths.host(chatRoot(sessionId)).deleteRecursively() }
+        runCatching { app.ocmobile.Graph.paths.host("$CHAT_DIR/${safeName(sessionId)}").deleteRecursively() }
+        runCatching { java.io.File(app.ocmobile.Graph.paths.rootfs.parentFile, "uploadvault/${safeName(sessionId)}").deleteRecursively() }
+    }
 
     fun synthetic(text: String) = buildJsonObject { put("type", "text"); put("text", text); put("synthetic", true) }
 
-    private fun safeName(n: String) = n.replace(Regex("[/\\\\:*?\"<>|]"), "_").ifBlank { "file" }
+    private fun safeName(n: String) = n.replace(UNSAFE_NAME, "_").ifBlank { "file" }
 
-    fun isTextLike(mime: String, name: String) = mime.startsWith("text/") || mime in setOf("application/json", "application/xml", "application/javascript", "application/x-sh", "application/yaml", "application/toml") ||
-        name.substringAfterLast('.', "").lowercase() in setOf("txt", "md", "json", "kt", "java", "py", "js", "ts", "tsx", "c", "h", "cpp", "rs", "go", "sh", "yml", "yaml", "toml", "xml", "html", "css", "csv", "log", "ini", "conf", "gradle", "kts", "sql")
+    fun isTextLike(mime: String, name: String) = mime.startsWith("text/") || mime in TEXT_MIMES ||
+        name.substringAfterLast('.', "").lowercase() in TEXT_EXTS
 
     fun human(b: Long) = when { b >= 1_000_000 -> "%.1f MB".format(b / 1e6); b >= 1000 -> "%.0f KB".format(b / 1e3); else -> "$b B" }
 

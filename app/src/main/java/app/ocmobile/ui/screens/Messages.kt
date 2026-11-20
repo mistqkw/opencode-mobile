@@ -78,6 +78,14 @@ import kotlinx.serialization.json.contentOrNull
 
 fun hhmm(ms: Long): String = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(ms))
 
+// Hoisted out of the chat/tool render hot path: these used to be rebuilt on every call.
+private val NON_STEP_TOOLS = setOf("question", "todowrite", "todoread", "remember")
+private val INVISIBLE_PARTS = setOf("step-start", "step-finish", "snapshot", "patch")
+private val EDIT_TOOLS = setOf("edit", "write", "patch", "multiedit", "apply_patch")
+private val SEARCH_TOOLS = setOf("grep", "glob", "list", "codesearch")
+private val SPEAKER_STRIP = Regex("[`*#>_]")
+private val MEMORY_SLUG = Regex("[^a-z0-9а-яё]+")
+
 /** A bubble with a tail, like in messengers: 16dp corners, a small curled tail at the bottom corner. */
 class TailShape(private val right: Boolean) : androidx.compose.ui.graphics.Shape {
     override fun createOutline(size: androidx.compose.ui.geometry.Size, layoutDirection: androidx.compose.ui.unit.LayoutDirection, density: androidx.compose.ui.unit.Density): androidx.compose.ui.graphics.Outline {
@@ -307,7 +315,7 @@ object Speaker {
     fun toggle(ctx: android.content.Context, text: String) {
         if (speaking) { tts?.stop(); speaking = false; return }
         val go = {
-            val clean = text.replace(Regex("[`*#>_]"), "")
+            val clean = text.replace(SPEAKER_STRIP, "")
             tts?.let { app.ocmobile.data.Speech.applyVoice(it, clean) }
             tts?.speak(clean, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "oc")
             speaking = true
@@ -414,7 +422,7 @@ private fun ReasoningBlock(p: Part) {
 /** A step is a thought or a tool call (except questions and todo lists: those are shown separately). */
 private fun isStep(p: Part): Boolean = when (p.type) {
     "reasoning" -> p.text.isNotBlank()
-    "tool" -> p.raw.str("tool") !in setOf("question", "todowrite", "todoread", "remember")
+    "tool" -> p.raw.str("tool") !in NON_STEP_TOOLS
     else -> false
 }
 
@@ -424,7 +432,7 @@ private fun segment(parts: List<Part>): List<List<Part>> {
     var cur = ArrayList<Part>()
     for (p in parts) {
         // service parts (step start/end, snapshots, patch summary) are invisible and must not break a group
-        if (p.type in setOf("step-start", "step-finish", "snapshot", "patch") || (p.type == "text" && p.text.isBlank())) continue
+        if (p.type in INVISIBLE_PARTS || (p.type == "text" && p.text.isBlank())) continue
         if (isStep(p)) cur.add(p)
         else {
             if (cur.isNotEmpty()) { out.add(cur); cur = ArrayList() }
@@ -473,15 +481,18 @@ internal fun stepsSummary(parts: List<Part>): String {
 internal fun toolIcon(name: String): ImageVector = when {
     name == "bash" -> Ic.Terminal
     name == "read" -> Ic.File
-    name in setOf("edit", "write", "patch", "multiedit", "apply_patch") -> Ic.Edit
-    name in setOf("grep", "glob", "list", "codesearch") -> Ic.Search
+    name in EDIT_TOOLS -> Ic.Edit
+    name in SEARCH_TOOLS -> Ic.Search
     name.startsWith("web") -> Ic.Globe
     name == "task" -> Ic.Bot
     name.startsWith("todo") -> Ic.ListCheck
     else -> Ic.Wrench
 }
 
-internal fun JsonObject.firstStr(vararg keys: String) = keys.firstNotNullOfOrNull { k -> str(k)?.takeIf { it.isNotBlank() } }
+internal fun JsonObject.firstStr(vararg keys: String): String? {
+    for (k in keys) { val s = str(k); if (!s.isNullOrBlank()) return s }
+    return null
+}
 
 internal fun toolSummary(input: JsonObject?): String {
     if (input == null) return ""
@@ -505,16 +516,17 @@ fun ToolCard(p: Part, onImage: (String) -> Unit) {
     var open by remember { mutableStateOf(name.startsWith("todo")) }
     val head = title ?: (name + toolSummary(input).let { if (it.isBlank()) "" else ": $it" })
 
-    Column(Modifier.fillMaxWidth().clip(Oc.round(18.dp)).background(c.surface)) {
-        Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Ico(toolIcon(name), tint = c.textDim, size = 20.dp); Spacer(Modifier.width(12.dp))
-            Txt(head, size = 15.sp, maxLines = 1, modifier = Modifier.weight(1f)); Spacer(Modifier.width(10.dp))
+    // Claude-style tool call: a quiet, compact chip rather than a loud card.
+    Column(Modifier.fillMaxWidth().clip(Oc.round(10.dp)).background(c.surface)) {
+        Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Ico(toolIcon(name), tint = c.textDim, size = 16.dp); Spacer(Modifier.width(10.dp))
+            Txt(head, size = 14.sp, color = c.textDim, maxLines = 1, modifier = Modifier.weight(1f)); Spacer(Modifier.width(10.dp))
             val rot by androidx.compose.animation.core.animateFloatAsState(if (open) 90f else 0f, label = "chev")
-            Ico(Ic.ChevronRight, tint = c.textDim, size = 16.dp, modifier = Modifier.rotate(rot)); Spacer(Modifier.width(8.dp))
+            Ico(Ic.ChevronRight, tint = c.textDim, size = 14.dp, modifier = Modifier.rotate(rot)); Spacer(Modifier.width(8.dp))
             when (status) {
-                "running", "pending" -> Spinner(18.dp, stroke = 2.dp)
-                "error" -> Ico(Ic.Warning, tint = c.danger, size = 18.dp)
-                else -> Ico(Ic.Check, tint = c.ok, size = 18.dp)
+                "running", "pending" -> Spinner(14.dp, stroke = 1.5.dp)
+                "error" -> Ico(Ic.Warning, tint = c.danger, size = 14.dp)
+                else -> Ico(Ic.Check, tint = c.textDim, size = 14.dp)
             }
         }
         // live terminal: while a command runs its output is visible right away, without expanding
@@ -523,7 +535,7 @@ fun ToolCard(p: Part, onImage: (String) -> Unit) {
             LiveTerminal(input?.firstStr("command").orEmpty(), state?.obj("metadata")?.str("output").orEmpty())
         }
         AnimatedVisibility(open, enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) + androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(180)), exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(80)) + androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(150))) {
-            Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (name == "todowrite") {
                     input?.arr("todos")?.forEach { t ->
                         val o = t as? JsonObject ?: return@forEach
@@ -836,7 +848,7 @@ private fun RememberCard(p: Part) {
         Txt(fact, size = 16.sp, color = if (answer == "n") c.textDim else c.text)
         if (answer == null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
             SmallButton("Remember", {
-                val safe = shelf.lowercase().replace(Regex("[^a-z0-9а-яё]+"), "-").trim('-').ifBlank { "notes" }
+                val safe = shelf.lowercase().replace(MEMORY_SLUG, "-").trim('-').ifBlank { "notes" }
                 app.ocmobile.data.Memory.addFact(java.io.File(app.ocmobile.data.Memory.dir(), "$safe.md"), fact)
                 Graph.prefs.answerMemory(call, true)
             }, filled = true)

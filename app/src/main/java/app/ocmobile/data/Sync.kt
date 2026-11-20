@@ -183,7 +183,7 @@ object Sync {
         }
 
     private fun JsonObjectOf(text: String) = app.ocmobile.api.OcJson.parseToJsonElement(text) as JsonObject
-    private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
     private fun String.toHttpHost() = removePrefix("http://").removePrefix("https://").substringBefore('/').substringBeforeLast(':')
     private fun String.toPort() = removePrefix("http://").removePrefix("https://").substringBefore('/').substringAfterLast(':', "").toIntOrNull() ?: 4096
+    private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 }

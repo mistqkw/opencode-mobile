@@ -50,6 +50,8 @@ class ProotCommand(private val paths: RuntimePaths, private val prefs: Prefs) {
             "SSL_CERT_FILE" to "/etc/ssl/certs/ca-certificates.crt",
             "NODE_EXTRA_CA_CERTS" to "/etc/ssl/certs/ca-certificates.crt",
             "DEBIAN_FRONTEND" to "noninteractive",
+            // no rc/profile loading on every non-interactive command
+            "BASH_ENV" to "/dev/null", "ENV" to "/dev/null",
         ).apply { putAll(extraEnv) }
         cmd += "/usr/bin/env"
         cmd += "-i"

@@ -149,7 +149,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
                 SettingsRow("Interface", subtitle = app.ocmobile.ui.theme.Looks.of(prefs.edition).title, icon = Ic.Palette, onClick = { nav.push(Route.Edition) })
                 // the mascot tab: only in the cl0udly look
                 SettingsRow("cl0udly", subtitle = "Mascot, outfits and games", icon = Ic.Cloud, onClick = { nav.push(Route.MascotSettings) })
-                SettingsRow("Color mode", subtitle = prefs.colorMode.replaceFirstChar { it.uppercase() }, icon = Ic.Moon, onClick = { dialog = "color" })
+                SettingsRow("Color mode", subtitle = if (prefs.colorMode == "amoled") "AMOLED black" else prefs.colorMode.replaceFirstChar { it.uppercase() }, icon = Ic.Moon, onClick = { dialog = "color" })
                 SettingsRow("Font style", subtitle = if (prefs.fontStyle == "default") "Default" else "System", icon = Ic.FontSize, onClick = { nav.push(Route.Appearance) })
                 SettingsRow("Side menu", subtitle = "Sections and chats it shows", icon = Ic.Menu, onClick = { nav.push(Route.SideMenu) })
                 SettingsRow("Voice", subtitle = app.ocmobile.data.Speech.label(), icon = Ic.Waveform, onClick = { dialog = "voice" })
@@ -202,7 +202,7 @@ fun SettingsScreen(nav: Nav, onMenu: () -> Unit) {
     if (dialog == "ttsVoice") VoicePickerDialog { dialog = null }
     when (dialog) {
         "voice" -> ChoiceDialog("Speech language", app.ocmobile.data.Speech.languages.map { Triple(it.first, it.second, null) }, prefs.speechLang, { prefs.speechLang = it }) { dialog = null }
-        "color" -> ChoiceDialog("Color mode", listOf(Triple("system", "System", Ic.Phone), Triple("light", "Light", Ic.Sun), Triple("dark", "Dark", Ic.Moon)), prefs.colorMode, { prefs.colorMode = it }) { dialog = null }
+        "color" -> ChoiceDialog("Color mode", listOf(Triple("system", "System", Ic.Phone), Triple("light", "Light", Ic.Sun), Triple("dark", "Dark", Ic.Moon), Triple("amoled", "AMOLED black", Ic.Moon)), prefs.colorMode, { prefs.colorMode = it }) { dialog = null }
         "font" -> ChoiceDialog("Font style", listOf(Triple("default", "Default (serif headings)", null), Triple("system", "System", Ic.Phone)), prefs.fontStyle, { prefs.fontStyle = it }) { dialog = null }
         "size" -> ChoiceDialog("Text size", listOf(Triple("small", "Small", null), Triple("medium", "Medium", null), Triple("large", "Large", null)), prefs.textSize, { prefs.textSize = it }) { dialog = null }
         "scale" -> ChoiceDialog("Display size", listOf(Triple("90", "Compact", null), Triple("100", "Default", null), Triple("110", "Large", null), Triple("120", "Extra large", null)), prefs.uiScale, { prefs.uiScale = it }) { dialog = null }

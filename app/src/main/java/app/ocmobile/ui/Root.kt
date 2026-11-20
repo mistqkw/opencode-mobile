@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -61,6 +62,7 @@ import androidx.core.view.WindowCompat
 import app.ocmobile.Graph
 import app.ocmobile.runtime.RuntimeState
 import app.ocmobile.ui.components.Spinner
+import app.ocmobile.ui.components.Pill
 import app.ocmobile.ui.components.Ico
 import app.ocmobile.ui.components.Txt
 import app.ocmobile.ui.screens.CapabilitiesScreen
@@ -133,6 +135,11 @@ private fun Shell(rt: RuntimeState) {
     val openReq by Graph.chats.openRequest.collectAsState()
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    // The server starts by itself when the app opens.
+    var autostarted by remember { mutableStateOf(false) }
+    LaunchedEffect(rt) {
+        if (!autostarted && rt is RuntimeState.Stopped && Graph.prefs.autoStartServer) { autostarted = true; Graph.runtime.startServer() }
+    }
     LaunchedEffect(openReq) {
         openReq?.let { r ->
             when (r) {
@@ -177,11 +184,6 @@ private fun Shell(rt: RuntimeState) {
         snapshotFlow { (drawerProgress() * 20).toInt() / 20f }.collect { app.ocmobile.ui.components.MascotSignals.drawer = it }
     }
 
-    // The server starts by itself when the app opens.
-    var autostarted by remember { mutableStateOf(false) }
-    LaunchedEffect(rt) {
-        if (!autostarted && rt is RuntimeState.Stopped && Graph.prefs.autoStartServer) { autostarted = true; Graph.runtime.startServer() }
-    }
     LaunchedEffect(rt is RuntimeState.Running) {
         if (rt is RuntimeState.Running) { Graph.catalog.refresh(); Graph.chats.refreshSessions() }
     }
