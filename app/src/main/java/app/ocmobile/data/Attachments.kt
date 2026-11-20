@@ -46,13 +46,14 @@ object Attachments {
             if (!isTextLike(a.mime, a.name) || bytes.size > 256_000) throw java.io.IOException("Only images and text files can be sent to a remote device")
             return synthetic("<attached-file name=\"${a.name}\" mime=\"${a.mime}\" size=\"${bytes.size}\"/>\nContents of ${a.name}:\n```\n${String(bytes)}\n```")
         }
-        // Write into the host vault (outside the rootfs), then expose only this chat's folder to the agent.
-        val dir = vault(sessionId).apply { mkdirs() }
+        // Files live in this chat's own folder and stay there. Each session gets permission rules that
+        // allow only its own folder, so no copying/exposing is needed (and a running agent never loses
+        // its files when another chat is opened).
+        val dir = uploadsHost(sessionId).apply { mkdirs() }
         var f = java.io.File(dir, safeName(a.name))
         var i = 2
         while (f.exists()) { f = java.io.File(dir, safeName(a.name).let { n -> n.substringBeforeLast('.', n) + "-$i" + (if ('.' in n) "." + n.substringAfterLast('.') else "") }); i++ }
         f.writeBytes(bytes)
-        expose(sessionId)
         val guest = "${uploadsDir(sessionId)}/${f.name}"
         return synthetic(
             "<attached-file path=\"$guest\" name=\"${a.name}\" mime=\"${a.mime}\" size=\"${bytes.size}\"/>\n" +
@@ -60,33 +61,28 @@ object Attachments {
         )
     }
 
-    /** Guest folder for one chat's attachments, always under its own session folder. */
-    fun uploadsDir(sessionId: String): String = "$CHAT_DIR/${safeName(sessionId)}/uploads"
+    /**
+     * Per-chat file root, outside the session project directory (CHAT_DIR). Because it is external to
+     * the project, OpenCode's `external_directory` permission rules apply to it. Every session is denied
+     * the whole root and then allowed only its own folder (last matching rule wins), so one chat can
+     * never read another chat's files. Files are never moved or deleted when switching chats.
+     */
+    const val CHAT_FILES = "/root/chatfiles"
+
+    /** This chat's isolated file root. */
+    fun chatRoot(sessionId: String): String = "$CHAT_FILES/${safeName(sessionId)}"
+
+    /** Guest folder for one chat's attachments. */
+    fun uploadsDir(sessionId: String): String = "${chatRoot(sessionId)}/uploads"
 
     /** The same folder on the host (inside the rootfs). */
     fun uploadsHost(sessionId: String) = app.ocmobile.Graph.paths.host(uploadsDir(sessionId))
 
-    /**
-     * Authoritative copy on the app side, outside the rootfs. The agent (root inside proot) can never
-     * reach this directory: proot cannot escape the rootfs, so other chats' uploads are not just hidden
-     * by rules — they do not exist in the agent's filesystem at all.
-     */
-    private fun vault(sessionId: String) = java.io.File(app.ocmobile.Graph.paths.rootfs.parentFile, "uploadvault/${safeName(sessionId)}")
-
-    /** Make only [sessionId]'s uploads visible inside the environment. Call when a chat becomes active. */
-    fun expose(sessionId: String) {
-        runCatching {
-            val chats = java.io.File(app.ocmobile.Graph.paths.rootfs, CHAT_DIR.trimStart('/'))
-            chats.listFiles { f -> f.isDirectory && f.name.startsWith("ses_") }?.forEach { it.deleteRecursively() }
-            val src = vault(sessionId)
-            if (src.isDirectory) src.copyRecursively(uploadsHost(sessionId), overwrite = true)
-        }
-    }
-
-    /** Removes every file this chat attached, wherever it lives. */
+    /** Removes this chat's file root. Old locations from earlier builds are cleaned up too. */
     fun deleteUploads(sessionId: String) {
-        runCatching { uploadsHost(sessionId).deleteRecursively() }
-        runCatching { vault(sessionId).deleteRecursively() }
+        runCatching { app.ocmobile.Graph.paths.host(chatRoot(sessionId)).deleteRecursively() }
+        runCatching { app.ocmobile.Graph.paths.host("$CHAT_DIR/${safeName(sessionId)}").deleteRecursively() }
+        runCatching { java.io.File(app.ocmobile.Graph.paths.rootfs.parentFile, "uploadvault/${safeName(sessionId)}").deleteRecursively() }
     }
 
     fun synthetic(text: String) = buildJsonObject { put("type", "text"); put("text", text); put("synthetic", true) }

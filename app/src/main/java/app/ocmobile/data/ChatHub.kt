@@ -102,18 +102,8 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
     /** Child sessions of [id]: helpers the main agent started with the task tool. */
     fun children(id: String): List<Session> = all.value.values.filter { it.parentID == id }.sortedBy { it.time.created }
 
-    @Volatile private var exposedChat: String? = null
-
-    /** Only the open chat's uploads are present inside the environment. */
-    fun exposeChat(id: String) {
-        if (exposedChat == id) return
-        exposedChat = id
-        Attachments.expose(id)
-    }
-
-    fun chat(id: String): Chat {
-        exposeChat(id)
-        return chats.getOrPut(id) { Chat(id, api).also { it.directory = session(id)?.directory } }
+    fun chat(id: String): Chat = chats.getOrPut(id) {
+        Chat(id, api).also { it.directory = session(id)?.directory }
     }
 
     fun forget(id: String) { chats.remove(id) }
@@ -304,12 +294,22 @@ class ChatHub(private val api: OpenCodeApi, private val events: EventHub, privat
         val mem = if (memAccess != null) listOf("external_directory", "read", "edit").flatMap { perm ->
             listOf("$MEMORY_DIR/*", "$MEMORY_DIR/**").map { rule(perm, memAccess, it) }
         } else emptyList()
-        // The uploads of other chats are kept outside the rootfs and only the open chat's folder is
-        // materialized, so no deny rules are needed to hide them. Keep the original two rules only.
-        val isolation = if (sessionId == null || Graph.devices.isRemote) emptyList() else listOf(
-            rule("external_directory", "deny", "$CHAT_DIR/ses_*"),
-            rule("external_directory", "allow", "${Attachments.uploadsDir(sessionId)}*"),
-        )
+        // Each chat has its own file root outside the project directory. Deny every chat's root, then
+        // allow only this session's own root (the last matching rule wins).
+        val isolation = if (sessionId == null || Graph.devices.isRemote) emptyList() else {
+            val own = Attachments.chatRoot(sessionId)
+            listOf(
+                rule("external_directory", "deny", "${Attachments.CHAT_FILES}/*"),
+                rule("read", "deny", "${Attachments.CHAT_FILES}/*"),
+                rule("edit", "deny", "${Attachments.CHAT_FILES}/*"),
+                rule("external_directory", "allow", "$own/*"),
+                rule("external_directory", "allow", "$own/**"),
+                rule("read", "allow", "$own/*"),
+                rule("read", "allow", "$own/**"),
+                rule("edit", "allow", "$own/*"),
+                rule("edit", "allow", "$own/**"),
+            )
+        }
         // a helper model is the user's call in every mode, except the ones they always allow
         val team = if (Team.on) listOf(rule("task", "ask")) + Team.always.mapNotNull { ref ->
             Team.helperFor(ref)?.let { rule("task", "allow", it) }
